@@ -4,10 +4,10 @@ use crate::systems::core::system::System;
 pub struct RenderSystem{}
 
 impl System for RenderSystem{
-    fn startup(&self){
+    fn startup(&mut self){
         println!("Starting render system...");
     }
-    fn shutdown(&self){
+    fn shutdown(&mut self){
         println!("Shutting down render system...");
     }
     fn display_system_name(&self){

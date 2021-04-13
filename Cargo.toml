@@ -1,5 +1,5 @@
 [package]
-name = "engine"
+name = "leaf"
 version = "0.1.0"
 authors = ["Vail Dorchester <vail.dorchester@colorado.edu>"]
 edition = "2018"

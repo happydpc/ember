@@ -1,16 +1,32 @@
 use crate::systems::core::system::System;
+use crate::systems::physics::physics_system::PhysicsSystem;
+use crate::systems::rendering::render_system::RenderSystem;
 
 pub struct Application{
     pub systems: Vec<Box<dyn System>>
 }
 
 impl System for Application{
-    fn startup(&self){
-        println!("Starting application ...")
+    fn startup(&mut self){
+        println!("Starting application ...");
+        // create sub systems
+        let mut physics_system: PhysicsSystem = PhysicsSystem{};
+        let mut render_system: RenderSystem = RenderSystem{};
+        // startup the sub systems in order
+        // TODO : consider implementing this using ECS so that systems can be quickly iterated
+        // and searched
+        physics_system.startup();
+        render_system.startup();
+        // register them to the application
+        self.register_system(physics_system);
+        self.register_system(render_system);
     }
-    fn shutdown(&self){
-        println!("Shutting down application :");
-        println!("Clearing systems... TODO : Actually clear systems lol");
+    fn shutdown(&mut self){
+        println!("Shutting down application...");
+        // TODO : Definitely find a better way to access the systems 
+        self.systems[0].shutdown();
+        self.systems[1].shutdown();
+        self.systems.clear();
     }
     fn display_system_name(&self){
         println!("application ")
@@ -45,7 +61,8 @@ impl Application{
         self.systems.push(Box::new(system));
         self
     }
-    pub fn run(){
+    pub fn run(&self){
         println!("Application is running!");
+        loop{}
     }
 }

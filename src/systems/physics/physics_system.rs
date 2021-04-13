@@ -3,10 +3,10 @@ use crate::systems::core::system::System;
 pub struct PhysicsSystem{}
 
 impl System for PhysicsSystem{
-    fn startup(&self){
+    fn startup(&mut self){
         println!("Starting physics system...");
     }
-    fn shutdown(&self){
+    fn shutdown(&mut self){
         println!("Shutting down physics system...");
     }
     fn display_system_name(&self){
