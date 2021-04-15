@@ -23,7 +23,7 @@ impl System for Application{
     }
     fn shutdown(&mut self){
         println!("Shutting down application...");
-        // TODO : Definitely find a better way to access the systems 
+        // TODO : Definitely find a better way to access the systems
         self.systems[0].shutdown();
         self.systems[1].shutdown();
         self.systems.clear();
@@ -32,6 +32,9 @@ impl System for Application{
         println!("application ")
     }
     fn update(&self){
+        // TODO : Will the core app update do anything? should run just call update on loop
+        // and then have this iterate over the systems and update? seems like an unecessary
+        // layer to have the run function just be a thin wrapper around this.
         println!("Updating application ...");
         for sys in self.systems.iter(){
             sys.update();
@@ -63,6 +66,10 @@ impl Application{
     }
     pub fn run(&self){
         println!("Application is running!");
-        loop{}
+        loop{
+            for sys in self.systems.iter(){
+                sys.update();
+            }
+        };
     }
 }
