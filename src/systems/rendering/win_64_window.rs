@@ -1,15 +1,12 @@
 use crate::systems::rendering::window::Window;
+use crate::systems::rendering::context::Context;
 use glium;
-use glium::glutin;
 
 pub struct Win64Window{
-    events_loop: glutin::event_loop::EventLoop,
-    window_builder: glutin::window::WindowBuilder,
-    context_builder: glutin::ContextBuilder,
-    display: glium::Display,
+    pub context: Context,
 }
 
-impl Window for Win64Window{
+impl Window for Win64Window {
 
     fn get_width() -> i16{
         32
@@ -18,24 +15,24 @@ impl Window for Win64Window{
         32
     }
     fn on_update() {
+        // i think here I want the context to run and send a message on each frame update to any
+        // listeners (in this case the main application) and that then calls the update there.
 
     }
     fn set_event_callback() {
 
     }
     fn create_window() -> Win64Window {
-        let mut win: Win64Window = Win64Window{};
+        let mut win: Win64Window = Win64Window{
+            context: Context::create_new(),
+        };
+
         win.init();
+        win
     }
 }
 
-impl Win64Window{
+impl Win64Window {
     fn init(&mut self){
-        self.events_loop = glutin::event_loop::EventLoop::new();
-        self.window_builder = glutin::window::WindowBuilder::new()
-            .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 780.0))
-            .with_title("Leaf");
-        self.context_builder = glutin::ContextBuilder::new();
-        self.display = glium::Display::new(&self.window_builder, &self.context_builder, &self.events_loop).unwrap();
     }
 }

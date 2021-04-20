@@ -1,6 +1,8 @@
 use crate::systems::core::system::System;
 use crate::systems::physics::physics_system::PhysicsSystem;
 use crate::systems::rendering::render_system::RenderSystem;
+use crate::systems::events::event::Event;
+use crate::systems::events::observer::Observer;
 
 pub struct Application{
     pub systems: Vec<Box<dyn System>>
@@ -38,6 +40,14 @@ impl System for Application{
         println!("Updating application ...");
         for sys in self.systems.iter(){
             sys.update();
+        }
+    }
+}
+
+impl Observer for Application{
+    fn on_notify<T: Event>(&mut self, event: T){
+        match event{
+
         }
     }
 }
