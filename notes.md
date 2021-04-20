@@ -46,3 +46,17 @@ systems and render code is stored right now. The window class should ideally abs
 and detect which system is running, but also honestly glutin might already handle that.
 in any case, I'm having trouble getting a window struct to store an event loop
 and other glutin types and i'm not really sure why.
+
+## 4/19/21
+
+Added the beginnings of an observer system in rust. Basically it's going to be an observer
+trait and an ObserverQueue struct that acts as the subject. The class that would be a subject Will
+just hold an ObserverQueue, and observers will register themselves in a class' ObserverQueue.
+I don't really like this implemntation, but i'm trying to get something up and working so that I can have
+the context class send update triggers to the main application from the context object.
+I'm not sure if that's how it's supposed to work or what. It feels weird to me the driving class
+is ultimately going to be the window context event loop. It feels like you should be able to
+have the main application tell the window to poll for events and update. It is very possible that
+I rewrite that structure later. It's very possible I rewrite huge portions of this later I guess.
+Currently I'm just putting things together to learn. Thre is a section in the game engine book on
+this so i'll read that and see how it goes.

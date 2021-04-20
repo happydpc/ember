@@ -1,1 +1,3 @@
-pub trait Event{}
+pub enum Event{
+    ContextUpdate,
+}
