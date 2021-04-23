@@ -5,13 +5,12 @@ use crate::systems::rendering::win_64_window::Win64Window;
 
 pub struct RenderSystem{
     // again  abstract this out
-    //window: Win64Window,
+    pub window: Win64Window,
 }
 
 impl System for RenderSystem{
     fn startup(&mut self){
         println!("Starting render system...");
-        //Win64Window::create_window();
     }
     fn shutdown(&mut self){
         println!("Shutting down render system...");
@@ -20,6 +19,14 @@ impl System for RenderSystem{
         println!("Render System");
     }
     fn update(&self){
-        println!("Updating render system...");
+    }
+}
+impl RenderSystem{
+    // TODO : add a parameter for window type
+    pub fn create_new() -> Self{
+        let mut render_sys = RenderSystem{
+            window: Win64Window::create_new(),
+        };
+        render_sys
     }
 }

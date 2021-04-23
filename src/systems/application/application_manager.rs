@@ -3,17 +3,20 @@ use crate::systems::physics::physics_system::PhysicsSystem;
 use crate::systems::rendering::render_system::RenderSystem;
 use crate::systems::events::event::Event;
 use crate::systems::events::event_system::Observer;
+use crate::systems::rendering::win_64_window::Win64Window;
+use crate::systems::rendering::window::Window;
+
 
 pub struct Application{
-    pub systems: Vec<Box<dyn System>>
+    pub systems: Vec<Box<dyn System>>,
 }
 
 impl System for Application{
     fn startup(&mut self){
         println!("Starting application ...");
         // create sub systems
-        let mut physics_system: PhysicsSystem = PhysicsSystem{};
-        let mut render_system: RenderSystem = RenderSystem{};
+        let mut physics_system: PhysicsSystem = PhysicsSystem::create_new();
+        let mut render_system: RenderSystem = RenderSystem::create_new();
         // startup the sub systems in order
         // TODO : consider implementing this using ECS so that systems can be quickly iterated
         // and searched

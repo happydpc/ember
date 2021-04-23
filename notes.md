@@ -52,11 +52,20 @@ and other glutin types and i'm not really sure why.
 Added the beginnings of an observer system in rust. Basically it's going to be an observer
 trait and an ObserverQueue struct that acts as the subject. The class that would be a subject Will
 just hold an ObserverQueue, and observers will register themselves in a class' ObserverQueue.
-I don't really like this implemntation, but i'm trying to get something up and working so that I can have
+I don't really like this implementation, but i'm trying to get something up and working so that I can have
 the context class send update triggers to the main application from the context object.
 I'm not sure if that's how it's supposed to work or what. It feels weird to me the driving class
 is ultimately going to be the window context event loop. It feels like you should be able to
 have the main application tell the window to poll for events and update. It is very possible that
 I rewrite that structure later. It's very possible I rewrite huge portions of this later I guess.
-Currently I'm just putting things together to learn. Thre is a section in the game engine book on
+Currently I'm just putting things together to learn. There is a section in the game engine book on
 this so i'll read that and see how it goes.
+
+## 4/22/21
+
+Finished a first pass at the observer pattern. Currently the window64 class is a subject
+and the application manager is an observer. the window class holds an Rc with a RefCell
+of a dyn observer so it can mutate it. I think the context needs to be the subject. Pretty sure
+i can just have the application register itself as an observer to the context by accessing it on
+the render system. I also might actually start using Github or check out Trello because
+there's a couple more things that need fixing.

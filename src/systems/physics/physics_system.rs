@@ -13,6 +13,12 @@ impl System for PhysicsSystem{
         println!("Physics System");
     }
     fn update(&self){
-        println!("Updating physics system...");
+    }
+}
+
+impl PhysicsSystem{
+    pub fn create_new() -> Self{
+        let mut phys_sys = PhysicsSystem{};
+        phys_sys
     }
 }
