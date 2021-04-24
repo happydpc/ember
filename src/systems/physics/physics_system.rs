@@ -9,9 +9,6 @@ impl System for PhysicsSystem{
     fn shutdown(&mut self){
         println!("Shutting down physics system...");
     }
-    fn display_system_name(&self){
-        println!("Physics System");
-    }
     fn update(&self){
     }
 }
@@ -19,7 +16,7 @@ impl System for PhysicsSystem{
 impl PhysicsSystem{
     pub fn create_new() -> Self{
         println!("Creating PhysicsSystem");
-        let mut phys_sys = PhysicsSystem{};
+        let phys_sys = PhysicsSystem{};
         phys_sys
     }
 }

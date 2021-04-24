@@ -16,9 +16,6 @@ impl System for RenderSystem{
     fn shutdown(&mut self){
         println!("Shutting down render system...");
     }
-    fn display_system_name(&self){
-        println!("Render System");
-    }
     fn update(&self){
     }
 }
@@ -26,7 +23,7 @@ impl RenderSystem{
     // TODO : add a parameter for window type
     pub fn create_new() -> Self{
         println!("Creating RenderSystem");
-        let mut render_sys = RenderSystem{
+        let render_sys = RenderSystem{
             window: Win64Window::create_new(),
         };
         render_sys

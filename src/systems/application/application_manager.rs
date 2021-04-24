@@ -3,9 +3,6 @@ use crate::systems::physics::physics_system::PhysicsSystem;
 use crate::systems::rendering::render_system::RenderSystem;
 use crate::systems::events::event::Event;
 use crate::systems::events::event_system::Observer;
-use crate::systems::rendering::win_64_window::Win64Window;
-use crate::systems::rendering::window::Window;
-
 
 pub struct Application{
     pub systems: Vec<Box<dyn System>>,
@@ -32,9 +29,6 @@ impl System for Application{
         self.systems[0].shutdown();
         self.systems[1].shutdown();
         self.systems.clear();
-    }
-    fn display_system_name(&self){
-        println!("application ")
     }
     fn update(&self){
         // TODO : Will the core app update do anything? should run just call update on loop
@@ -64,23 +58,12 @@ impl Application{
             systems: Vec::new()
         }
     }
-    pub fn get_instance() -> Self{
-        Self{
-            systems: Vec::new()
-        }
-    }
-    pub fn print_systems(&self){
-        println!("application  contains: ");
-        for system in self.systems.iter(){
-            system.display_system_name();
-        }
-    }
     pub fn register_system<S: System + 'static>(&mut self, system: S) -> &mut Self{
         self.systems.push(Box::new(system));
         self
     }
     pub fn run(&self){
-        println!("Application is running!");
+        println!("Running the application...");
         loop{
             for sys in self.systems.iter(){
                 sys.update();

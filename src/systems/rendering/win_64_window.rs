@@ -25,7 +25,7 @@ impl Window for Win64Window {
     fn create_new() -> Win64Window {
         let _event_loop = glutin::event_loop::EventLoop::new();
         let _context = Context::create_new();
-        let mut win: Win64Window = Win64Window{
+        let win: Win64Window = Win64Window{
             event_loop: _event_loop,
             context: _context,
         };

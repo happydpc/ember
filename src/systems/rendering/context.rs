@@ -12,32 +12,21 @@ pub struct DisplayWrapper(glium::Display);
 enum ContextState{
     UninitializedState {},
     InitializedState {observers: Vec<Rc<RefCell<dyn Observer>>>, display: DisplayWrapper},
-    // UninitializedState(Vec<Rc<RefCell<dyn Observer>>>),
-    // InitializedState(Vec<Rc<RefCell<dyn Observer>>>, DisplayWrapper),
 }
 
 impl ContextState{
     pub fn get_display(&self) -> &DisplayWrapper{
         match self {
-            ContextState::InitializedState{observers, display} => display,
+            ContextState::InitializedState{display, ..} => display,
             _ => panic!("Called get_display on an uninitialized context state."),
         }
     }
     pub fn get_observers(&mut self) -> &mut Vec<Rc<RefCell<dyn Observer>>> {
         match self {
-            ContextState::InitializedState{observers, display} => observers,
+            ContextState::InitializedState{observers, ..} => observers,
             _ => panic!("Bungus."),
         }
     }
-}
-
-pub struct ContextBaseState{
-    observers: Vec<Rc<RefCell<dyn Observer>>>,
-}
-
-pub struct ContextInitState{
-    observers: Vec<Rc<RefCell<dyn Observer>>>,
-    display: DisplayWrapper,
 }
 
 // stores the related gluting context info
