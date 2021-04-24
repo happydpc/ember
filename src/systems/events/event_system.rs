@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 use crate::systems::events::event::Event;
 
 // Observers register with subjects and wait for events

@@ -28,4 +28,7 @@ impl RenderSystem{
         };
         render_sys
     }
+    pub fn run(&mut self) {
+        self.window.run();
+    }
 }

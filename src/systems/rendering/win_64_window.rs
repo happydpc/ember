@@ -5,7 +5,7 @@ use glium::glutin;
 
 pub struct Win64Window{
     event_loop: glutin::event_loop::EventLoop<()>,
-    context: Context,
+    pub context: Context,
 }
 
 impl Window for Win64Window {
@@ -37,5 +37,8 @@ impl Win64Window {
     pub fn init(&mut self){
         println!("Initializing Window");
         self.context.init(&self.event_loop);
+    }
+    pub fn run(&mut self){
+        self.context.run(self.event_loop);
     }
 }
