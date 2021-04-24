@@ -1,14 +1,11 @@
-use std::rc::{Weak, Rc};
-use std::cell::RefCell;
-use crate::systems::events::event_system::{Observer, Subject};
-use crate::systems::events::event::Event;
 use crate::systems::rendering::window::Window;
 use crate::systems::rendering::context::Context;
 use glium;
+use glium::glutin;
 
 pub struct Win64Window{
-    pub context: Context,
-    observers: Vec<Rc<RefCell<dyn Observer>>>,
+    event_loop: glutin::event_loop::EventLoop<()>,
+    context: Context,
 }
 
 impl Window for Win64Window {
@@ -26,29 +23,19 @@ impl Window for Win64Window {
 
     }
     fn create_new() -> Win64Window {
+        let _event_loop = glutin::event_loop::EventLoop::new();
+        let _context = Context::create_new();
         let mut win: Win64Window = Win64Window{
-            context: Context::create_new(),
-            observers: Vec::new(),
+            event_loop: _event_loop,
+            context: _context,
         };
-
-        win.init();
         win
     }
 }
 
-// TODO : move this down to the context?
-impl Subject for Win64Window{
-    fn register(&mut self, observer: Rc<RefCell<dyn Observer>>){
-        self.observers.push(observer);
-    }
-    fn notify(&mut self, event: &Event){
-        for obs in self.observers.iter(){
-            obs.borrow_mut().on_notify(event);
-        }
-    }
-}
-
 impl Win64Window {
-    fn init(&mut self){
+    pub fn init(&mut self){
+        println!("Initializing Window");
+        self.context.init(&self.event_loop);
     }
 }

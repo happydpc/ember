@@ -10,7 +10,8 @@ pub struct RenderSystem{
 
 impl System for RenderSystem{
     fn startup(&mut self){
-        println!("Starting render system...");
+        println!("Starting RenderSystem...");
+        self.window.init();
     }
     fn shutdown(&mut self){
         println!("Shutting down render system...");
@@ -24,6 +25,7 @@ impl System for RenderSystem{
 impl RenderSystem{
     // TODO : add a parameter for window type
     pub fn create_new() -> Self{
+        println!("Creating RenderSystem");
         let mut render_sys = RenderSystem{
             window: Win64Window::create_new(),
         };
