@@ -64,7 +64,7 @@ impl Context{
         self.state = _state;
     }
 
-    pub fn run(self, event_loop: glutin::event_loop::EventLoop<()>){
+    pub fn run(&self, event_loop: glutin::event_loop::EventLoop<()>){
         event_loop.run(move |event, _, control_flow| {
             let next_frame_time =
                 std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
@@ -90,16 +90,16 @@ impl Context{
         });
     }
 }
-
-impl Subject for Context{
-    fn register(&mut self, observer: Rc<RefCell<dyn Observer>>){
-        self.state.get_observers().borrow_mut().push(observer);
-    }
-    fn notify(&mut self, event: &Event){
-        let vector = self.state.get_observers().borrow_mut();
-
-        for observer in vector.iter(){
-            observer.borrow_mut().on_notify(event);
-        }
-    }
-}
+//
+// impl Subject for Context{
+//     fn register(&mut self, observer: Rc<RefCell<dyn Observer>>){
+//         self.state.get_observers().borrow_mut().push(observer);
+//     }
+//     fn notify(&mut self, event: &Event){
+//         let vector = self.state.get_observers().borrow_mut();
+//
+//         for observer in vector.iter(){
+//             observer.borrow_mut().on_notify(event);
+//         }
+//     }
+// }

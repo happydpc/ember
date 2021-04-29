@@ -69,3 +69,31 @@ of a dyn observer so it can mutate it. I think the context needs to be the subje
 i can just have the application register itself as an observer to the context by accessing it on
 the render system. I also might actually start using Github or check out Trello because
 there's a couple more things that need fixing.
+
+## 4/28/21
+
+So the context and event loop and observer pattern has been giving me significant trouble.
+I see that is what I've been working on for almost two weeks now based on this file. Basically,
+I wanted the main application to hold a window class that held a context, and the context would
+hold the event loop, which would then notify the main application via weak reference on each update
+so that  the application could then update each of the subsystems. I have come to learn that involves
+cyclical references, albeit some of those might be reference counted or have other interior mutablity
+traits. This is because the application holds the window, which holds the context, which holds the application.
+that is apparently not recommended in rust. Beyond that, the other issue is that the event loop run function consumes
+the loop and its containing context in a closure. I cannot transfer ownership of the event loop from
+the window to the context because the window is at most a mutable reference. since it is owned by the
+main application class it does not own itself, so I cannot transfer ownership of its fields. However,
+there is the workaround of the standard library take function, which would work (i think), but
+the event loop does not implement the default trait. I'm realizing now I might be able to
+just implement the default trait for the event loop function, but the simplest approach
+seems to just be to move some or all of the context into the main application. If I move the
+context to the application and store the event loop on the application, I should be able to move it
+to the context in a run function and then from there just call a self.update() or something
+similar on the application. This does, however, make me wonder about the functionality of the
+render system because as of now, it won't do anything. For now i'll keep the code because I
+simply cannot imagine a game engine without a render system, so i'm sure i'll need it eventually.
+also it's possible I refactor later into the render system anyways.
+
+well I guess I'll just go fuck myself because I just fixed the whole context event loop consumption thing
+right after I typed that. Literally clicked out of this file to the window file and fixed it.
+just used mem::replace() instead. however, the observer system is still broken, so there's that.
