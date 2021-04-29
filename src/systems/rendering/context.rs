@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::systems::events::event_system::{Observer, Subject};
-use crate::systems::events::event::Event;
+use crate::systems::events::event_system::Observer;
+// use crate::systems::events::event::Event;
 use glium;
 use glium::glutin;
-use std::borrow::BorrowMut;
+// use std::borrow::BorrowMut;
 
 // loose wrapper around the display. Saw this in a post and copied
 // it but i'm honestly not sure why this is done. will mess with this later

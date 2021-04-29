@@ -1,15 +1,15 @@
-use std::rc::Rc;
 use std::cell::RefCell;
 use crate::systems::core::system::System;
 use crate::systems::physics::physics_system::PhysicsSystem;
 use crate::systems::rendering::render_system::RenderSystem;
-use crate::systems::events::event::Event;
-use crate::systems::events::event_system::{Observer, Subject};
+use glium;
+use glium::glutin;
+
+pub struct DisplayWrapper(glium::Display);
+
 
 pub struct Application{
-    // pub systems: Vec<Box<dyn System>>,
     state: ApplicationState,
-    // own_ref: Rc<RefCell<Application>>,
 }
 
 enum ApplicationState{
@@ -76,15 +76,15 @@ impl System for Application{
     }
 }
 
-impl Observer for Application{
-    fn on_notify(&mut self, event: &Event){
-        match event{
-            Event::ContextUpdate => {
-                println!("Received a context update!");
-            }
-        }
-    }
-}
+// impl Observer for Application{
+//     fn on_notify(&mut self, event: &Event){
+//         match event{
+//             Event::ContextUpdate => {
+//                 println!("Received a context update!");
+//             }
+//         }
+//     }
+// }
 
 impl Application{
     // called by the client when they want to create an application
@@ -98,10 +98,40 @@ impl Application{
     //     self.systems.push(Box::new(system));
     //     self
     // }
-    pub fn run(&self){
+    pub fn run(self) {
         println!("Running the application...");
-        self.state.get_render_system().borrow_mut().run();
+        let window_builder = glutin::window::WindowBuilder::new();
+        let context_builder = glutin::ContextBuilder::new();
+        let _event_loop = glutin::event_loop::EventLoop::new();
+        let _display = DisplayWrapper(
+            glium::Display::new(window_builder, context_builder, &_event_loop).unwrap(),
+        );
+
+        _event_loop.run(move |event, _, control_flow| {
+            let next_frame_time =
+                std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
+            *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
+
+            match event {
+                glutin::event::Event::WindowEvent { event, .. } => match event {
+                    glutin::event::WindowEvent::CloseRequested => {
+                        *control_flow = glutin::event_loop::ControlFlow::Exit;
+                        return;
+                    }
+                    _ => return,
+                },
+                glutin::event::Event::NewEvents(cause) => match cause {
+                    glutin::event::StartCause::ResumeTimeReached { .. } => (),
+                    glutin::event::StartCause::Init => (),
+                    _ => return,
+                },
+                _ => return,
+            }
+            // update scene etc
+            self.update();
+        });
     }
+
     fn register_with_subjects(&self){
         // self.state.get_render_system().window.context.register(Rc::new(RefCell::(self)));
     }

@@ -97,3 +97,7 @@ also it's possible I refactor later into the render system anyways.
 well I guess I'll just go fuck myself because I just fixed the whole context event loop consumption thing
 right after I typed that. Literally clicked out of this file to the window file and fixed it.
 just used mem::replace() instead. however, the observer system is still broken, so there's that.
+Yeah pretty sure I should still just do away with the observer pattern. The other issue with
+it is really the only observer of that event is the application. so it's a one to one relationship anyways.
+
+just committed and pushed and gonna fuck everything up and see if i can get it working.

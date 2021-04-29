@@ -2,9 +2,9 @@ use crate::systems::rendering::window::Window;
 use crate::systems::rendering::context::Context;
 use glium;
 use glium::glutin;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::mem;
+// use std::cell::RefCell;
+// use std::rc::Rc;
+// use std::mem;
 
 pub struct Win64Window{
     event_loop: glutin::event_loop::EventLoop<()>,
@@ -42,7 +42,7 @@ impl Win64Window {
         self.context.init(&self.event_loop);
     }
     pub fn run(&mut self){
-        let _replacement = glutin::event_loop::EventLoop::new();
-        self.context.run(mem::replace(&mut self.event_loop, _replacement));
+        // let _replacement = glutin::event_loop::EventLoop::new();
+        // self.context.run(mem::replace(&mut self.event_loop, _replacement));
     }
 }
