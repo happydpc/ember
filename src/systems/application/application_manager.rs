@@ -71,7 +71,6 @@ impl System for Application{
         // TODO : Will the core app update do anything? should run just call update on loop
         // and then have this iterate over the systems and update? seems like an unecessary
         // layer to have the run function just be a thin wrapper around this.
-        println!("Updating application ...");
         self.state.get_physics_system().borrow_mut().update();
         self.state.get_render_system().borrow_mut().update();
     }
