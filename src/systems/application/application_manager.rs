@@ -44,21 +44,9 @@ impl System for Application{
             physics_system: RefCell::new(PhysicsSystem::create_new()),
         };
         self.state = _state;
-        // create sub systems
-        // let mut physics_system: PhysicsSystem = PhysicsSystem::create_new();
-        // let mut render_system: RenderSystem = RenderSystem::create_new();
-        // startup the sub systems in order
         // TODO : consider implementing this using ECS so that systems can be quickly iterated
-        // and searched
         self.state.get_physics_system().borrow_mut().startup();
         self.state.get_render_system().borrow_mut().startup();
-
-        // register them to the application
-        // self.register_system(physics_system);
-        // self.register_system(render_system);
-
-        // register self as observer to relevant systems
-        self.register_with_subjects();
 
     }
     fn shutdown(&mut self){
@@ -76,16 +64,6 @@ impl System for Application{
     }
 }
 
-// impl Observer for Application{
-//     fn on_notify(&mut self, event: &Event){
-//         match event{
-//             Event::ContextUpdate => {
-//                 println!("Received a context update!");
-//             }
-//         }
-//     }
-// }
-
 impl Application{
     // called by the client when they want to create an application
     pub fn create_application() -> Self{
@@ -94,10 +72,8 @@ impl Application{
             state: _state
         }
     }
-    // pub fn register_system<S: System + 'static>(&mut self, system: S) -> &mut Self{
-    //     self.systems.push(Box::new(system));
-    //     self
-    // }
+
+    // main game loop
     pub fn run(self) {
         println!("Running the application...");
         let window_builder = glutin::window::WindowBuilder::new()
