@@ -3,6 +3,7 @@ use crate::systems::core::system::System;
 use crate::systems::physics::physics_system::PhysicsSystem;
 use crate::systems::rendering::render_system::RenderSystem;
 use glium;
+use glium::Surface;
 use glium::glutin;
 
 pub struct DisplayWrapper(glium::Display);
@@ -100,14 +101,22 @@ impl Application{
     // }
     pub fn run(self) {
         println!("Running the application...");
-        let window_builder = glutin::window::WindowBuilder::new();
+        let window_builder = glutin::window::WindowBuilder::new()
+            .with_title("Leaf");
         let context_builder = glutin::ContextBuilder::new();
-        let _event_loop = glutin::event_loop::EventLoop::new();
-        let _display = DisplayWrapper(
-            glium::Display::new(window_builder, context_builder, &_event_loop).unwrap(),
+        let event_loop = glutin::event_loop::EventLoop::new();
+        let display = DisplayWrapper(
+            glium::Display::new(window_builder, context_builder, &event_loop).unwrap(),
         );
 
-        _event_loop.run(move |event, _, control_flow| {
+        event_loop.run(move |event, _, control_flow| {
+
+            // update scene
+            self.update();
+            let mut target = display.0.draw();
+            target.clear_color(0.05, 0.1, 0.05, 1.0);
+            target.finish().unwrap();
+
             let next_frame_time =
                 std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
             *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
@@ -127,8 +136,6 @@ impl Application{
                 },
                 _ => return,
             }
-            // update scene etc
-            self.update();
         });
     }
 

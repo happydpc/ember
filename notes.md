@@ -101,3 +101,4 @@ Yeah pretty sure I should still just do away with the observer pattern. The othe
 it is really the only observer of that event is the application. so it's a one to one relationship anyways.
 
 just committed and pushed and gonna fuck everything up and see if i can get it working.
+Yeah that worked.
