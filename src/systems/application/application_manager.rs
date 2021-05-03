@@ -114,7 +114,4 @@ impl Application{
         });
     }
 
-    fn register_with_subjects(&self){
-        // self.state.get_render_system().window.context.register(Rc::new(RefCell::(self)));
-    }
 }
