@@ -102,3 +102,10 @@ it is really the only observer of that event is the application. so it's a one t
 
 just committed and pushed and gonna fuck everything up and see if i can get it working.
 Yeah that worked.
+
+## 5/4/21
+
+Started a math library that's basic, but I got sidetracked learning rust's module system.
+In any case, abacus now exists. I wanted to just call it math, but there's already a math crate.
+There's probably already an abacus crate, but fuck it. Next step is to draw a triangle but using the
+machinery of the engine. I'm thinking it might be about time to flesh out the render system.
