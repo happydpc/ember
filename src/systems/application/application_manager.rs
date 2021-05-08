@@ -5,7 +5,6 @@ use crate::systems::rendering::render_system::RenderSystem;
 use glium;
 use glium::Surface;
 use glium::glutin;
-use abacus;
 pub struct DisplayWrapper(glium::Display);
 
 
@@ -85,11 +84,6 @@ impl Application{
         );
 
         event_loop.run(move |event, _, control_flow| {
-
-            let v1 = abacus::structures::vector::Vector2{position: [-0.5, 0.5]};
-            let v2 = abacus::structures::vector::Vector2{position: [0.0, 0.5]};
-            let v3 = abacus::structures::vector::Vector2{position: [0.5, -0.25]};
-            let triangle = vec![v1, v2, v3];
 
             // update scene
             self.update();

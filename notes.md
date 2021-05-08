@@ -109,3 +109,18 @@ Started a math library that's basic, but I got sidetracked learning rust's modul
 In any case, abacus now exists. I wanted to just call it math, but there's already a math crate.
 There's probably already an abacus crate, but fuck it. Next step is to draw a triangle but using the
 machinery of the engine. I'm thinking it might be about time to flesh out the render system.
+
+## 5/7/21
+
+Moved the math library under the engine because apparently glium can't implement vertex types
+onto structures not defined in this crate, but that's fine. that's how i was originally going
+to do it anyways. I'm implementing geometries and renderables right now, and i originally
+opened this to say I should probably implement a geometry trait even if it just implements
+a create function so that I can use it as a type, but i think i'll just do that now.
+actually no i'm not going to do that until i need it. i don't want to implement anything
+without good reason and "because i might need it" seems superfluous. a renderable, on
+the other hand, definitely seems like something i want a trait for. This way I can accept
+vectors of renderables and know they all have initialize and draw calls etc.
+also i should probably start writing comments. I comment code way more at work
+apparently. I've now written out the renderable initialization with buffers and whatever.
+the next task is to figure out how to structure the draw call. 

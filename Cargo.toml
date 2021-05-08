@@ -9,4 +9,3 @@ edition = "2018"
 [dependencies]
 glium = "*"
 glutin = "*"
-abacus = {path = "../abacus"}
