@@ -6,7 +6,7 @@ pub struct TriangleGeom{
 }
 
 impl TriangleGeom{
-    pub fn create(x: f64, y: f64, z: f64) -> Self{
+    pub fn create(x: f32, y: f32, z: f32) -> Self{
         TriangleGeom{
             vertices: vec![
                 Vector3{position: [-0.5 + x, -0.5 + y, 0.0 + z]},

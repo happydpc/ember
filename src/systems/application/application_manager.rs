@@ -7,6 +7,12 @@ use glium::Surface;
 use glium::glutin;
 pub struct DisplayWrapper(glium::Display);
 
+use crate::systems::rendering::renderables::{
+    renderable::Renderable,
+    triangle::Triangle,
+};
+
+use std::borrow::BorrowMut;
 
 pub struct Application{
     state: ApplicationState,
@@ -87,8 +93,11 @@ impl Application{
 
             // update scene
             self.update();
+            let mut a = Triangle::create(0.0, 0.0, 0.0);
             let mut target = display.0.draw();
             target.clear_color(0.05, 0.1, 0.05, 1.0);
+            a.initialize(&display.0);
+            a.draw(target.borrow_mut());
             target.finish().unwrap();
 
             let next_frame_time =

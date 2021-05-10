@@ -5,17 +5,17 @@ use glium;
 
 #[derive(Default, Copy, Clone)]
 pub struct Vector2{
-    pub position: [f64; 2],
+    pub position: [f32; 2],
 }
 
 #[derive(Default, Copy, Clone)]
 pub struct Vector3{
-    pub position: [f64; 3],
+    pub position: [f32; 3],
 }
 
 #[derive(Default, Copy, Clone)]
 pub struct Vector4{
-    pub position: [f64; 4],
+    pub position: [f32; 4],
 }
 
 // implement vertex for these
@@ -24,10 +24,10 @@ glium::implement_vertex!(Vector3, position);
 
 // struct implementations
 impl Vector2{
-    pub fn get_x(&self) -> f64 {
+    pub fn get_x(&self) -> f32 {
         self.position[0].clone()
     }
-    pub fn get_y(&self) -> f64 {
+    pub fn get_y(&self) -> f32 {
         self.position[1].clone()
     }
 }
@@ -48,7 +48,7 @@ impl Tensor for Vector2{
             position: [x, y],
         }
     }
-    fn scale(&self, factor: f64) -> Self{
+    fn scale(&self, factor: f32) -> Self{
         let x = self.position[0] * factor;
         let y = self.position[1] * factor;
         Vector2{
@@ -75,7 +75,7 @@ impl Tensor for Vector3{
             position: [x, y, z],
         }
     }
-    fn scale(&self, factor: f64) -> Self{
+    fn scale(&self, factor: f32) -> Self{
         let x = self.position[0] * factor;
         let y = self.position[1] * factor;
         let z = self.position[2] * factor;
@@ -107,7 +107,7 @@ impl Tensor for Vector4{
             position: [x, y, z, w],
         }
     }
-    fn scale(&self, factor: f64) -> Self{
+    fn scale(&self, factor: f32) -> Self{
         let x = self.position[0] * factor;
         let y = self.position[1] * factor;
         let z = self.position[2] * factor;

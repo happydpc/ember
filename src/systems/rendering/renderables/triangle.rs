@@ -24,7 +24,7 @@ pub struct Triangle{
 }
 
 impl Triangle{
-    pub fn create(x: f64, y: f64, z: f64) -> Self{
+    pub fn create(x: f32, y: f32, z: f32) -> Self{
         let instance = Triangle{
             geometry: TriangleGeom::create(x, y, z),
             vertex_buffer: None,
@@ -52,21 +52,28 @@ impl Renderable for Triangle{
 
     }
     fn draw(&self, frame: &mut glium::Frame){
-        match &self.vertex_buffer{
-            Some(vb) => &match self.index_buffer{
-                Some(ib) => &match self.program{
-                    Some(sp) => frame.draw(
-                        vb,
-                        ib,
-                        &sp,
-                        &glium::uniforms::EmptyUniforms,
-                        &Default::default()
-                    ).unwrap(),
-                    None => panic!("No shader program on triangle."),
-                },
-                None => panic!("No index buffer on triangle."),
-            },
-            None => panic!("No vertex buffer on triangle"),
-        };
+        // match &self.vertex_buffer{
+        //     Some(vb) => &match self.index_buffer{
+        //         Some(ib) => &match self.program{
+        //             Some(sp) => frame.draw(
+        //                 vb,
+        //                 ib,
+        //                 &sp,
+        //                 &glium::uniforms::EmptyUniforms,
+        //                 &Default::default()
+        //             ).unwrap(),
+        //             None => panic!("No shader program on triangle."),
+        //         },
+        //         None => panic!("No index buffer on triangle."),
+        //     },
+        //     None => panic!("No vertex buffer on triangle"),
+        // };
+        frame.draw(
+            self.vertex_buffer.as_ref().unwrap(),
+            self.index_buffer.as_ref().unwrap(),
+            self.program.as_ref().unwrap(),
+            &glium::uniforms::EmptyUniforms,
+            &Default::default()
+        ).unwrap();
     }
 }
