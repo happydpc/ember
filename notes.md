@@ -123,4 +123,21 @@ the other hand, definitely seems like something i want a trait for. This way I c
 vectors of renderables and know they all have initialize and draw calls etc.
 also i should probably start writing comments. I comment code way more at work
 apparently. I've now written out the renderable initialization with buffers and whatever.
-the next task is to figure out how to structure the draw call. 
+the next task is to figure out how to structure the draw call.
+
+## 5/11/21
+
+Ok so i have created the renderable and it works. there's a triangle on the screen. great.
+now I have to actually think this thing through. I've recently been reading the mythical
+man month and specifically about the second-system effect.  Basically, the second system
+an engineer builds tends to be bloated and over engineered because of overconfidence.
+I'm especially interested in keeping this as lightweight as possible because I want it
+to be efficient. That being said, I'm genuinely unsure I even have enough experience
+to know whether or not i'm over engineering a solution. Currently, there's a core application,
+and it spins up a physics system and a render system. Neither of those systems currently
+do a single thing. Currently, the main context and loop exists inside the main application class.
+I believe the reason for that is elsewhere in these notes. The rendering module holds geometries
+and renderables, and the renderables can be created and rendered. The question sort of naturally becomes
+how do I render multiple objects? How should I store them? How should I render them? What is the
+purpose of a render system in the first place? in trying to answer these, am I going to over engineer this?
+I don't think so. I don't think I am smart enough to over engineer anything.
