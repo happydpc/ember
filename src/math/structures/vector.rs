@@ -3,17 +3,17 @@ use glium;
 
 // Struct definitions
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Vector2{
     pub position: [f32; 2],
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Vector3{
     pub position: [f32; 3],
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Vector4{
     pub position: [f32; 4],
 }
