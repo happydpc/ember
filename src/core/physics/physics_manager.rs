@@ -15,7 +15,7 @@ impl System for PhysicsManager{
 
 impl PhysicsManager{
     pub fn create_new() -> Self{
-        println!("Creating PhysicsManager");
+        println!("Creating PhysicsManager...");
         let phys_sys = PhysicsManager{};
         phys_sys
     }

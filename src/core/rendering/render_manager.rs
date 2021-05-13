@@ -22,7 +22,7 @@ impl System for RenderManager{
 impl RenderManager{
     // TODO : add a parameter for window type
     pub fn create_new() -> Self{
-        println!("Creating RenderManager");
+        println!("Creating RenderManager...");
         let render_sys = RenderManager{
             // window: Win64Window::create_new(),
         };

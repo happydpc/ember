@@ -1,10 +1,16 @@
 use std::cell::RefCell;
-use crate::core::systems::system::System;
-use crate::core::physics::physics_manager::PhysicsManager;
-use crate::core::rendering::render_manager::RenderManager;
+
+use crate::core::{
+    systems::system::System,
+    physics::physics_manager::PhysicsManager,
+    rendering::render_manager::RenderManager,
+    scene::scene_manager::SceneManager,
+};
+
 use glium;
 use glium::Surface;
 use glium::glutin;
+
 pub struct DisplayWrapper(glium::Display);
 
 use crate::core::rendering::renderables::{
@@ -27,9 +33,11 @@ enum ApplicationState{
     InitializedState {
         render_manager: RefCell<RenderManager>,
         physics_manager: RefCell<PhysicsManager>,
+        scene_manager: RefCell<SceneManager>,
     },
 }
 
+// in a way this is actually kind of acting like a service locator
 impl ApplicationState{
     pub fn get_render_manager(&self) -> &RefCell<RenderManager>{
         match self{
@@ -43,6 +51,12 @@ impl ApplicationState{
             _ => panic!("Cannot acces physics_manager on uninitialized application."),
         }
     }
+    pub fn get_scene_manager(&self) -> &RefCell<SceneManager>{
+        match self {
+            ApplicationState::InitializedState{scene_manager, ..} => scene_manager,
+            _ => panic!("Cannot acces scene manager on uninitialized application"),
+        }
+    }
 }
 
 impl System for Application{
@@ -51,11 +65,13 @@ impl System for Application{
         let _state = ApplicationState::InitializedState{
             render_manager: RefCell::new(RenderManager::create_new()),
             physics_manager: RefCell::new(PhysicsManager::create_new()),
+            scene_manager: RefCell::new(SceneManager::create_new()),
         };
         self.state = _state;
         // TODO : consider implementing this using ECS so that systems can be quickly iterated
         self.state.get_physics_manager().borrow_mut().startup();
         self.state.get_render_manager().borrow_mut().startup();
+        self.state.get_scene_manager().borrow_mut().startup();
 
     }
     fn shutdown(&mut self){
@@ -63,12 +79,14 @@ impl System for Application{
         // TODO : Definitely find a better way to access the systems
         self.state.get_physics_manager().borrow_mut().shutdown();
         self.state.get_render_manager().borrow_mut().shutdown();
+        self.state.get_scene_manager().borrow_mut().shutdown();
     }
     fn update(&self){
         // TODO : Will the core app update do anything? should run just call update on loop
         // and then have this iterate over the systems and update? seems like an unecessary
         // layer to have the run function just be a thin wrapper around this.
         self.state.get_physics_manager().borrow_mut().update();
+        self.state.get_scene_manager().borrow_mut().update();
         self.state.get_render_manager().borrow_mut().update();
     }
 }
