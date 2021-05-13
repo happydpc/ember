@@ -52,22 +52,6 @@ impl Renderable for Triangle{
 
     }
     fn draw(&self, frame: &mut glium::Frame){
-        // match &self.vertex_buffer{
-        //     Some(vb) => &match self.index_buffer{
-        //         Some(ib) => &match self.program{
-        //             Some(sp) => frame.draw(
-        //                 vb,
-        //                 ib,
-        //                 &sp,
-        //                 &glium::uniforms::EmptyUniforms,
-        //                 &Default::default()
-        //             ).unwrap(),
-        //             None => panic!("No shader program on triangle."),
-        //         },
-        //         None => panic!("No index buffer on triangle."),
-        //     },
-        //     None => panic!("No vertex buffer on triangle"),
-        // };
         frame.draw(
             self.vertex_buffer.as_ref().unwrap(),
             self.index_buffer.as_ref().unwrap(),

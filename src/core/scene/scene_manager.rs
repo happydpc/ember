@@ -3,7 +3,7 @@ use super::{super::systems::system::System, scene::Scene};
 
 pub struct SceneManager{
     pub active_scene: Option<Scene>,
-    pub scenes: Vec<Scene>,
+    pub scenes: Vec<Scene>,  // maybe this should be a dictionary so set active scene can take a key and active scene can also be a key?
 }
 
 impl System for SceneManager{
@@ -26,5 +26,8 @@ impl SceneManager{
             active_scene: None,
             scenes: Vec::new(),
         }
+    }
+    pub fn set_active_scene(&mut self){
+
     }
 }
