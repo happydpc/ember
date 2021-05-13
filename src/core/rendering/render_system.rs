@@ -1,7 +1,7 @@
-use crate::systems::core::system::System;
-// use crate::systems::rendering::window::Window;
+use crate::core::systems::system::System;
+// use crate::core::rendering::window::Window;
 // eventually abstract this out or use an enum to decide which window to use
-// use crate::systems::rendering::win_64_window::Win64Window;
+// use crate::core::rendering::win_64_window::Win64Window;
 
 pub struct RenderSystem{
     // again  abstract this out

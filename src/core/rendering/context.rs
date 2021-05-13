@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::systems::events::event_system::Observer;
+use crate::core::events::event_system::Observer;
 use glium;
 use glium::glutin;
 

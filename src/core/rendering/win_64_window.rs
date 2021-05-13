@@ -1,5 +1,5 @@
-use crate::systems::rendering::window::Window;
-use crate::systems::rendering::context::Context;
+use crate::core::rendering::window::Window;
+use crate::core::rendering::context::Context;
 use glium;
 use glium::glutin;
 // use std::cell::RefCell;

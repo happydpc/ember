@@ -1,13 +1,13 @@
 use std::cell::RefCell;
-use crate::systems::core::system::System;
-use crate::systems::physics::physics_system::PhysicsSystem;
-use crate::systems::rendering::render_system::RenderSystem;
+use crate::core::systems::system::System;
+use crate::core::physics::physics_system::PhysicsSystem;
+use crate::core::rendering::render_system::RenderSystem;
 use glium;
 use glium::Surface;
 use glium::glutin;
 pub struct DisplayWrapper(glium::Display);
 
-use crate::systems::rendering::renderables::{
+use crate::core::rendering::renderables::{
     renderable::Renderable,
     triangle::Triangle,
 };

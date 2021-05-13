@@ -1,9 +1,8 @@
 // import systems
-pub mod systems;
+pub mod core;
 pub mod math;
-pub use systems::application::application_manager::Application;
-pub use systems::physics::physics_system::PhysicsSystem;
-pub use systems::rendering::render_system::RenderSystem;
+
+pub use crate::core::application::application_manager::Application;
 
 // importing traits i guess
-pub use crate::systems::core::system::System;
+pub use crate::core::systems::system::System;

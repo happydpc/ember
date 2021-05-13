@@ -1,4 +1,4 @@
-use crate::systems::core::system::System;
+use crate::core::systems::system::System;
 
 pub struct PhysicsSystem{}
 

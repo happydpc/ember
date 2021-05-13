@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::systems::events::event::Event;
+use crate::core::events::event::Event;
 
 // Observers register with subjects and wait for events
 pub trait Observer{
