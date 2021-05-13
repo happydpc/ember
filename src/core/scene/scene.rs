@@ -6,7 +6,7 @@ pub struct Scene{
 
 impl Scene{
     pub fn initialize(&mut self) {
-        let mut world = World::new();
+        let world = World::new();
         self.world = world;
     }
 }

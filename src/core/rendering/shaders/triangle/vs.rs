@@ -1,4 +1,4 @@
-pub static vertex_shader_src: &'static str = r#"
+pub static VERTEX_SHADER_SRC: &'static str = r#"
     #version 140
 
     in vec3 position;

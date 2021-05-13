@@ -4,8 +4,8 @@ use super::{
     super::{
         geometries::triangle::TriangleGeom,
         shaders::triangle::{
-            fs::fragment_shader_src,
-            vs::vertex_shader_src,
+            fs::FRAGMENT_SHADER_SRC,
+            vs::VERTEX_SHADER_SRC,
         },
     },
     renderable::Renderable,
@@ -47,7 +47,7 @@ impl Renderable for Triangle{
             &self.geometry.indices).unwrap());
         }
         if self.program.is_none(){
-            self.program = Some(glium::Program::from_source(display, vertex_shader_src, fragment_shader_src, None).unwrap());
+            self.program = Some(glium::Program::from_source(display, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, None).unwrap());
         }
 
     }

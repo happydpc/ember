@@ -1,4 +1,4 @@
-pub static fragment_shader_src: &'static str = r#"
+pub static FRAGMENT_SHADER_SRC: &'static str = r#"
     #version 140
 
     out vec4 color;
