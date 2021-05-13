@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use crate::core::systems::system::System;
-use crate::core::physics::physics_system::PhysicsSystem;
-use crate::core::rendering::render_system::RenderSystem;
+use crate::core::physics::physics_manager::PhysicsManager;
+use crate::core::rendering::render_manager::RenderManager;
 use glium;
 use glium::Surface;
 use glium::glutin;
@@ -25,22 +25,22 @@ pub struct Application{
 enum ApplicationState{
     UninitializedState {},
     InitializedState {
-        render_system: RefCell<RenderSystem>,
-        physics_system: RefCell<PhysicsSystem>,
+        render_manager: RefCell<RenderManager>,
+        physics_manager: RefCell<PhysicsManager>,
     },
 }
 
 impl ApplicationState{
-    pub fn get_render_system(&self) -> &RefCell<RenderSystem>{
+    pub fn get_render_manager(&self) -> &RefCell<RenderManager>{
         match self{
-            ApplicationState::InitializedState{render_system, ..} => render_system,
-            _ => panic!("Cannot access render_system on uninitialized application."),
+            ApplicationState::InitializedState{render_manager, ..} => render_manager,
+            _ => panic!("Cannot access render_manager on uninitialized application."),
         }
     }
-    pub fn get_physics_system(&self) -> &RefCell<PhysicsSystem>{
+    pub fn get_physics_manager(&self) -> &RefCell<PhysicsManager>{
         match self {
-            ApplicationState::InitializedState{physics_system, ..} => physics_system,
-            _ => panic!("Cannot acces physics_system on uninitialized application."),
+            ApplicationState::InitializedState{physics_manager, ..} => physics_manager,
+            _ => panic!("Cannot acces physics_manager on uninitialized application."),
         }
     }
 }
@@ -49,27 +49,27 @@ impl System for Application{
     fn startup(&mut self){
         println!("Starting application ...");
         let _state = ApplicationState::InitializedState{
-            render_system: RefCell::new(RenderSystem::create_new()),
-            physics_system: RefCell::new(PhysicsSystem::create_new()),
+            render_manager: RefCell::new(RenderManager::create_new()),
+            physics_manager: RefCell::new(PhysicsManager::create_new()),
         };
         self.state = _state;
         // TODO : consider implementing this using ECS so that systems can be quickly iterated
-        self.state.get_physics_system().borrow_mut().startup();
-        self.state.get_render_system().borrow_mut().startup();
+        self.state.get_physics_manager().borrow_mut().startup();
+        self.state.get_render_manager().borrow_mut().startup();
 
     }
     fn shutdown(&mut self){
         println!("Shutting down application...");
         // TODO : Definitely find a better way to access the systems
-        self.state.get_physics_system().borrow_mut().shutdown();
-        self.state.get_render_system().borrow_mut().shutdown();
+        self.state.get_physics_manager().borrow_mut().shutdown();
+        self.state.get_render_manager().borrow_mut().shutdown();
     }
     fn update(&self){
         // TODO : Will the core app update do anything? should run just call update on loop
         // and then have this iterate over the systems and update? seems like an unecessary
         // layer to have the run function just be a thin wrapper around this.
-        self.state.get_physics_system().borrow_mut().update();
-        self.state.get_render_system().borrow_mut().update();
+        self.state.get_physics_manager().borrow_mut().update();
+        self.state.get_render_manager().borrow_mut().update();
     }
 }
 

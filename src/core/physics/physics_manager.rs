@@ -1,10 +1,10 @@
 use crate::core::systems::system::System;
 
-pub struct PhysicsSystem{}
+pub struct PhysicsManager{}
 
-impl System for PhysicsSystem{
+impl System for PhysicsManager{
     fn startup(&mut self){
-        println!("Starting PhysicsSystem...");
+        println!("Starting PhysicsManager...");
     }
     fn shutdown(&mut self){
         println!("Shutting down physics system...");
@@ -13,10 +13,10 @@ impl System for PhysicsSystem{
     }
 }
 
-impl PhysicsSystem{
+impl PhysicsManager{
     pub fn create_new() -> Self{
-        println!("Creating PhysicsSystem");
-        let phys_sys = PhysicsSystem{};
+        println!("Creating PhysicsManager");
+        let phys_sys = PhysicsManager{};
         phys_sys
     }
 }
