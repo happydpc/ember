@@ -76,6 +76,13 @@ impl SceneManager{
     }
 
     fn update_scene(&mut self){
-
+        match self.active_scene{
+            Some(id) => {
+                self.scenes[&id].borrow_mut().update(1.0);
+                self.scenes[&id].borrow_mut().post_update(1.0);
+                // scene.draw();
+            },
+            None => (),
+        }
     }
 }
