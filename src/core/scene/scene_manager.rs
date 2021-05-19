@@ -59,14 +59,11 @@ impl SceneManager{
     }
 
     // gets the active scene id
-    pub fn get_active_scene_id(&self) -> Option<i16> {
+    pub fn get_active_scene(&self) -> Option<i16> {
         self.active_scene
     }
 
-    //
-    // internal
-    //
-    fn switch_to(&mut self, scene_id: i16){
+    pub fn switch_to(&mut self, scene_id: i16){
         match self.active_scene{
             Some(id) => self.scenes[&id].borrow_mut().deactivate(),
             None => (),
