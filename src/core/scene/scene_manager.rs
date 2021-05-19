@@ -4,7 +4,7 @@ use super::{super::systems::system::System, scene::Scene};
 
 pub struct SceneManager{
     active_scene: Option<i16>,  // Either the scene ID or None
-    scenes: HashMap<i16, Scene>, // Scene ids and scenes
+    scenes: HashMap<i16, Box<Scene>>, // Scene ids and scenes
     scene_counter: i16,
 }
 
@@ -38,10 +38,10 @@ impl SceneManager{
     }
 
     // adds a scene and returns its scene id
-    pub fn add_scene(&mut self, scene: Scene) -> i16 {
+    pub fn add_scene<T: 'static + Scene>(&mut self, scene: T) -> i16 {
         self.scene_counter+=1;
         let key = self.scene_counter;
-        self.scenes.insert(key, scene);
+        self.scenes.insert(key, Box::new(scene));
         key
     }
 
