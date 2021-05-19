@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::cell::RefCell;
 use super::{super::systems::system::System, scene::Scene};
 
 
 pub struct SceneManager{
     active_scene: Option<i16>,  // Either the scene ID or None
-    scenes: HashMap<i16, Box<Scene>>, // Scene ids and scenes
+    scenes: HashMap<i16, RefCell<Box<Scene>>>, // Scene ids and scenes
     scene_counter: i16,
 }
 
@@ -15,9 +16,9 @@ impl System for SceneManager{
     fn shutdown(&mut self){
         self.scenes.clear();
     }
-    fn update(&self){
+    fn update(&mut self){
         if self.active_scene.is_some(){
-
+            self.update_scene();
         }
     }
 }
@@ -41,8 +42,12 @@ impl SceneManager{
     pub fn add_scene<T: 'static + Scene>(&mut self, scene: T) -> i16 {
         self.scene_counter+=1;
         let key = self.scene_counter;
-        self.scenes.insert(key, Box::new(scene));
+        self.scenes.insert(key, RefCell::new(Box::new(scene)));
         key
+    }
+
+    pub fn remove_scene(&mut self, scene_id: i16) -> Option<RefCell<Box<Scene>>> {
+        self.scenes.remove(&scene_id)
     }
 
     // takes a scene id and, if that scene exists, sets that id to be the active scene.
@@ -61,15 +66,16 @@ impl SceneManager{
     //
     // internal
     //
-    fn initialize_active_scene(&self){
-        // TODO : Should probably make decisions about scene serialization, what should be serialized,
-        // where things should be serialized etc. then this initialize active scene could actually
-        // load a serialized state. That also makes me wonder if i'm going to want a "wipe scene" function
-        // that clears the serialized state of a scene.
-
+    fn switch_to(&mut self, scene_id: i16){
+        match self.active_scene{
+            Some(id) => self.scenes[&id].borrow_mut().deactivate(),
+            None => (),
+        }
+        self.scenes[&scene_id].borrow_mut().activate();
+        self.active_scene = Some(scene_id);
     }
 
-    fn teardown_active_scene(&self){
+    fn update_scene(&mut self){
 
     }
 }

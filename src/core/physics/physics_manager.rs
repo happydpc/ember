@@ -9,7 +9,7 @@ impl System for PhysicsManager{
     fn shutdown(&mut self){
         println!("Shutting down physics system...");
     }
-    fn update(&self){
+    fn update(&mut self){
     }
 }
 

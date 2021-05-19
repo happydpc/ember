@@ -81,7 +81,7 @@ impl System for Application{
         self.state.get_render_manager().borrow_mut().shutdown();
         self.state.get_scene_manager().borrow_mut().shutdown();
     }
-    fn update(&self){
+    fn update(&mut self){
         // TODO : Will the core app update do anything? should run just call update on loop
         // and then have this iterate over the systems and update? seems like an unecessary
         // layer to have the run function just be a thin wrapper around this.
@@ -101,7 +101,7 @@ impl Application{
     }
 
     // main game loop
-    pub fn run(self) {
+    pub fn run(mut self) {
         println!("Running the application...");
         let window_builder = glutin::window::WindowBuilder::new()
             .with_title("Leaf");

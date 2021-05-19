@@ -16,7 +16,7 @@ impl System for RenderManager{
     fn shutdown(&mut self){
         println!("Shutting down render system...");
     }
-    fn update(&self){
+    fn update(&mut self){
     }
 }
 impl RenderManager{
