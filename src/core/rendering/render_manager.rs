@@ -1,4 +1,4 @@
-use crate::core::systems::system::System;
+use crate::core::managers::manager::Manager;
 // use crate::core::rendering::window::Window;
 // eventually abstract this out or use an enum to decide which window to use
 // use crate::core::rendering::win_64_window::Win64Window;
@@ -8,13 +8,13 @@ pub struct RenderManager{
     // pub window: Win64Window,
 }
 
-impl System for RenderManager{
+impl Manager for RenderManager{
     fn startup(&mut self){
         println!("Starting RenderManager...");
         // self.window.init();
     }
     fn shutdown(&mut self){
-        println!("Shutting down render system...");
+        println!("Shutting down render manager...");
     }
     fn update(&mut self){
     }

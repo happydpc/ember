@@ -1,13 +1,13 @@
-use crate::core::systems::system::System;
+use crate::core::managers::manager::Manager;
 
 pub struct PhysicsManager{}
 
-impl System for PhysicsManager{
+impl Manager for PhysicsManager{
     fn startup(&mut self){
         println!("Starting PhysicsManager...");
     }
     fn shutdown(&mut self){
-        println!("Shutting down physics system...");
+        println!("Shutting down physics manager...");
     }
     fn update(&mut self){
     }

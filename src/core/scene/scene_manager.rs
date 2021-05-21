@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::cell::RefCell;
-use super::{super::systems::system::System, scene::Scene};
+use super::{super::managers::manager::Manager, scene::Scene};
 
 
 pub struct SceneManager{
@@ -9,7 +9,7 @@ pub struct SceneManager{
     scene_counter: i16,
 }
 
-impl System for SceneManager{
+impl Manager for SceneManager{
     fn startup(&mut self){
         println!("Starting SceneManager...");
     }

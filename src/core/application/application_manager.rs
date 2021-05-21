@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use crate::core::{
-    systems::system::System,
+    managers::manager::Manager,
     physics::physics_manager::PhysicsManager,
     rendering::render_manager::RenderManager,
     scene::scene_manager::SceneManager,
@@ -59,7 +59,7 @@ impl ApplicationState{
     }
 }
 
-impl System for Application{
+impl Manager for Application{
     fn startup(&mut self){
         println!("Starting application ...");
         let _state = ApplicationState::InitializedState{
@@ -68,7 +68,7 @@ impl System for Application{
             scene_manager: RefCell::new(SceneManager::create_new()),
         };
         self.state = _state;
-        // TODO : consider implementing this using ECS so that systems can be quickly iterated
+        // TODO : consider implementing this using ECS so that managers can be quickly iterated
         self.state.get_physics_manager().borrow_mut().startup();
         self.state.get_render_manager().borrow_mut().startup();
         self.state.get_scene_manager().borrow_mut().startup();
@@ -76,14 +76,14 @@ impl System for Application{
     }
     fn shutdown(&mut self){
         println!("Shutting down application...");
-        // TODO : Definitely find a better way to access the systems
+        // TODO : Definitely find a better way to access the managers
         self.state.get_physics_manager().borrow_mut().shutdown();
         self.state.get_render_manager().borrow_mut().shutdown();
         self.state.get_scene_manager().borrow_mut().shutdown();
     }
     fn update(&mut self){
         // TODO : Will the core app update do anything? should run just call update on loop
-        // and then have this iterate over the systems and update? seems like an unecessary
+        // and then have this iterate over the managers and update? seems like an unecessary
         // layer to have the run function just be a thin wrapper around this.
         self.state.get_physics_manager().borrow_mut().update();
         self.state.get_scene_manager().borrow_mut().update();

@@ -1,2 +1,2 @@
-pub mod event_system;
+pub mod event_manager;
 pub mod event;

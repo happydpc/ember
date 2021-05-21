@@ -7,16 +7,16 @@ I have decided to name it leaf or leaf Engine. I just like plants and leaf is sh
 So I converted the project to a library project, created some imports as of now,
 and moved startup and shutdown into the application. I think I'm starting to run into
 "fighting the borrow checker" as they say. I'm having a hard time accessing and iterating
-over the systems vector inside the application because of mutability issues. I think ideally
-the systems would be stored using ECS so that each system is essentially just an index that maps
+over the managers vector inside the application because of mutability issues. I think ideally
+the managers would be stored using ECS so that each manager is essentially just an index that maps
 to a set of functionality. I'd really have to think that one through though.
 
 It would probably good to implement logging soon so that I can move away from print
-statements into a more structured logging system. There's a part of me that wants to
+statements into a more structured logging manager. There's a part of me that wants to
 do that as a separate library, but I know that's going to be complex, so I think I'll hold off until
-I need it. I'm imagining a logging system that can write to the terminal in various colors
+I need it. I'm imagining a logging manager that can write to the terminal in various colors
 and also possibly files. I think the immediate next step is probably to get the window loop happening
-in the render system or however makes sense so that the application can actually run.
+in the render manager or however makes sense so that the application can actually run.
 
 Also I just reordered this so new things are at the top. Also this is going to
 potentially throw off my line count in the github contributions early on while
@@ -29,12 +29,12 @@ how to convert this from a binary project to a library project. It hit me today
 that I am trying to create both an engine and a game, so I need to actually keep
 them separate from the get go. I think my path forwards is to figure out how to
 flesh out the create_application function in the application manager, move all of
-the sub system initialization to there, and figure out what the deal is with lib.rs
+the sub manager initialization to there, and figure out what the deal is with lib.rs
 files. Then, I can create an empty shell of a game using leaf that I'll use to test
 everything.
 
 In a nutshell, next steps are:
-1. move subsystem initialization to create_application function.
+1. move submanager initialization to create_application function.
 2. research lib.rs file
 3. create game project with same end result that uses leaf to get an application
 and run
@@ -42,14 +42,14 @@ and run
 ## 4/14/21
 
 Currently working on creating a window class. I don't really like the way the
-systems and render code is stored right now. The window class should ideally abstract
-and detect which system is running, but also honestly glutin might already handle that.
+managers and render code is stored right now. The window class should ideally abstract
+and detect which manager is running, but also honestly glutin might already handle that.
 in any case, I'm having trouble getting a window struct to store an event loop
 and other glutin types and i'm not really sure why.
 
 ## 4/19/21
 
-Added the beginnings of an observer system in rust. Basically it's going to be an observer
+Added the beginnings of an observer manager in rust. Basically it's going to be an observer
 trait and an ObserverQueue struct that acts as the subject. The class that would be a subject Will
 just hold an ObserverQueue, and observers will register themselves in a class' ObserverQueue.
 I don't really like this implementation, but i'm trying to get something up and working so that I can have
@@ -67,7 +67,7 @@ Finished a first pass at the observer pattern. Currently the window64 class is a
 and the application manager is an observer. the window class holds an Rc with a RefCell
 of a dyn observer so it can mutate it. I think the context needs to be the subject. Pretty sure
 i can just have the application register itself as an observer to the context by accessing it on
-the render system. I also might actually start using Github or check out Trello because
+the render manager. I also might actually start using Github or check out Trello because
 there's a couple more things that need fixing.
 
 ## 4/28/21
@@ -76,7 +76,7 @@ So the context and event loop and observer pattern has been giving me significan
 I see that is what I've been working on for almost two weeks now based on this file. Basically,
 I wanted the main application to hold a window class that held a context, and the context would
 hold the event loop, which would then notify the main application via weak reference on each update
-so that  the application could then update each of the subsystems. I have come to learn that involves
+so that  the application could then update each of the submanagers. I have come to learn that involves
 cyclical references, albeit some of those might be reference counted or have other interior mutablity
 traits. This is because the application holds the window, which holds the context, which holds the application.
 that is apparently not recommended in rust. Beyond that, the other issue is that the event loop run function consumes
@@ -90,13 +90,13 @@ seems to just be to move some or all of the context into the main application. I
 context to the application and store the event loop on the application, I should be able to move it
 to the context in a run function and then from there just call a self.update() or something
 similar on the application. This does, however, make me wonder about the functionality of the
-render system because as of now, it won't do anything. For now i'll keep the code because I
-simply cannot imagine a game engine without a render system, so i'm sure i'll need it eventually.
-also it's possible I refactor later into the render system anyways.
+render manager because as of now, it won't do anything. For now i'll keep the code because I
+simply cannot imagine a game engine without a render manager, so i'm sure i'll need it eventually.
+also it's possible I refactor later into the render manager anyways.
 
 well I guess I'll just go fuck myself because I just fixed the whole context event loop consumption thing
 right after I typed that. Literally clicked out of this file to the window file and fixed it.
-just used mem::replace() instead. however, the observer system is still broken, so there's that.
+just used mem::replace() instead. however, the observer manager is still broken, so there's that.
 Yeah pretty sure I should still just do away with the observer pattern. The other issue with
 it is really the only observer of that event is the application. so it's a one to one relationship anyways.
 
@@ -105,10 +105,10 @@ Yeah that worked.
 
 ## 5/4/21
 
-Started a math library that's basic, but I got sidetracked learning rust's module system.
+Started a math library that's basic, but I got sidetracked learning rust's module manager.
 In any case, abacus now exists. I wanted to just call it math, but there's already a math crate.
 There's probably already an abacus crate, but fuck it. Next step is to draw a triangle but using the
-machinery of the engine. I'm thinking it might be about time to flesh out the render system.
+machinery of the engine. I'm thinking it might be about time to flesh out the render manager.
 
 ## 5/7/21
 
@@ -129,15 +129,15 @@ the next task is to figure out how to structure the draw call.
 
 Ok so i have created the renderable and it works. there's a triangle on the screen. great.
 now I have to actually think this thing through. I've recently been reading the mythical
-man month and specifically about the second-system effect.  Basically, the second system
+man month and specifically about the second-manager effect.  Basically, the second manager
 an engineer builds tends to be bloated and over engineered because of overconfidence.
 I'm especially interested in keeping this as lightweight as possible because I want it
 to be efficient. That being said, I'm genuinely unsure I even have enough experience
 to know whether or not i'm over engineering a solution. Currently, there's a core application,
-and it spins up a physics system and a render system. Neither of those systems currently
+and it spins up a physics manager and a render manager. Neither of those managers currently
 do a single thing. Currently, the main context and loop exists inside the main application class.
 I believe the reason for that is elsewhere in these notes. The rendering module holds geometries
 and renderables, and the renderables can be created and rendered. The question sort of naturally becomes
 how do I render multiple objects? How should I store them? How should I render them? What is the
-purpose of a render system in the first place? in trying to answer these, am I going to over engineer this?
+purpose of a render manager in the first place? in trying to answer these, am I going to over engineer this?
 I don't think so. I don't think I am smart enough to over engineer anything.

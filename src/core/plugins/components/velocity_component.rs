@@ -3,6 +3,6 @@ use crate::math::structures::vector::Vector3;
 
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
-pub struct Velocity{
+pub struct VelocityComponent{
     pub velocity: Vector3,
 }

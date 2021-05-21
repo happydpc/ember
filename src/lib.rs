@@ -1,4 +1,4 @@
-// import systems
+// import managers
 pub mod core;
 pub mod math;
 
@@ -7,4 +7,4 @@ pub use glium;
 pub use crate::core::application::application_manager::Application;
 
 // importing traits i guess
-pub use crate::core::systems::system::System;
+pub use crate::core::managers::manager::Manager;
