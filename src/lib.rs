@@ -2,6 +2,8 @@
 pub mod core;
 pub mod math;
 
+pub use specs;
+pub use glium;
 pub use crate::core::application::application_manager::Application;
 
 // importing traits i guess

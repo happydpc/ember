@@ -3,7 +3,7 @@ use glium;
 
 
 pub trait Scene{
-    fn create_new() where Self: Sized;
+    // fn create_new() where Self: Sized;
     fn destroy(&mut self);
     fn activate(&mut self);
     fn deactivate(&mut self);
