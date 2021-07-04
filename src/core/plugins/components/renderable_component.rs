@@ -5,5 +5,5 @@ use std::sync::Mutex;
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct RenderableComponent{
-    pub renderable: Mutex<Box<Renderable>>,
+    // pub renderable: Mutex<Box<dyn Renderable>>,
 }

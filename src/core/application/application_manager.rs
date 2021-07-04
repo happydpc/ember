@@ -115,6 +115,8 @@ impl Application{
 
             // update scene
             self.update();
+
+            // create and draw a triangle
             let mut a = Triangle::create(0.0, 0.0, 0.0);
             let mut target = display.0.draw();
             target.clear_color(0.05, 0.1, 0.05, 1.0);

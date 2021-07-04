@@ -11,6 +11,7 @@ use super::{
     renderable::Renderable,
 
 };
+use std::sync::Mutex;
 use glium;
 use glium::Surface;
 
@@ -40,11 +41,11 @@ impl Renderable for Triangle{
     fn initialize(&mut self, display: &glium::Display){
         // initialize the vertex buffer, index buffer, and shader program
         if self.vertex_buffer.is_none(){
-            self.vertex_buffer = Some(glium::VertexBuffer::new(display, &self.geometry.vertices).unwrap());
+            self.vertex_buffer = Some(glium::VertexBuffer::new(display, &self.geometry.data.vertices).unwrap());
         }
         if self.index_buffer.is_none(){
             self.index_buffer = Some(glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList,
-            &self.geometry.indices).unwrap());
+            &self.geometry.data.indices[..]).unwrap());
         }
         if self.program.is_none(){
             self.program = Some(glium::Program::from_source(display, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, None).unwrap());
@@ -60,4 +61,16 @@ impl Renderable for Triangle{
             &Default::default()
         ).unwrap();
     }
+}
+
+use specs::{Component, VecStorage};
+
+#[derive(Component, Debug)]
+#[storage(VecStorage)]
+pub struct TriangleRenderble{
+    geometry: TriangleGeom,
+    // vertex_buffer: Mutex<Option<glium::VertexBuffer<Vector3>>>,
+    // index_buffer: Mutex<Option<glium::IndexBuffer<u16>>>,
+    // normal_buffer: Option<glium::VertexBuffer<Vector3>>,
+    // program: Option<glium::Program>,
 }

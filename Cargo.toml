@@ -10,3 +10,7 @@ edition = "2018"
 glium = "*"
 glutin = "*"
 specs = {version = "0.16.1", features = ["specs-derive"] }
+vulkano = "*"
+winit = "*"
+vulkano-shaders = "*"
+vulkano-win = "*"

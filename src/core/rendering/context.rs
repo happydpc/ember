@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use crate::core::events::event_manager::Observer;
 use glium;
 use glium::glutin;
 
@@ -10,7 +7,7 @@ pub struct DisplayWrapper(glium::Display);
 
 enum ContextState{
     UninitializedState {},
-    InitializedState {observers: Vec<Rc<RefCell<dyn Observer>>>, display: DisplayWrapper},
+    InitializedState {display: DisplayWrapper},
 }
 
 impl ContextState{
@@ -18,12 +15,6 @@ impl ContextState{
         match self {
             ContextState::InitializedState{display, ..} => display,
             _ => panic!("Called get_display on an uninitialized context state."),
-        }
-    }
-    pub fn get_observers(&mut self) -> &Vec<Rc<RefCell<dyn Observer>>> {
-        match self {
-            ContextState::InitializedState{observers, ..} => observers,
-            _ => panic!("Bungus."),
         }
     }
 }
@@ -54,9 +45,7 @@ impl Context{
         let display = DisplayWrapper(
             glium::Display::new(window_builder, context_builder, &event_loop).unwrap(),
         );
-        let observers = Vec::new();
         let _state = ContextState::InitializedState{
-            observers: observers,
             display: display,
         };
         self.state = _state;

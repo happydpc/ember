@@ -5,7 +5,7 @@ use super::{super::managers::manager::Manager, scene::Scene};
 
 pub struct SceneManager{
     active_scene: Option<i16>,  // Either the scene ID or None
-    scenes: HashMap<i16, RefCell<Box<Scene>>>, // Scene ids and scenes
+    scenes: HashMap<i16, RefCell<Box<dyn Scene>>>, // Scene ids and scenes
     scene_counter: i16,
 }
 
@@ -46,14 +46,14 @@ impl SceneManager{
         key
     }
 
-    pub fn remove_scene(&mut self, scene_id: i16) -> Option<RefCell<Box<Scene>>> {
+    pub fn remove_scene(&mut self, scene_id: i16) -> Option<RefCell<Box<dyn Scene>>> {
         self.scenes.remove(&scene_id)
     }
 
     // takes a scene id and, if that scene exists, sets that id to be the active scene.
     pub fn set_active_scene(&mut self, scene_id: i16){
         match self.scenes.get(&scene_id){
-            Some(x) => self.active_scene = Some(scene_id),
+            Some(_x) => self.active_scene = Some(scene_id),
             None => println!("Scene {} is not in the SceneManager.", scene_id),
         }
     }
