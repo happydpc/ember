@@ -11,7 +11,7 @@ pub struct SceneManager{
 
 impl Manager for SceneManager{
     fn startup(&mut self){
-        println!("Starting SceneManager...");
+        log::info!("Starting SceneManager...");
     }
     fn shutdown(&mut self){
         self.scenes.clear();
@@ -30,7 +30,7 @@ impl SceneManager{
 
     // creates a new SceneManager
     pub fn create_new() -> Self {
-        println!("Creating SceneManager...");
+        log::info!("Creating SceneManager...");
         SceneManager{
             active_scene: None,
             scenes: HashMap::new(),
@@ -54,7 +54,7 @@ impl SceneManager{
     pub fn set_active_scene(&mut self, scene_id: i16){
         match self.scenes.get(&scene_id){
             Some(_x) => self.active_scene = Some(scene_id),
-            None => println!("Scene {} is not in the SceneManager.", scene_id),
+            None => log::info!("Scene {} is not in the SceneManager.", scene_id),
         }
     }
 

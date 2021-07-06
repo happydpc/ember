@@ -14,4 +14,5 @@ vulkano = "*"
 winit = "*"
 vulkano-shaders = "*"
 vulkano-win = "*"
-log = "*"
+simple_logger = "*"
+log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}

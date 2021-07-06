@@ -1,7 +1,16 @@
-use crate::core::managers::manager::Manager;
-use crate::core::rendering::shaders::triangle::{
-    vs,
-    fs
+use crate::core::{
+    managers::manager::Manager,
+    rendering::{
+        geometries::{
+            geometry::{
+                Vertex
+            }
+        },
+        shaders::triangle::{
+            vs,
+            fs,
+        },
+    },
 };
 // use crate::core::rendering::window::Window;
 // eventually abstract this out or use an enum to decide which window to use
@@ -16,41 +25,48 @@ use vulkano::{
         Instance,
         InstanceExtensions,
         PhysicalDevice,
-        PhysicalDeviceType
+        PhysicalDeviceType,
     },
     device::{
         Device,
         DeviceExtensions,
         Features,
-        Queue
+        Queue,
     },
     swapchain::{
         AcquireError,
         Swapchain,
-        SwapchainCreationError
+        SwapchainCreationError,
     },
     image::{
+        view::{
+            ImageView,
+        },
         ImageUsage,
-        SwapchainImage
+        SwapchainImage,
     },
     render_pass::{
         Framebuffer,
         FramebufferAbstract,
         RenderPass,
-        Subpass
+        Subpass,
     },
     pipeline::{
         viewport::{
             Viewport,
         },
         vertex::{
-            SingleBufferDefinition
+            SingleBufferDefinition,
         },
-        GraphicsPipeline
+        GraphicsPipeline,
     },
     sync::{
         FlushError,
-        GpuFuture
+        GpuFuture,
+    },
+    sync,
+    command_buffer::{
+        DynamicState,
     },
     Version,
 };
@@ -78,38 +94,30 @@ use winit::{
 
 // std imports
 use std::sync::Arc;
+use log;
+
 
 pub struct RenderManager{
-    required_extensions: InstanceExtensions,
-    device_extensions: DeviceExtensions,
-    minimal_features: Features,
-    optimal_features: Features,
-    instance: Arc<Instance>,
-    // event_loop: EventLoop<()>,
-    surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>,
-    device: Arc<Device>,
-    queue: Arc<Queue>,
-    swapchain: Arc<Swapchain<winit::window::Window>>,
-    render_pass: Arc<RenderPass>,
-    // pipeline: Arc<GraphicsPipeline<SingleBufferDefinition<_>>>,
+    required_extensions: Option<InstanceExtensions>,
+    device_extensions: Option<DeviceExtensions>,
+    minimal_features: Option<Features>,
+    optimal_features: Option<Features>,
+    instance: Option<Arc<Instance>>,
+    surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
+    device: Option<Arc<Device>>,
+    queue: Option<Arc<Queue>>,
+    swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
+    render_pass: Option<Arc<RenderPass>>,
+    pipeline: Option<Arc<GraphicsPipeline<SingleBufferDefinition<Vertex>>>>,
+    dynamic_state: Option<DynamicState>,
+    frame_buffers: Option<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
+    recreate_swapchain: bool,
+    previous_frame_end: Option<Box<dyn GpuFuture>>,
 }
 
-impl Manager for RenderManager{
-    fn startup(&mut self){
-        println!("Starting RenderManager...");
-        // self.window.init();
-    }
-    fn shutdown(&mut self){
-        println!("Shutting down render manager...");
-    }
-    fn update(&mut self){
-    }
-}
 impl RenderManager{
-    // TODO : add a parameter for window type
-    pub fn create_new() -> (Self, EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>){
-        println!("Creating RenderManager...");
-
+    pub fn startup(&mut self) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>){
+        log::info!("Starting RenderManager...");
         // what extensions do we need to have in vulkan to draw a window
         let required_extensions = vulkano_win::required_extensions();
 
@@ -165,7 +173,7 @@ impl RenderManager{
             .unwrap();
 
         // logging the physical device
-        println!(
+        log::info!(
             "Using device: {} (type: {:?})",
             physical_device.properties().device_name.as_ref().unwrap(),
             physical_device.properties().device_type.unwrap(),
@@ -200,37 +208,6 @@ impl RenderManager{
                 .composite_alpha(composite_alpha)
                 .build()
                 .unwrap()
-        };
-
-        #[derive(Default, Debug, Clone)]
-        struct Vertex {
-            position: [f32; 2],
-        }
-        vulkano::impl_vertex!(Vertex, position);
-
-        // We now create a buffer that will store the shape of our triangle.
-        let vertex_buffer = {
-
-
-            CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage::all(),
-                false,
-                [
-                    Vertex {
-                        position: [-0.5, -0.25],
-                    },
-                    Vertex {
-                        position: [0.0, 0.5],
-                    },
-                    Vertex {
-                        position: [0.25, -0.1],
-                    },
-                ]
-                .iter()
-                .cloned(),
-            )
-            .unwrap()
         };
 
         // compile our shaders
@@ -270,28 +247,130 @@ impl RenderManager{
                 .unwrap(),
         );
 
+        // create dynamic state for resizing viewport
+        let mut dynamic_state = DynamicState {
+            line_width: None,
+            viewports: None,
+            scissors: None,
+            compare_mask: None,
+            write_mask: None,
+            reference: None,
+        };
+
+        let mut framebuffers = RenderManager::window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+        let mut recreate_swapchain = false;
+        let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
+
         // clone the surface so we can return this clone
         let return_surface = surface.clone();
 
+        // fill options with initialized values
+        if self.required_extensions.is_none(){
+            self.required_extensions = Some(required_extensions);
+        }
+        if self.device_extensions.is_none(){
+            self.device_extensions = Some(device_extensions);
+        }
+        if self.minimal_features.is_none(){
+            self.minimal_features = Some(minimal_features);
+        }
+        if self.instance.is_none(){
+            self.instance = Some(instance);
+        }
+        if self.surface.is_none(){
+            self.surface = Some(surface);
+        }
+        if self.device.is_none(){
+            self.device = Some(device);
+        }
+        if self.queue.is_none(){
+            self.queue = Some(queue);
+        }
+        if self.swapchain.is_none(){
+            self.swapchain = Some(swapchain);
+        }
+        if self.render_pass.is_none(){
+            self.render_pass = Some(render_pass);
+        }
+        if self.pipeline.is_none(){
+            self.pipeline = Some(pipeline);
+        }
+        if self.dynamic_state.is_none(){
+            self.dynamic_state = Some(dynamic_state);
+        }
+        if self.frame_buffers.is_none(){
+            self.frame_buffers = Some(framebuffers);
+        }
+        if self.previous_frame_end.is_none(){
+            self.previous_frame_end = previous_frame_end;
+        }
+        self.recreate_swapchain = false;
+
+
+        (event_loop, return_surface)
+    }
+    pub fn shutdown(&mut self){
+        log::info!("Shutting down render manager...");
+    }
+    pub fn update(&mut self){
+    }
+
+    pub fn create_new() -> Self {
+        log::info!("Creating RenderManager...");
+
         // initialize our render system with all of the required vulkan components
         let render_sys = RenderManager{
-            required_extensions: required_extensions,
-            device_extensions: device_extensions,
-            minimal_features: minimal_features,
-            optimal_features: optimal_features,
-            instance: instance,
-            // event_loop: event_loop,
-            surface: surface,
-            device: device,
-            queue: queue,
-            swapchain: swapchain,
-            render_pass: render_pass,
-            // pipeline: pipeline,
+            required_extensions: None,
+            device_extensions: None,
+            minimal_features: None,
+            optimal_features: None,
+            instance: None,
+            surface: None,
+            device: None,
+            queue: None,
+            swapchain: None,
+            render_pass: None,
+            pipeline: None,
+            dynamic_state: None,
+            frame_buffers: None,
+            recreate_swapchain: false,
+            previous_frame_end: None,
         };
-        (render_sys, event_loop, return_surface)
+        render_sys
     }
+
     pub fn run(&mut self) {
         // self.window.run();
+    }
+
+    /// This method is called once during initialization, then again whenever the window is resized
+    fn window_size_dependent_setup(
+        images: &[Arc<SwapchainImage<Window>>],
+        render_pass: Arc<RenderPass>,
+        dynamic_state: &mut DynamicState,
+    ) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+        let dimensions = images[0].dimensions();
+
+        let viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+            depth_range: 0.0..1.0,
+        };
+        dynamic_state.viewports = Some(vec![viewport]);
+
+        images
+            .iter()
+            .map(|image| {
+                let view = ImageView::new(image.clone()).unwrap();
+                Arc::new(
+                    Framebuffer::start(render_pass.clone())
+                        .add(view)
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                ) as Arc<dyn FramebufferAbstract + Send + Sync>
+            })
+            .collect::<Vec<_>>()
     }
 }
 

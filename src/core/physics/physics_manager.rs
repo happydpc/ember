@@ -4,10 +4,10 @@ pub struct PhysicsManager{}
 
 impl Manager for PhysicsManager{
     fn startup(&mut self){
-        println!("Starting PhysicsManager...");
+        log::info!("Starting PhysicsManager...");
     }
     fn shutdown(&mut self){
-        println!("Shutting down physics manager...");
+        log::info!("Shutting down physics manager...");
     }
     fn update(&mut self){
     }
@@ -15,7 +15,7 @@ impl Manager for PhysicsManager{
 
 impl PhysicsManager{
     pub fn create_new() -> Self{
-        println!("Creating PhysicsManager...");
+        log::info!("Creating PhysicsManager...");
         let phys_sys = PhysicsManager{};
         phys_sys
     }

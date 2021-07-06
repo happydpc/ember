@@ -1,149 +1,148 @@
 use std::cell::RefCell;
+use std::sync::Arc;
+use std::borrow::BorrowMut;
 
 use crate::core::{
     managers::manager::Manager,
     physics::physics_manager::PhysicsManager,
     rendering::render_manager::RenderManager,
     scene::scene_manager::SceneManager,
+    rendering::{
+        renderables::{
+            renderable::Renderable,
+            triangle::Triangle,
+        },
+    },
 };
-
-use glium;
-use glium::Surface;
-use glium::glutin;
 
 pub struct DisplayWrapper(glium::Display);
 
-use crate::core::rendering::renderables::{
-    renderable::Renderable,
-    triangle::Triangle,
+// window and event management
+use winit::{
+    event::{
+        Event,
+        WindowEvent,
+    },
+    event_loop::{
+        EventLoop,
+        ControlFlow,
+    }
 };
 
-use std::borrow::BorrowMut;
 
-//
-//
-//
+//logging
+use simple_logger::SimpleLogger;
+use log;
+
 
 pub struct Application{
-    state: ApplicationState,
-}
-
-enum ApplicationState{
-    UninitializedState {},
-    InitializedState {
-        render_manager: RefCell<RenderManager>,
-        physics_manager: RefCell<PhysicsManager>,
-        scene_manager: RefCell<SceneManager>,
-    },
-}
-
-// in a way this is actually kind of acting like a service locator
-impl ApplicationState{
-    pub fn get_render_manager(&self) -> &RefCell<RenderManager>{
-        match self{
-            ApplicationState::InitializedState{render_manager, ..} => render_manager,
-            _ => panic!("Cannot access render_manager on uninitialized application."),
-        }
-    }
-    pub fn get_physics_manager(&self) -> &RefCell<PhysicsManager>{
-        match self {
-            ApplicationState::InitializedState{physics_manager, ..} => physics_manager,
-            _ => panic!("Cannot acces physics_manager on uninitialized application."),
-        }
-    }
-    pub fn get_scene_manager(&self) -> &RefCell<SceneManager>{
-        match self {
-            ApplicationState::InitializedState{scene_manager, ..} => scene_manager,
-            _ => panic!("Cannot acces scene manager on uninitialized application"),
-        }
-    }
+    // state: ApplicationState,
+    render_manager: Option<RefCell<RenderManager>>,
+    physics_manager: Option<RefCell<PhysicsManager>>,
+    scene_manager: Option<RefCell<SceneManager>>,
+    event_loop: Option<EventLoop<()>>,
+    surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
 }
 
 impl Manager for Application{
     fn startup(&mut self){
-        println!("Starting application ...");
-        let (render_manager, event_loop, surface) = RenderManager::create_new();
-        let _state = ApplicationState::InitializedState{
-            // render_manager: RefCell::new(RenderManager::create_new()),
-            render_manager: RefCell::new(render_manager),
-            physics_manager: RefCell::new(PhysicsManager::create_new()),
-            scene_manager: RefCell::new(SceneManager::create_new()),
-        };
-        self.state = _state;
-        // TODO : consider implementing this using ECS so that managers can be quickly iterated
-        self.state.get_physics_manager().borrow_mut().startup();
-        self.state.get_render_manager().borrow_mut().startup();
-        self.state.get_scene_manager().borrow_mut().startup();
+        SimpleLogger::new().init().unwrap();
+        log::info!("Starting application ...");
+        // create other managers
+        let mut render_manager = RenderManager::create_new();
+        let mut physics_manager = PhysicsManager::create_new();
+        let mut scene_manager = SceneManager::create_new();
+
+        // initialize other managers
+        let (event_loop, surface) = render_manager.startup();
+        physics_manager.startup();
+        scene_manager.startup();
+
+        // assign managers into options on self
+        if self.render_manager.is_none() {
+            self.render_manager = Some(RefCell::new(render_manager));
+        }
+        if self.physics_manager.is_none() {
+            self.physics_manager = Some(RefCell::new(physics_manager));
+        }
+        if self.scene_manager.is_none() {
+            self.scene_manager = Some(RefCell::new(scene_manager));
+        }
+        // assign event loop and surface
+        if self.event_loop.is_none() {
+            self.event_loop = Some(event_loop);
+        }
+        if self.surface.is_none() {
+            self.surface = Some(surface);
+        }
 
     }
     fn shutdown(&mut self){
-        println!("Shutting down application...");
-        // TODO : Definitely find a better way to access the managers
-        self.state.get_physics_manager().borrow_mut().shutdown();
-        self.state.get_render_manager().borrow_mut().shutdown();
-        self.state.get_scene_manager().borrow_mut().shutdown();
+        log::info!("Shutting down application...");
+        match &self.physics_manager {
+            Some(manager) => manager.borrow_mut().shutdown(),
+            None => log::error!("No physics manager to shutdown."),
+        }
+        match &self.scene_manager {
+            Some(manager) => manager.borrow_mut().shutdown(),
+            None => log::error!("No scene manager to shutdown."),
+        }
+        match &self.render_manager {
+            Some(manager) => manager.borrow_mut().shutdown(),
+            None => log::error!("No render manager to shut down"),
+        }
     }
     fn update(&mut self){
-        // TODO : Will the core app update do anything? should run just call update on loop
-        // and then have this iterate over the managers and update? seems like an unecessary
-        // layer to have the run function just be a thin wrapper around this.
-        self.state.get_physics_manager().borrow_mut().update();
-        self.state.get_scene_manager().borrow_mut().update();
-        self.state.get_render_manager().borrow_mut().update();
+        match &self.physics_manager {
+            Some(manager) => manager.borrow_mut().update(),
+            None => log::error!("No physics manager to shutdown."),
+        }
+        match &self.scene_manager {
+            Some(manager) => manager.borrow_mut().update(),
+            None => log::error!("No scene manager to shutdown."),
+        }
+        match &self.render_manager {
+            Some(manager) => manager.borrow_mut().update(),
+            None => log::error!("No render manager to shut down"),
+        }
     }
 }
 
 impl Application{
     // called by the client when they want to create an application
     pub fn create_application() -> Self{
-        let _state = ApplicationState::UninitializedState{};
-        Self{
-            state: _state
+        Self {
+            render_manager: None,
+            physics_manager: None,
+            scene_manager: None,
+            event_loop: None,
+            surface: None,
         }
     }
 
     // main game loop
     pub fn run(mut self) {
-        println!("Running the application...");
-        let window_builder = glutin::window::WindowBuilder::new()
-            .with_title("Leaf");
-        let context_builder = glutin::ContextBuilder::new();
-        let event_loop = glutin::event_loop::EventLoop::new();
-        let display = DisplayWrapper(
-            glium::Display::new(window_builder, context_builder, &event_loop).unwrap(),
-        );
+        log::info!("Running the application...");
+        let mut event_loop = self.event_loop.unwrap();
 
         event_loop.run(move |event, _, control_flow| {
-
-            // update scene
-            self.update();
-
-            // create and draw a triangle
-            let mut a = Triangle::create(0.0, 0.0, 0.0);
-            let mut target = display.0.draw();
-            target.clear_color(0.05, 0.1, 0.05, 1.0);
-            a.initialize(&display.0);
-            a.draw(target.borrow_mut());
-            target.finish().unwrap();
-
-            let next_frame_time =
-                std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
-            *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
-
             match event {
-                glutin::event::Event::WindowEvent { event, .. } => match event {
-                    glutin::event::WindowEvent::CloseRequested => {
-                        *control_flow = glutin::event_loop::ControlFlow::Exit;
-                        return;
-                    }
-                    _ => return,
-                },
-                glutin::event::Event::NewEvents(cause) => match cause {
-                    glutin::event::StartCause::ResumeTimeReached { .. } => (),
-                    glutin::event::StartCause::Init => (),
-                    _ => return,
-                },
-                _ => return,
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => {
+                    *control_flow = ControlFlow::Exit;
+                }
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => {
+                    // recreate_swapchain = true;
+                }
+                Event::RedrawEventsCleared => {
+                    log::info!("would be drawing here");
+                }
+                _ => (),
             }
         });
     }

@@ -5,3 +5,9 @@ pub struct GeometryData {
     pub vertices: Vec<Vector3>,
     pub indices: Vec<u16>,
 }
+
+#[derive(Default, Debug, Clone)]
+pub struct Vertex {
+    position: [f32; 3],
+}
+vulkano::impl_vertex!(Vertex, position);
