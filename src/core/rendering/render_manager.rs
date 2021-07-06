@@ -8,6 +8,7 @@ use crate::core::rendering::shaders::triangle::{
 // use crate::core::rendering::win_64_window::Win64Window;
 
 use specs::System;
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 
 // Vulkano imports
 use vulkano::{
@@ -47,6 +48,10 @@ use vulkano::{
         },
         GraphicsPipeline
     },
+    sync::{
+        FlushError,
+        GpuFuture
+    },
     Version,
 };
 
@@ -80,13 +85,13 @@ pub struct RenderManager{
     minimal_features: Features,
     optimal_features: Features,
     instance: Arc<Instance>,
-    event_loop: EventLoop<()>,
+    // event_loop: EventLoop<()>,
     surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>,
     device: Arc<Device>,
     queue: Arc<Queue>,
     swapchain: Arc<Swapchain<winit::window::Window>>,
     render_pass: Arc<RenderPass>,
-    pipeline: Arc<GraphicsPipeline<SingleBufferDefinition<()>>>,
+    // pipeline: Arc<GraphicsPipeline<SingleBufferDefinition<_>>>,
 }
 
 impl Manager for RenderManager{
@@ -102,7 +107,7 @@ impl Manager for RenderManager{
 }
 impl RenderManager{
     // TODO : add a parameter for window type
-    pub fn create_new() -> Self{
+    pub fn create_new() -> (Self, EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>){
         println!("Creating RenderManager...");
 
         // what extensions do we need to have in vulkan to draw a window
@@ -197,6 +202,37 @@ impl RenderManager{
                 .unwrap()
         };
 
+        #[derive(Default, Debug, Clone)]
+        struct Vertex {
+            position: [f32; 2],
+        }
+        vulkano::impl_vertex!(Vertex, position);
+
+        // We now create a buffer that will store the shape of our triangle.
+        let vertex_buffer = {
+
+
+            CpuAccessibleBuffer::from_iter(
+                device.clone(),
+                BufferUsage::all(),
+                false,
+                [
+                    Vertex {
+                        position: [-0.5, -0.25],
+                    },
+                    Vertex {
+                        position: [0.0, 0.5],
+                    },
+                    Vertex {
+                        position: [0.25, -0.1],
+                    },
+                ]
+                .iter()
+                .cloned(),
+            )
+            .unwrap()
+        };
+
         // compile our shaders
         let vs = vs::Shader::load(device.clone()).unwrap();
         let fs = fs::Shader::load(device.clone()).unwrap();
@@ -224,7 +260,7 @@ impl RenderManager{
         // create our pipeline. like an opengl program but more specific
         let pipeline = Arc::new(
             GraphicsPipeline::start()
-                .vertex_input_single_buffer()
+                .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(vs.main_entry_point(), ())
                 .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
@@ -234,6 +270,9 @@ impl RenderManager{
                 .unwrap(),
         );
 
+        // clone the surface so we can return this clone
+        let return_surface = surface.clone();
+
         // initialize our render system with all of the required vulkan components
         let render_sys = RenderManager{
             required_extensions: required_extensions,
@@ -241,15 +280,15 @@ impl RenderManager{
             minimal_features: minimal_features,
             optimal_features: optimal_features,
             instance: instance,
-            event_loop: event_loop,
+            // event_loop: event_loop,
             surface: surface,
             device: device,
             queue: queue,
             swapchain: swapchain,
             render_pass: render_pass,
-            pipeline: pipeline,
+            // pipeline: pipeline,
         };
-        render_sys
+        (render_sys, event_loop, return_surface)
     }
     pub fn run(&mut self) {
         // self.window.run();

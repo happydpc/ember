@@ -62,8 +62,10 @@ impl ApplicationState{
 impl Manager for Application{
     fn startup(&mut self){
         println!("Starting application ...");
+        let (render_manager, event_loop, surface) = RenderManager::create_new();
         let _state = ApplicationState::InitializedState{
-            render_manager: RefCell::new(RenderManager::create_new()),
+            // render_manager: RefCell::new(RenderManager::create_new()),
+            render_manager: RefCell::new(render_manager),
             physics_manager: RefCell::new(PhysicsManager::create_new()),
             scene_manager: RefCell::new(SceneManager::create_new()),
         };
