@@ -1,3 +1,4 @@
+// internal imports
 use crate::core::{
     managers::manager::Manager,
     rendering::{
@@ -12,12 +13,9 @@ use crate::core::{
         },
     },
 };
-// use crate::core::rendering::window::Window;
-// eventually abstract this out or use an enum to decide which window to use
-// use crate::core::rendering::win_64_window::Win64Window;
 
+// ecs
 use specs::System;
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 
 // Vulkano imports
 use vulkano::{
@@ -94,6 +92,8 @@ use winit::{
 
 // std imports
 use std::sync::Arc;
+
+// logging
 use log;
 
 
@@ -103,16 +103,16 @@ pub struct RenderManager{
     minimal_features: Option<Features>,
     optimal_features: Option<Features>,
     instance: Option<Arc<Instance>>,
-    surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
-    device: Option<Arc<Device>>,
-    queue: Option<Arc<Queue>>,
-    swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
-    render_pass: Option<Arc<RenderPass>>,
-    pipeline: Option<Arc<GraphicsPipeline<SingleBufferDefinition<Vertex>>>>,
-    dynamic_state: Option<DynamicState>,
-    frame_buffers: Option<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
-    recreate_swapchain: bool,
-    previous_frame_end: Option<Box<dyn GpuFuture>>,
+    pub surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
+    pub device: Option<Arc<Device>>,
+    pub queue: Option<Arc<Queue>>,
+    pub swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
+    pub render_pass: Option<Arc<RenderPass>>,
+    pub pipeline: Option<Arc<GraphicsPipeline<SingleBufferDefinition<Vertex>>>>,
+    pub dynamic_state: Option<DynamicState>,
+    pub framebuffers: Option<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
+    pub recreate_swapchain: bool,
+    pub previous_frame_end: Option<Box<GpuFuture>>,
 }
 
 impl RenderManager{
@@ -298,8 +298,8 @@ impl RenderManager{
         if self.dynamic_state.is_none(){
             self.dynamic_state = Some(dynamic_state);
         }
-        if self.frame_buffers.is_none(){
-            self.frame_buffers = Some(framebuffers);
+        if self.framebuffers.is_none(){
+            self.framebuffers = Some(framebuffers);
         }
         if self.previous_frame_end.is_none(){
             self.previous_frame_end = previous_frame_end;
@@ -332,7 +332,7 @@ impl RenderManager{
             render_pass: None,
             pipeline: None,
             dynamic_state: None,
-            frame_buffers: None,
+            framebuffers: None,
             recreate_swapchain: false,
             previous_frame_end: None,
         };

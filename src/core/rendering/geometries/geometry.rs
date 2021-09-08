@@ -8,6 +8,6 @@ pub struct GeometryData {
 
 #[derive(Default, Debug, Clone)]
 pub struct Vertex {
-    position: [f32; 3],
+    pub position: [f32; 3],
 }
 vulkano::impl_vertex!(Vertex, position);
