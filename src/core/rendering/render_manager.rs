@@ -154,6 +154,7 @@ impl RenderManager{
         // create event_loop and surface
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
+            .with_title("I should probably name my game.")
             .build_vk_surface(&event_loop, instance.clone())
             .unwrap();
 
