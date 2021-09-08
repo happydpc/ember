@@ -42,6 +42,9 @@ use winit::{
 use simple_logger::SimpleLogger;
 use log;
 
+//////////////////////////////////////////////////
+// Done with imports. actual application below  //
+//////////////////////////////////////////////////
 
 pub struct Application{
     // state: ApplicationState,
@@ -53,6 +56,7 @@ pub struct Application{
 }
 
 impl Manager for Application{
+    // startup process
     fn startup(&mut self){
         SimpleLogger::new().init().unwrap();
         log::info!("Starting application ...");
@@ -66,25 +70,15 @@ impl Manager for Application{
         physics_manager.startup();
         scene_manager.startup();
 
-        // assign managers into options on self
-        if self.render_manager.is_none() {
-            self.render_manager = Some(RefCell::new(render_manager));
-        }
-        if self.physics_manager.is_none() {
-            self.physics_manager = Some(RefCell::new(physics_manager));
-        }
-        if self.scene_manager.is_none() {
-            self.scene_manager = Some(RefCell::new(scene_manager));
-        }
-        // assign event loop and surface
-        if self.event_loop.is_none() {
-            self.event_loop = Some(event_loop);
-        }
-        if self.surface.is_none() {
-            self.surface = Some(surface);
-        }
+        self.render_manager = Some(RefCell::new(render_manager));
+        self.physics_manager = Some(RefCell::new(physics_manager));
+        self.scene_manager = Some(RefCell::new(scene_manager));
+        self.event_loop = Some(event_loop);
+        self.surface = Some(surface);
 
     }
+
+    // Shutdown process
     fn shutdown(&mut self){
         log::info!("Shutting down application...");
         match &self.physics_manager {
@@ -100,6 +94,8 @@ impl Manager for Application{
             None => log::error!("No render manager to shut down"),
         }
     }
+
+    // update process
     fn update(&mut self){
         match &self.physics_manager {
             Some(manager) => manager.borrow_mut().update(),

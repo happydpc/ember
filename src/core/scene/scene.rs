@@ -1,13 +1,18 @@
-// use specs::{World, WorldExt, Builder, Component};
-use glium;
+use specs::{World, WorldExt, Builder, Component};
 
+use crate::core::{
+    managers::manager::Manager,
+};
 
-pub trait Scene{
-    // fn create_new() where Self: Sized;
-    fn destroy(&mut self);
-    fn activate(&mut self);
-    fn deactivate(&mut self);
-    fn update(&mut self, dt: f32);
-    fn post_update(&mut self, dt: f32);
-    fn draw(&mut self, frame: &mut glium::Frame);
+pub struct Scene{
+    pub world: World,
+}
+
+impl Scene{
+    pub fn initialize(&mut self){
+
+    }
+    pub fn deinitialize(&mut self){
+        
+    }
 }
