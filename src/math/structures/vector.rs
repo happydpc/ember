@@ -1,6 +1,4 @@
 use super::tensor::Tensor;
-use glium;
-
 // Struct definitions
 
 #[derive(Default, Copy, Clone, Debug)]
@@ -17,10 +15,6 @@ pub struct Vector3{
 pub struct Vector4{
     pub position: [f32; 4],
 }
-
-// implement vertex for these
-glium::implement_vertex!(Vector2, position);
-glium::implement_vertex!(Vector3, position);
 
 // struct implementations
 impl Vector2{

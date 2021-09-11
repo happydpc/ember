@@ -14,7 +14,6 @@ use crate::core::{
     rendering::{
         renderables::{
             renderable::Renderable,
-            triangle::Triangle,
         },
         geometries::{
             geometry::{
@@ -24,7 +23,6 @@ use crate::core::{
     },
 };
 
-pub struct DisplayWrapper(glium::Display);
 
 // window and event management
 use winit::{
