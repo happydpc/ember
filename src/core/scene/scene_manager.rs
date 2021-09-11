@@ -13,7 +13,7 @@ use specs::{
 };
 
 pub struct SceneManager{
-    active_scene: Option<Scene<Initialized>>,  // Either the scene ID or None
+    active_scene: Option<Scene<Initialized>>,
     active_scene_id: Option<i16>,
     scenes: HashMap<i16, Scene<Uninitialized>>, // Scene ids and scenes
     scene_counter: i16,

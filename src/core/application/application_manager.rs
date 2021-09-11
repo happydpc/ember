@@ -161,4 +161,10 @@ impl Application{
             } // end of event match
         }); // end of event_loop run
     } // end of run function
+
+    // pub fn get_scene_manager(&self) -> RefCell<SceneManager> {
+    //     match self.scene_manager{
+    //         Some(manager) => self.scene_manager.
+    //     }
+    // }
 } // end of class
