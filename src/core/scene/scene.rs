@@ -1,4 +1,10 @@
-use specs::{World, WorldExt, Builder, Component};
+use specs::{
+    prelude::Resource,
+    World,
+    WorldExt,
+    Builder,
+    Component
+};
 
 use std::{
     cell::{
@@ -17,7 +23,9 @@ pub struct Scene<S>{
 }
 
 pub struct Uninitialized;
-pub struct Initialized;
+pub struct Initialized{
+    pub device_loaded: bool,
+}
 
 impl Scene<Uninitialized> {
     pub fn new() -> Self {
@@ -43,13 +51,28 @@ impl Scene<Initialized> {
             None => (),
         }
     }
+
+    pub fn insert_resource<R>(&mut self, r: R)
+    where
+        R: Resource,
+    {
+        match &self.world{
+            Some(world) =>{
+                world.borrow_mut().insert(r);
+                log::info!("New resources insterted into scene.");
+            },
+            None=> (),
+        }
+    }
 }
 
 impl From<Scene<Uninitialized>> for Scene<Initialized> {
     fn from(val: Scene<Uninitialized>) -> Scene<Initialized> {
         Scene{
             world: Some(RefCell::new(World::new())),
-            state: Initialized,
+            state: Initialized{
+                device_loaded: false,
+            }
         }
     }
 }

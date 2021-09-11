@@ -1,6 +1,11 @@
 // internal imports
 use crate::core::{
     managers::manager::Manager,
+    plugins::{
+        components::{
+            renderable_component::RenderableComponent,
+        },
+    },
     rendering::{
         geometries::{
             geometry::{
@@ -12,10 +17,13 @@ use crate::core::{
             fs,
         },
     },
+    scene::{
+        scene::{Scene, Initialized}
+    },
 };
 
 // ecs
-use specs::System;
+use specs::{System, ReadStorage, ReadExpect};
 
 // Vulkano imports
 use vulkano::{
@@ -106,6 +114,9 @@ use log;
 
 
 pub struct RenderManager{
+    // ECS Systems
+    scene_prep_system: RenderableInitializerSystem,
+    // Vulkan
     required_extensions: Option<InstanceExtensions>,
     device_extensions: Option<DeviceExtensions>,
     minimal_features: Option<Features>,
@@ -329,6 +340,9 @@ impl RenderManager{
 
         // initialize our render system with all of the required vulkan components
         let render_sys = RenderManager{
+            // ECS Systemes
+            scene_prep_system: RenderableInitializerSystem{},
+            // Vulkan
             required_extensions: None,
             device_extensions: None,
             minimal_features: None,
@@ -523,16 +537,31 @@ impl RenderManager{
             })
             .collect::<Vec<_>>()
     }
+
+    pub fn prep_scene(&mut self, scene: &mut Scene<Initialized>){
+        // load device if it hasn't been already
+        if scene.state.device_loaded == false {
+            scene.insert_resource(self.device.clone());
+            scene.state.device_loaded = true;
+        }
+
+        
+    }
+
 }
 
 pub struct RenderableInitializerSystem;
 
 impl<'a> System<'a> for RenderableInitializerSystem{
-    type SystemData = ();
-    fn run(&mut self, data: Self::SystemData) {
+    type SystemData = (ReadStorage<'a, RenderableComponent>);//,
+                       // ReadExpect<'a, Arc<Device>>);
+
+    fn run(&mut self, renderable: Self::SystemData) {
         use specs::Join;
 
-        // for renderable in
-
+        for renderable in renderable.join() {
+            // renderable.initialize();
+            log::info!("I'm in my system!");
+        }
     }
 }

@@ -77,6 +77,7 @@ impl Manager for Application{
         self.event_loop = Some(event_loop);
         self.surface = Some(surface);
 
+        log::info!("Startup complete...");
     }
 
     // Shutdown process

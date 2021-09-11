@@ -2,7 +2,7 @@ use crate::math::structures::vector::Vector3;
 
 #[derive(Debug)]
 pub struct GeometryData {
-    pub vertices: Vec<Vector3>,
+    pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
 }
 
@@ -11,3 +11,7 @@ pub struct Vertex {
     pub position: [f32; 3],
 }
 vulkano::impl_vertex!(Vertex, position);
+
+pub trait Geometry{
+    fn create(x: f32, y: f32, z: f32) -> Self where Self: Sized;
+}

@@ -1,7 +1,11 @@
 use crate::core::{
     rendering::geometries::{
         geometry::{
-            Vertex
+            Vertex,
+            Geometry,
+        },
+        triangle::{
+            TriangleGeom,
         }
     }
 };
@@ -22,11 +26,12 @@ use std::sync::Arc;
 #[storage(VecStorage)]
 pub struct RenderableComponent{
     // pub renderable: Mutex<Box<dyn Renderable>>,
-    pub vertex_buffer: Arc<CpuAccessibleBuffer<()>>,
+    pub vertex_buffer: CpuAccessibleBuffer<()>,
+    geometry: TriangleGeom,
 }
 
 impl RenderableComponent{
-    pub fn initialize(&mut self){
-        
+    pub fn initialize(&mut self, device: &mut Device){
+
     }
 }
