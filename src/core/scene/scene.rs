@@ -12,6 +12,15 @@ pub struct Scene<S>{
 pub struct Uninitialized;
 pub struct Initialized;
 
+impl Scene<Uninitialized> {
+    pub fn new() -> Self {
+        Scene{
+            world: None,
+            state: Uninitialized,
+        }
+    }
+}
+
 impl From<Scene<Uninitialized>> for Scene<Initialized> {
     fn from(val: Scene<Uninitialized>) -> Scene<Initialized> {
         Scene{

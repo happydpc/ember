@@ -3,7 +3,10 @@ use std::{
     borrow::{
         BorrowMut,
     },
-    cell::RefCell,
+    cell::{
+        RefCell,
+        RefMut
+    },
 };
 
 use crate::core::{
@@ -160,9 +163,10 @@ impl Application{
         }); // end of event_loop run
     } // end of run function
 
-    // pub fn get_scene_manager(&self) -> RefCell<SceneManager> {
-    //     match self.scene_manager{
-    //         Some(manager) => self.scene_manager.
-    //     }
-    // }
+    pub fn get_scene_manager(&self) -> Option<RefMut<SceneManager>> {
+        match &self.scene_manager{
+            Some(manager) => Some(manager.borrow_mut()),
+            None => None,
+        }
+    }
 } // end of class
