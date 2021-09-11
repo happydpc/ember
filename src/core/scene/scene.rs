@@ -4,15 +4,28 @@ use crate::core::{
     managers::manager::Manager,
 };
 
-pub struct Scene{
-    pub world: World,
+pub struct Scene<S>{
+    pub world: Option<World>,
+    pub state: S,
 }
 
-impl Scene{
-    pub fn initialize(&mut self){
+pub struct Uninitialized;
+pub struct Initialized;
 
+impl From<Scene<Uninitialized>> for Scene<Initialized> {
+    fn from(val: Scene<Uninitialized>) -> Scene<Initialized> {
+        Scene{
+            world: Some(World::new()),
+            state: Initialized,
+        }
     }
-    pub fn deinitialize(&mut self){
-        
+}
+
+impl From<Scene<Initialized>> for Scene<Uninitialized> {
+    fn from(val: Scene<Initialized>) -> Scene<Uninitialized> {
+        Scene{
+            world: None,
+            state: Uninitialized,
+        }
     }
 }

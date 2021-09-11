@@ -1,13 +1,21 @@
 use std::collections::HashMap;
 use std::cell::RefCell;
-use super::{super::managers::manager::Manager, scene::Scene};
+use super::{
+    super::managers::manager::Manager,
+    scene::{
+        Scene,
+        Initialized,
+        Uninitialized
+    },
+};
 use specs::{
     World,
 };
 
 pub struct SceneManager{
-    active_scene: Option<i16>,  // Either the scene ID or None
-    scenes: HashMap<i16, RefCell<Box<Scene>>>, // Scene ids and scenes
+    active_scene: Option<Scene<Initialized>>,  // Either the scene ID or None
+    active_scene_id: Option<i16>,
+    scenes: HashMap<i16, Scene<Uninitialized>>, // Scene ids and scenes
     scene_counter: i16,
 }
 
@@ -32,42 +40,56 @@ impl SceneManager{
         log::info!("Creating SceneManager...");
         SceneManager{
             active_scene: None,
+            active_scene_id: None,
             scenes: HashMap::new(),
             scene_counter: 0,
         }
     }
 
     // adds a scene and returns its scene id
-    pub fn add_scene(&mut self, scene: Scene) -> i16 {
+    pub fn register_scene(&mut self, scene: Scene<Uninitialized>) -> i16 {
         self.scene_counter+=1;
         let key = self.scene_counter;
-        self.scenes.insert(key, RefCell::new(Box::new(scene)));
+        self.scenes.insert(key, scene);
+        log::info!("Registering scene {}.", key);
         key
     }
 
-    pub fn remove_scene(&mut self, scene_id: i16){
+    pub fn unregister_scene(&mut self, scene_id: i16){
         self.scenes.remove(&scene_id);
-    }
-
-    // takes a scene id and, if that scene exists, sets that id to be the active scene.
-    pub fn set_active_scene(&mut self, scene_id: i16){
-        match self.scenes.get(&scene_id){
-            Some(_x) => self.active_scene = Some(scene_id),
-            None => log::info!("Scene {} is not in the SceneManager.", scene_id),
-        }
+        log::info!("Unregistered scene {}.", scene_id);
     }
 
     // gets the active scene id
-    pub fn get_active_scene(&self) -> Option<i16> {
-        self.active_scene
+    pub fn get_active_scene_id(&self) -> Option<i16> {
+        self.active_scene_id.clone()
     }
 
-    pub fn switch_to(&mut self, scene_id: i16){
-        match self.active_scene{
-            Some(id) => self.scenes[&id].borrow_mut().deinitialize(),
+    pub fn set_active_scene(&mut self, scene_id: i16){
+        // if there is an active scene id, deactivate that scene and restore it in the hash map
+        match self.active_scene_id{
+            Some(id) => {
+                let deinit_scene = Scene::<Uninitialized>::from(
+                    self.active_scene
+                    .take()
+                    .unwrap()
+                );
+                self.scenes.insert(self.active_scene_id.take().unwrap(), deinit_scene);
+            },
             None => (),
         }
-        self.scenes[&scene_id].borrow_mut().initialize();
-        self.active_scene = Some(scene_id);
+        // now set initialize the scene if it exists
+        let scene = self.scenes.remove(&scene_id);
+        match scene{
+            Some(s) => {
+                let initialized_scene = Scene::<Initialized>::from(s);
+                self.active_scene = Some(initialized_scene);
+                self.active_scene_id = Some(scene_id);
+            },
+            None => {
+                log::error!("Scene {} does not exist.", scene_id);
+            }
+        }
+
     }
 }
