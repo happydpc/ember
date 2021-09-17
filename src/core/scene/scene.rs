@@ -1,4 +1,5 @@
 use specs::{
+    world::EntityBuilder,
     prelude::Resource,
     World,
     WorldExt,
@@ -62,6 +63,13 @@ impl Scene<Initialized> {
                 log::info!("New resources insterted into scene.");
             },
             None=> (),
+        }
+    }
+
+    pub fn get_world(&mut self) -> Option<RefMut<World>>{
+        match &self.world {
+            Some(world) => Some(world.borrow_mut()),
+            None => None,
         }
     }
 }

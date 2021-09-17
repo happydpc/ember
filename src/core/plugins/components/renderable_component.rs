@@ -28,8 +28,8 @@ use log::info;
 #[storage(VecStorage)]
 pub struct RenderableComponent{
     // pub renderable: Mutex<Box<dyn Renderable>>,
-    pub vertex_buffer: CpuAccessibleBuffer<()>,
-    geometry: TriangleGeom,
+    pub vertex_buffer: Option<CpuAccessibleBuffer<()>>,
+    pub geometry: Option<TriangleGeom>,
 }
 
 impl RenderableComponent{

@@ -24,6 +24,7 @@ use crate::core::{
 
 // ecs
 use specs::{System, ReadStorage, ReadExpect, Read, WriteStorage};
+use specs::prelude::*;
 
 // Vulkano imports
 use vulkano::{
@@ -345,6 +346,10 @@ impl RenderManager{
     }
 
     pub fn draw(&mut self, scene: &mut Scene<Initialized>){
+        scene.insert_resource(self.device.clone());
+        let mut dispatcher = DispatcherBuilder::new().with(RenderableInitializerSystem{device: self.device.clone()}, "sys_a", &[]).build();
+        dispatcher.dispatch(&mut scene.get_world().unwrap());
+
         // unwrap the options we'll be using
         let mut _framebuffers = self.framebuffers.take().unwrap();
         let mut _pipeline = self.pipeline.take().unwrap();
@@ -526,6 +531,7 @@ impl RenderManager{
     }
 
 }
+
 
 pub struct RenderableInitializerSystem{
     pub device: Option<Arc<Device>>,
