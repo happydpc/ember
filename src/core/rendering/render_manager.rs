@@ -23,7 +23,7 @@ use crate::core::{
 };
 
 // ecs
-use specs::{System, ReadStorage, ReadExpect};
+use specs::{System, ReadStorage, ReadExpect, Read, WriteStorage};
 
 // Vulkano imports
 use vulkano::{
@@ -284,48 +284,24 @@ impl RenderManager{
         // clone the surface so we can return this clone
         let return_surface = surface.clone();
 
-        // fill options with initialized values
-        if self.required_extensions.is_none(){
-            self.required_extensions = Some(required_extensions);
-        }
-        if self.device_extensions.is_none(){
-            self.device_extensions = Some(device_extensions);
-        }
-        if self.minimal_features.is_none(){
-            self.minimal_features = Some(minimal_features);
-        }
-        if self.instance.is_none(){
-            self.instance = Some(instance);
-        }
-        if self.surface.is_none(){
-            self.surface = Some(surface);
-        }
-        if self.device.is_none(){
-            self.device = Some(device);
-        }
-        if self.queue.is_none(){
-            self.queue = Some(queue);
-        }
-        if self.swapchain.is_none(){
-            self.swapchain = Some(swapchain);
-        }
-        if self.render_pass.is_none(){
-            self.render_pass = Some(render_pass);
-        }
-        if self.pipeline.is_none(){
-            self.pipeline = Some(pipeline);
-        }
-        if self.dynamic_state.is_none(){
-            self.dynamic_state = Some(dynamic_state);
-        }
-        if self.framebuffers.is_none(){
-            self.framebuffers = Some(framebuffers);
-        }
-        if self.previous_frame_end.is_none(){
-            self.previous_frame_end = previous_frame_end;
-        }
-        self.recreate_swapchain = false;
+        // prep systems
+        self.scene_prep_system.device = Some(device.clone());
 
+        // fill options with initialized values
+        self.required_extensions = Some(required_extensions);
+        self.device_extensions = Some(device_extensions);
+        self.minimal_features = Some(minimal_features);
+        self.instance = Some(instance);
+        self.surface = Some(surface);
+        self.device = Some(device);
+        self.queue = Some(queue);
+        self.swapchain = Some(swapchain);
+        self.render_pass = Some(render_pass);
+        self.pipeline = Some(pipeline);
+        self.dynamic_state = Some(dynamic_state);
+        self.framebuffers = Some(framebuffers);
+        self.previous_frame_end = previous_frame_end;
+        self.recreate_swapchain = false;
 
         (event_loop, return_surface)
     }
@@ -341,7 +317,9 @@ impl RenderManager{
         // initialize our render system with all of the required vulkan components
         let render_sys = RenderManager{
             // ECS Systemes
-            scene_prep_system: RenderableInitializerSystem{},
+            scene_prep_system: RenderableInitializerSystem{
+                device: None,
+            },
             // Vulkan
             required_extensions: None,
             device_extensions: None,
@@ -366,7 +344,7 @@ impl RenderManager{
         // self.window.run();
     }
 
-    pub fn draw(&mut self){
+    pub fn draw(&mut self, scene: &mut Scene<Initialized>){
         // unwrap the options we'll be using
         let mut _framebuffers = self.framebuffers.take().unwrap();
         let mut _pipeline = self.pipeline.take().unwrap();
@@ -538,30 +516,40 @@ impl RenderManager{
             .collect::<Vec<_>>()
     }
 
-    pub fn prep_scene(&mut self, scene: &mut Scene<Initialized>){
+    pub fn prep_scene(&mut self, scene: &mut Scene<Initialized>) {
         // load device if it hasn't been already
         if scene.state.device_loaded == false {
+            log::info!("Inserting device into scene...");
             scene.insert_resource(self.device.clone());
             scene.state.device_loaded = true;
         }
-
-        
     }
 
 }
 
-pub struct RenderableInitializerSystem;
+pub struct RenderableInitializerSystem{
+    pub device: Option<Arc<Device>>,
+}
+
 
 impl<'a> System<'a> for RenderableInitializerSystem{
-    type SystemData = (ReadStorage<'a, RenderableComponent>);//,
-                       // ReadExpect<'a, Arc<Device>>);
+    type SystemData = (
+        ReadExpect<'a, Arc<Device>>,
+        WriteStorage<'a, RenderableComponent>,
+    );
 
-    fn run(&mut self, renderable: Self::SystemData) {
+
+    fn run(&mut self, data: Self::SystemData) {
         use specs::Join;
 
-        for renderable in renderable.join() {
-            // renderable.initialize();
+        let (device, mut renderable) = data;
+        // let u: u16 = renderable;
+        let device = &*device;
+        // let x: u16 = *device;
+        for renderable in (&mut renderable).join() {
+            renderable.initialize(device.clone());
             log::info!("I'm in my system!");
         }
     }
+
 }

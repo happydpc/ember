@@ -22,6 +22,8 @@ use vulkano::{
 use specs::{Component, VecStorage};
 use std::sync::Arc;
 
+use log::info;
+
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct RenderableComponent{
@@ -31,7 +33,7 @@ pub struct RenderableComponent{
 }
 
 impl RenderableComponent{
-    pub fn initialize(&mut self, device: &mut Device){
-
+    pub fn initialize(&mut self, device: Arc<Device>){
+        log::info!("initializing a component");
     }
 }

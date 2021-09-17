@@ -13,7 +13,15 @@ use crate::core::{
     managers::manager::Manager,
     physics::physics_manager::PhysicsManager,
     rendering::render_manager::RenderManager,
-    scene::scene_manager::SceneManager,
+    scene::{
+        scene::{
+            Scene,
+            Initialized,
+        },
+        scene_manager::{
+            SceneManager,
+        },
+    },
     rendering::{
         renderables::{
             renderable::Renderable,
@@ -150,14 +158,7 @@ impl Application{
                     }
                 }
                 Event::RedrawEventsCleared => {
-                    // check if render manager exists, and if so, draw
-                    match &self.render_manager {
-                        Some(manager) => {
-                            manager.borrow_mut().draw();
-                        },
-                        None => log::error!("Render manager does not exist on application manager."),
-                    }
-
+                    self.run_managers();
                 } // end of RedrawEventsCleared arm of event match
                 _ => (), // catch all of event match
             } // end of event match
@@ -168,6 +169,26 @@ impl Application{
         match &self.scene_manager{
             Some(manager) => Some(manager.borrow_mut()),
             None => None,
+        }
+    }
+
+    fn run_managers(&self){
+        match &self.scene_manager {
+            Some(scene_manager) => {
+                let scene_manager = scene_manager.borrow_mut();
+                let mut current_scene = scene_manager.get_active_scene().unwrap();
+                // check if render manager exists, and if so, draw
+                match &self.render_manager {
+                    Some(manager) => {
+                        manager.borrow_mut().prep_scene(current_scene.borrow_mut());
+                        manager.borrow_mut().draw(current_scene.borrow_mut());
+                    },
+                    None => log::error!("Render manager does not exist on application manager."),
+                }
+            },
+            None => {
+                log::error!("Scene manager does not exist on application manager.");
+            },
         }
     }
 } // end of class
