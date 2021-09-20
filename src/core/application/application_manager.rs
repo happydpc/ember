@@ -50,6 +50,7 @@ use winit::{
 //logging
 use simple_logger::SimpleLogger;
 use log;
+use log::LevelFilter;
 
 //////////////////////////////////////////////////
 // Done with imports. actual application below  //
@@ -62,12 +63,14 @@ pub struct Application{
     scene_manager: Option<RefCell<SceneManager>>,
     event_loop: Option<EventLoop<()>>,
     surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
+
+    log_level: LevelFilter,
 }
 
 impl Manager for Application{
     // startup process
     fn startup(&mut self){
-        SimpleLogger::new().init().unwrap();
+        SimpleLogger::new().with_level(self.log_level).init().unwrap();
         log::info!("Starting application ...");
         // create other managers
         let mut render_manager = RenderManager::create_new();
@@ -124,13 +127,14 @@ impl Manager for Application{
 
 impl Application{
     // called by the client when they want to create an application
-    pub fn create_application() -> Self{
+    pub fn create_application(log_level: Option<LevelFilter>) -> Self{
         Self {
             render_manager: None,
             physics_manager: None,
             scene_manager: None,
             event_loop: None,
             surface: None,
+            log_level: log_level.unwrap_or(LevelFilter::Info),
         }
     }
 

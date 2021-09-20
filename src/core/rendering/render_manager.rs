@@ -285,9 +285,6 @@ impl RenderManager{
         // clone the surface so we can return this clone
         let return_surface = surface.clone();
 
-        // prep systems
-        self.scene_prep_system.device = Some(device.clone());
-
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
         self.device_extensions = Some(device_extensions);
@@ -318,9 +315,7 @@ impl RenderManager{
         // initialize our render system with all of the required vulkan components
         let render_sys = RenderManager{
             // ECS Systemes
-            scene_prep_system: RenderableInitializerSystem{
-                device: None,
-            },
+            scene_prep_system: RenderableInitializerSystem{},
             // Vulkan
             required_extensions: None,
             device_extensions: None,
@@ -399,7 +394,7 @@ impl RenderManager{
         let mut builder = AutoCommandBufferBuilder::primary(
             _device.clone(),
             _queue.family(),
-            CommandBufferUsage::OneTimeSubmit,
+            CommandBufferUsage::SimultaneousUse,
         )
         .unwrap();
 
@@ -509,19 +504,14 @@ impl RenderManager{
 
     pub fn prep_scene(&mut self, scene: &mut Scene<Initialized>) {
         // load device if it hasn't been already
-        if scene.state.device_loaded == false {
-            log::info!("Inserting device into scene...");
-            scene.insert_resource(self.device.clone().unwrap());
-            scene.state.device_loaded = true;
-        }
+        scene.insert_resource(self.device.clone().unwrap().clone());
+        scene.insert_resource(self.dynamic_state.clone().unwrap().clone());
     }
 
 }
 
 
-pub struct RenderableInitializerSystem{
-    pub device: Option<Arc<Device>>,
-}
+pub struct RenderableInitializerSystem;
 
 
 impl<'a> System<'a> for RenderableInitializerSystem{
@@ -530,14 +520,11 @@ impl<'a> System<'a> for RenderableInitializerSystem{
         WriteStorage<'a, RenderableComponent>,
     );
 
-
     fn run(&mut self, data: Self::SystemData) {
         use specs::Join;
 
         let (device, mut renderable) = data;
-        // let u: u16 = renderable;
         let device = &*device;
-        // let x: u16 = *device;
         for renderable in (&mut renderable).join() {
             if renderable.initialized == false{
                 renderable.initialize(device.clone());
@@ -546,3 +533,5 @@ impl<'a> System<'a> for RenderableInitializerSystem{
     }
 
 }
+
+// pub struct Render

@@ -60,7 +60,7 @@ impl Scene<Initialized> {
         match &self.world{
             Some(world) =>{
                 world.borrow_mut().insert(r);
-                log::info!("New resources insterted into scene.");
+                log::debug!("New resources insterted into scene.");
             },
             None=> (),
         }
