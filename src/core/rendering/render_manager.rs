@@ -346,20 +346,17 @@ impl RenderManager{
     }
 
     pub fn draw(&mut self, scene: &mut Scene<Initialized>){
-        scene.insert_resource(self.device.clone());
-        let mut dispatcher = DispatcherBuilder::new().with(RenderableInitializerSystem{device: self.device.clone()}, "sys_a", &[]).build();
-        dispatcher.dispatch(&mut scene.get_world().unwrap());
+        self.scene_prep_system.run(scene.get_world().unwrap().system_data());
 
         // unwrap the options we'll be using
-        let mut _framebuffers = self.framebuffers.take().unwrap();
-        let mut _pipeline = self.pipeline.take().unwrap();
-        let mut _dynamic_state = self.dynamic_state.take().unwrap();
-        let mut _device = self.device.take().unwrap();
-        let mut _queue = self.queue.take().unwrap();
-        let mut _surface = self.surface.take().unwrap();
-        let mut _render_pass = self.render_pass.take().unwrap();
-        let mut _swapchain = self.swapchain.take().unwrap();
-        // let mut _previous_frame_end = self.previous_frame_end.take().unwrap();
+        let mut _framebuffers = self.framebuffers.clone().unwrap();
+        let mut _pipeline = self.pipeline.clone().unwrap();
+        let mut _dynamic_state = self.dynamic_state.clone().unwrap();
+        let mut _device = self.device.clone().unwrap();
+        let mut _queue = self.queue.clone().unwrap();
+        let mut _surface = self.surface.clone().unwrap();
+        let mut _render_pass = self.render_pass.clone().unwrap();
+        let mut _swapchain = self.swapchain.clone().unwrap();
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
@@ -478,17 +475,6 @@ impl RenderManager{
             }
         }
 
-        // put these things back
-        self.framebuffers = Some(_framebuffers);
-        self.pipeline = Some(_pipeline);
-        self.dynamic_state = Some(_dynamic_state);
-        self.device = Some(_device);
-        self.queue = Some(_queue);
-        self.surface = Some(_surface);
-        self.render_pass = Some(_render_pass);
-        self.swapchain = Some(_swapchain);
-        // self.previous_frame_end = _previous_frame_end;
-
     }
 
     /// This method is called once during initialization, then again whenever the window is resized
@@ -525,7 +511,7 @@ impl RenderManager{
         // load device if it hasn't been already
         if scene.state.device_loaded == false {
             log::info!("Inserting device into scene...");
-            scene.insert_resource(self.device.clone());
+            scene.insert_resource(self.device.clone().unwrap());
             scene.state.device_loaded = true;
         }
     }
@@ -553,8 +539,9 @@ impl<'a> System<'a> for RenderableInitializerSystem{
         let device = &*device;
         // let x: u16 = *device;
         for renderable in (&mut renderable).join() {
-            renderable.initialize(device.clone());
-            log::info!("I'm in my system!");
+            if renderable.initialized == false{
+                renderable.initialize(device.clone());
+            }
         }
     }
 

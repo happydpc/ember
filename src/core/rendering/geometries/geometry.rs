@@ -1,6 +1,6 @@
 use crate::math::structures::vector::Vector3;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GeometryData {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
