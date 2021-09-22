@@ -8,6 +8,7 @@ use crate::core::{
     },
     rendering::{
         geometries::{
+            geometry,
             geometry::{
                 Vertex
             }
@@ -23,7 +24,7 @@ use crate::core::{
 };
 
 // ecs
-use specs::{System, ReadStorage, ReadExpect, Read, WriteStorage};
+use specs::{System, ReadStorage, ReadExpect, Read, WriteStorage, Join};
 use specs::prelude::*;
 
 // Vulkano imports
@@ -31,10 +32,12 @@ use vulkano::{
     instance::{
         Instance,
         InstanceExtensions,
-        PhysicalDevice,
-        PhysicalDeviceType,
     },
     device::{
+        physical::{
+            PhysicalDevice,
+            PhysicalDeviceType,
+        },
         Device,
         DeviceExtensions,
         Features,
@@ -64,9 +67,11 @@ use vulkano::{
             Viewport,
         },
         vertex::{
-            SingleBufferDefinition,
+            // SingleBufferDefinition,
+            BuffersDefinition,
         },
         GraphicsPipeline,
+        PipelineBindPoint,
     },
     sync::{
         FlushError,
@@ -75,6 +80,7 @@ use vulkano::{
     sync,
     command_buffer::{
         AutoCommandBufferBuilder,
+        PrimaryAutoCommandBuffer,
         CommandBufferUsage,
         DynamicState,
         SubpassContents,
@@ -82,6 +88,7 @@ use vulkano::{
     buffer::{
         BufferUsage,
         CpuAccessibleBuffer,
+        BufferAccess,
     },
     Version,
 };
@@ -117,6 +124,8 @@ use log;
 pub struct RenderManager{
     // ECS Systems
     scene_prep_system: RenderableInitializerSystem,
+    command_buffer_builder_system: CommandBufferBuilderSystem,
+
     // Vulkan
     required_extensions: Option<InstanceExtensions>,
     device_extensions: Option<DeviceExtensions>,
@@ -128,7 +137,7 @@ pub struct RenderManager{
     pub queue: Option<Arc<Queue>>,
     pub swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
     pub render_pass: Option<Arc<RenderPass>>,
-    pub pipeline: Option<Arc<GraphicsPipeline<SingleBufferDefinition<Vertex>>>>,
+    pub pipeline: Option<Arc<GraphicsPipeline<BuffersDefinition>>>,
     pub dynamic_state: Option<DynamicState>,
     pub framebuffers: Option<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
     pub recreate_swapchain: bool,
@@ -173,7 +182,7 @@ impl RenderManager{
         // get our physical device and queue family
         let (physical_device, queue_family) = PhysicalDevice::enumerate(&instance)
             .filter(|&p| { // filter to devices that contain desired features
-                p.supported_features().superset_of(&optimal_features)
+                p.supported_features().is_superset_of(&optimal_features)
             })
             .filter_map(|p| { // filter queue families to ones that support graphics
                 p.queue_families() // TODO : pick beter queue families since this is one single queue
@@ -183,7 +192,7 @@ impl RenderManager{
                     .map(|q| (p, q))
             })
             .min_by_key(|(p, _)| { // pick the best device based on a score we assign
-                match p.properties().device_type.unwrap() {
+                match p.properties().device_type {
                     PhysicalDeviceType::DiscreteGpu => 0,
                     PhysicalDeviceType::IntegratedGpu => 1,
                     PhysicalDeviceType::VirtualGpu => 2,
@@ -196,8 +205,8 @@ impl RenderManager{
         // logging the physical device
         log::info!(
             "Using device: {} (type: {:?})",
-            physical_device.properties().device_name.as_ref().unwrap(),
-            physical_device.properties().device_type.unwrap(),
+            physical_device.properties().device_name,
+            physical_device.properties().device_type,
         );
 
         // now create logical device and queues
@@ -258,7 +267,11 @@ impl RenderManager{
         // create our pipeline. like an opengl program but more specific
         let pipeline = Arc::new(
             GraphicsPipeline::start()
-                .vertex_input_single_buffer::<Vertex>()
+                // .vertex_input_single_buffer::<Vertex>()
+                .vertex_input(
+                    BuffersDefinition::new()
+                        .vertex::<Vertex>(),
+                )
                 .vertex_shader(vs.main_entry_point(), ())
                 .triangle_list()
                 .viewports_dynamic_scissors_irrelevant(1)
@@ -316,6 +329,8 @@ impl RenderManager{
         let render_sys = RenderManager{
             // ECS Systemes
             scene_prep_system: RenderableInitializerSystem{},
+            command_buffer_builder_system: CommandBufferBuilderSystem{},
+
             // Vulkan
             required_extensions: None,
             device_extensions: None,
@@ -394,7 +409,7 @@ impl RenderManager{
         let mut builder = AutoCommandBufferBuilder::primary(
             _device.clone(),
             _queue.family(),
-            CommandBufferUsage::SimultaneousUse,
+            CommandBufferUsage::OneTimeSubmit,
         )
         .unwrap();
 
@@ -422,25 +437,35 @@ impl RenderManager{
             .unwrap()
         };
 
-        // prepare contents of command buffer using the builder
+        let world = scene.get_world().unwrap();
+        let system_data: (ReadStorage<RenderableComponent>) = world.system_data();
+        let renderables = world.read_storage::<RenderableComponent>();
+        // let vertex_buffers: Vec<_> = (&renderables).join();
+        let mut vertex_buffers = vec!();
+        let mut index_buffers = vec!();
+
         builder
             .begin_render_pass(
                 _framebuffers[image_num].clone(),
                 SubpassContents::Inline,
                 clear_values,
             )
-            .unwrap()
-            .draw(
+            .unwrap();
+
+        for (renderable) in (renderables).join() {
+            vertex_buffers.push(renderable.vertex_buffer.clone().unwrap().clone());
+            index_buffers.push(renderable.index_buffer.clone().unwrap().clone() as Arc<BufferAccess + Send + Sync + 'static>);
+            &builder.draw(
                 _pipeline.clone(),
                 &_dynamic_state,
-                vertex_buffer.clone(),
+                renderable.vertex_buffer.clone().unwrap().clone(),
                 (),
                 (),
-                vec![],
             )
-            .unwrap()
-            .end_render_pass()
             .unwrap();
+        }
+
+        builder.end_render_pass().unwrap();
 
         // actually build command buffer now
         let command_buffer = builder.build().unwrap();
@@ -503,9 +528,9 @@ impl RenderManager{
     }
 
     pub fn prep_scene(&mut self, scene: &mut Scene<Initialized>) {
-        // load device if it hasn't been already
         scene.insert_resource(self.device.clone().unwrap().clone());
         scene.insert_resource(self.dynamic_state.clone().unwrap().clone());
+        scene.insert_resource(self.pipeline.clone().unwrap().clone());
     }
 
 }
@@ -521,7 +546,6 @@ impl<'a> System<'a> for RenderableInitializerSystem{
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        use specs::Join;
 
         let (device, mut renderable) = data;
         let device = &*device;
@@ -534,4 +558,18 @@ impl<'a> System<'a> for RenderableInitializerSystem{
 
 }
 
-// pub struct Render
+pub struct CommandBufferBuilderSystem;
+
+// impl<'a> System<'a> for CommandBufferBuilderSystem{
+//     type SystemData = (
+//         ReadExpect<'a, Arc<GraphicsPipeline<SingleBufferDefinition<Vertex>>>>,
+//         ReadExpect<'a, DynamicState>,
+//         ReadStorage<'a, RenderableComponent>,
+//         // ReadExpect<'a, AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>>,
+//     );
+//
+//     fn run(&mut self, data: Self::SystemData){
+//         let(pipeline, dynamic_state, renderable, command_buffer) = data;
+//
+//     }
+// }

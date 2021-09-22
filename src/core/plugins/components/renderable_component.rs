@@ -31,11 +31,13 @@ use log::info;
 pub struct RenderableComponent{
     // pub renderable: Mutex<Box<dyn Renderable>>,
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[geometry::Vertex]>>>,
+    pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
     pub geometry: Option<GeometryData>,
     pub initialized: bool,
 }
 
 impl RenderableComponent{
+
     pub fn initialize(&mut self, device: Arc<Device>){
         log::debug!("Initializing renderable component...");
         let geometry = GeometryData{
@@ -46,7 +48,9 @@ impl RenderableComponent{
             ],
             indices: vec![0, 1, 2],
         };
+
         self.geometry = Some(geometry);
+
 
         let vertex_buffer = {
             CpuAccessibleBuffer::from_iter(
@@ -60,7 +64,17 @@ impl RenderableComponent{
             .unwrap()
         };
         self.vertex_buffer = Some(vertex_buffer);
-        
+
+        let index_buffer = CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            false,
+            self.geometry.clone().unwrap().indices
+            .iter()
+            .cloned(),
+        ).unwrap();
+        self.index_buffer = Some(index_buffer);
+
         self.initialized = true;
     }
 }

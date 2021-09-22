@@ -10,7 +10,7 @@ pub struct TriangleGeom{
 }
 
 impl Geometry for TriangleGeom{
-    fn create(x: f32, y: f32, z: f32) -> Self{
+    fn create(x: f32, y: f32, z: f32, scale: f32) -> Self{
         TriangleGeom{
             data: GeometryData{
                 vertices: vec![

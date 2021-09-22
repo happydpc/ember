@@ -13,5 +13,5 @@ pub struct Vertex {
 vulkano::impl_vertex!(Vertex, position);
 
 pub trait Geometry{
-    fn create(x: f32, y: f32, z: f32) -> Self where Self: Sized;
+    fn create(x: f32, y: f32, z: f32, size: f32) -> Self where Self: Sized;
 }

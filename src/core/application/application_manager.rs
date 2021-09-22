@@ -23,9 +23,6 @@ use crate::core::{
         },
     },
     rendering::{
-        renderables::{
-            renderable::Renderable,
-        },
         geometries::{
             geometry::{
                 Vertex
