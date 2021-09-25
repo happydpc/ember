@@ -406,30 +406,6 @@ impl RenderManager{
         )
         .unwrap();
 
-        // create a vertex buffer
-        // TODO : replace this with real geometries
-        let vertex_buffer = {
-            CpuAccessibleBuffer::from_iter(
-                _device.clone(),
-                BufferUsage::all(),
-                false,
-                [
-                    Vertex {
-                        position: [-0.5, -0.25, 0.0],
-                    },
-                    Vertex {
-                        position: [0.0, 0.5, 0.0],
-                    },
-                    Vertex {
-                        position: [0.25, -0.1, 0.0],
-                    },
-                ]
-                .iter()
-                .cloned(),
-            )
-            .unwrap()
-        };
-
         let world = scene.get_world().unwrap();
         let system_data: ReadStorage<RenderableComponent> = world.system_data();
         let renderables = world.read_storage::<RenderableComponent>();
