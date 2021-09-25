@@ -1,80 +1,43 @@
-use crate::core::{
-    rendering::geometries::{
-        geometry,
-        geometry::{
-            Vertex,
-            Geometry,
-            GeometryData,
-        },
-        triangle::{
-            TriangleGeom,
-        }
-    }
-};
-
+use crate::core::rendering::geometries::geometry::Geometry;
 use vulkano::{
-    buffer::{
-        BufferUsage,
-        CpuAccessibleBuffer,
-    },
     device::{
         Device
     }
 };
 use specs::{Component, VecStorage};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::borrow::Borrow;
 
-use log::info;
-
-#[derive(Component, Debug)]
+#[derive(Component)]
 #[storage(VecStorage)]
 pub struct RenderableComponent{
-    // pub renderable: Mutex<Box<dyn Renderable>>,
-    pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[geometry::Vertex]>>>,
-    pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
-    pub geometry: Option<GeometryData>,
-    pub initialized: bool,
+    pub geometry: Option<Arc<Mutex<Box<dyn Geometry + Sync + Send>>>>,
 }
 
 impl RenderableComponent{
 
+    pub fn create(geometry: Box<dyn Geometry + Sync + Send>) -> Self{
+        RenderableComponent{
+            geometry: Some(Arc::new(Mutex::new(geometry)))
+        }
+    }
+
     pub fn initialize(&mut self, device: Arc<Device>){
         log::debug!("Initializing renderable component...");
-        let geometry = GeometryData{
-            vertices: vec![
-                Vertex{position: [-0.5, -0.25, 0.0]},
-                Vertex{position: [0.5, -0.25, 0.0]},
-                Vertex{position: [0.0, 0.5, 0.0]},
-            ],
-            indices: vec![0, 1, 2],
-        };
-
+        let mut geometry = self.geometry.take().unwrap();//.as_ref();//unwrap();
+        geometry.lock().unwrap().initialize(device);
         self.geometry = Some(geometry);
-
-
-        let vertex_buffer = {
-            CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage::all(),
-                false,
-                self.geometry.clone().unwrap().vertices
-                .iter()
-                .cloned(),
-            )
-            .unwrap()
-        };
-        self.vertex_buffer = Some(vertex_buffer);
-
-        let index_buffer = CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            BufferUsage::all(),
-            false,
-            self.geometry.clone().unwrap().indices
-            .iter()
-            .cloned(),
-        ).unwrap();
-        self.index_buffer = Some(index_buffer);
-
-        self.initialized = true;
     }
+
+    pub fn geometry(&self) -> Arc<Mutex<Box<dyn Geometry + Sync + Send>>>{
+        self.geometry.clone().unwrap().clone()
+    }
+
+    pub fn initialized(&self) -> bool {
+        match &self.geometry{
+            Some(g) => g.lock().unwrap().is_initialized(),
+            None => false
+        }
+    }
+
 }

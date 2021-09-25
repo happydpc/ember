@@ -1,10 +1,8 @@
 use specs::{
-    world::EntityBuilder,
     prelude::Resource,
-    World,
     WorldExt,
-    Builder,
-    Component
+    Component,
+    World
 };
 
 use std::{
@@ -12,10 +10,6 @@ use std::{
         RefCell,
         RefMut,
     },
-};
-
-use crate::core::{
-    managers::manager::Manager,
 };
 
 pub struct Scene<S>{

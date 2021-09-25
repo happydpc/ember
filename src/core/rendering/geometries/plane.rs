@@ -9,21 +9,24 @@ use std::sync::Arc;
 
 
 #[derive(Debug)]
-pub struct TriangleGeometry{
+pub struct PlaneGeometry{
     pub data: GeometryData,
 }
 
-impl Geometry for TriangleGeometry{
+impl Geometry for PlaneGeometry{
     fn create(x: f32, y: f32, z: f32, scale: f32) -> Self{
         let corner_offset = 0.5 * scale;
-        TriangleGeometry{
+
+        // top left, top right, bottom left, bottom right
+        let tl = Vertex{position: [-corner_offset + x, corner_offset + y, 0.0 + z]};
+        let tr = Vertex{position: [corner_offset + x, corner_offset + y, 0.0 + z]};
+        let bl = Vertex{position: [-corner_offset + x, -corner_offset + y, 0.0 + z]};
+        let br = Vertex{position: [corner_offset + x, -corner_offset + y, 0.0 + z]};
+
+        PlaneGeometry{
             data: GeometryData{
-                vertices: vec![
-                    Vertex{position: [-corner_offset + x, -corner_offset + y, 0.0 + z]},
-                    Vertex{position: [0.0 + x, corner_offset + y, 0.0 + z]},
-                    Vertex{position: [corner_offset + x, -corner_offset + y, 0.0 + z]},
-                ],
-                indices: vec![0, 1, 2],
+                vertices: vec![tl, tr, bl, br],
+                indices: vec![0, 1, 3, 3, 2, 0],
                 vertex_buffer: None,
                 index_buffer: None,
                 initialized: false,
@@ -71,4 +74,5 @@ impl Geometry for TriangleGeometry{
     fn is_initialized(&self) -> bool {
         self.data.initialized
     }
+
 }

@@ -9,21 +9,44 @@ use std::sync::Arc;
 
 
 #[derive(Debug)]
-pub struct TriangleGeometry{
+pub struct CubeGeometry{
     pub data: GeometryData,
 }
 
-impl Geometry for TriangleGeometry{
+impl Geometry for CubeGeometry{
     fn create(x: f32, y: f32, z: f32, scale: f32) -> Self{
-        let corner_offset = 0.5 * scale;
-        TriangleGeometry{
+        // dx here is just delta, not associated with x axis
+        let dx = 0.5 * scale;
+
+        // bottom plane
+        let tl0 = Vertex::new(-dx + x, dx + y, -dx + z);
+        let tr0 = Vertex::new(dx + x, dx + y, -dx + z);
+        let bl0 = Vertex::new(-dx + x, -dx + y, -dx + z);
+        let br0 = Vertex::new(dx + x, -dx + y, -dx + z);
+
+        // top plane
+        let tl1 = Vertex::new(-dx + x, dx + y, dx + z);
+        let tr1 = Vertex::new(dx + x, dx + y, dx + z);
+        let bl1 = Vertex::new(-dx + x, -dx + y, dx + z);
+        let br1 = Vertex::new(dx + x, -dx + y, dx + z);
+
+        // store verts.       0    1    2    3    4    5    6    7
+        let vertices = vec![tl0, tr0, bl0, br0, tl1, tr1, bl1, br1];
+
+        // top, front, right, back, left, bottom
+        let indices = vec![
+            4, 5, 7, 7, 6, 4, // top
+            6, 7, 3, 3, 2, 6, // front
+            7, 5, 1, 1, 3, 7, // right
+            5, 4, 0, 0, 1, 5, // back
+            4, 6, 2, 2, 0, 4, // left
+            2, 3, 0, 0, 1, 2, // bottom
+        ];
+
+        CubeGeometry{
             data: GeometryData{
-                vertices: vec![
-                    Vertex{position: [-corner_offset + x, -corner_offset + y, 0.0 + z]},
-                    Vertex{position: [0.0 + x, corner_offset + y, 0.0 + z]},
-                    Vertex{position: [corner_offset + x, -corner_offset + y, 0.0 + z]},
-                ],
-                indices: vec![0, 1, 2],
+                vertices: vertices,
+                indices: indices,
                 vertex_buffer: None,
                 index_buffer: None,
                 initialized: false,

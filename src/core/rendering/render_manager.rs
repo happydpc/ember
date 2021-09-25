@@ -1,6 +1,5 @@
 // internal imports
 use crate::core::{
-    managers::manager::Manager,
     plugins::{
         components::{
             renderable_component::RenderableComponent,
@@ -8,7 +7,6 @@ use crate::core::{
     },
     rendering::{
         geometries::{
-            geometry,
             geometry::{
                 Vertex
             }
@@ -23,8 +21,10 @@ use crate::core::{
     },
 };
 
+use std::borrow::BorrowMut;
+
 // ecs
-use specs::{System, ReadStorage, ReadExpect, Read, WriteStorage, Join};
+use specs::{System, ReadStorage, ReadExpect, WriteStorage, Join};
 use specs::prelude::*;
 
 // Vulkano imports
@@ -71,7 +71,6 @@ use vulkano::{
             BuffersDefinition,
         },
         GraphicsPipeline,
-        PipelineBindPoint,
     },
     sync::{
         FlushError,
@@ -80,7 +79,6 @@ use vulkano::{
     sync,
     command_buffer::{
         AutoCommandBufferBuilder,
-        PrimaryAutoCommandBuffer,
         CommandBufferUsage,
         DynamicState,
         SubpassContents,
@@ -100,12 +98,7 @@ use vulkano_win::{
 
 // winit imports
 use winit::{
-    event::{
-        Event,
-        WindowEvent
-    },
     event_loop::{
-        ControlFlow,
         EventLoop
     },
     window::{
@@ -141,7 +134,7 @@ pub struct RenderManager{
     pub dynamic_state: Option<DynamicState>,
     pub framebuffers: Option<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
     pub recreate_swapchain: bool,
-    pub previous_frame_end: Option<Box<GpuFuture>>,
+    pub previous_frame_end: Option<Box<dyn GpuFuture>>,
 }
 
 impl RenderManager{
@@ -438,11 +431,11 @@ impl RenderManager{
         };
 
         let world = scene.get_world().unwrap();
-        let system_data: (ReadStorage<RenderableComponent>) = world.system_data();
+        let system_data: ReadStorage<RenderableComponent> = world.system_data();
         let renderables = world.read_storage::<RenderableComponent>();
         // let vertex_buffers: Vec<_> = (&renderables).join();
-        let mut vertex_buffers = vec!();
-        let mut index_buffers = vec!();
+        // let mut vertex_buffers = vec!();
+        // let mut index_buffers = vec!();
 
         builder
             .begin_render_pass(
@@ -452,13 +445,18 @@ impl RenderManager{
             )
             .unwrap();
 
-        for (renderable) in (renderables).join() {
-            vertex_buffers.push(renderable.vertex_buffer.clone().unwrap().clone());
-            index_buffers.push(renderable.index_buffer.clone().unwrap().clone() as Arc<BufferAccess + Send + Sync + 'static>);
-            &builder.draw(
+        for renderable in (renderables).join() {
+            // vertex_buffers.push(renderable.geometry().vertex_buffer().clone());
+            // index_buffers.push(renderable.geometry().index_buffer().clone());
+            // let x: u32 = renderable.geometry().vertex_buffer();
+            let g_arc = &renderable.geometry();
+            let geometry = g_arc.lock().unwrap();
+            // let a: u32 = geometry;
+            &builder.draw_indexed(
                 _pipeline.clone(),
                 &_dynamic_state,
-                renderable.vertex_buffer.clone().unwrap().clone(),
+                geometry.vertex_buffer().clone(),
+                geometry.index_buffer().clone(),
                 (),
                 (),
             )
@@ -550,7 +548,7 @@ impl<'a> System<'a> for RenderableInitializerSystem{
         let (device, mut renderable) = data;
         let device = &*device;
         for renderable in (&mut renderable).join() {
-            if renderable.initialized == false{
+            if renderable.initialized() == false{
                 renderable.initialize(device.clone());
             }
         }

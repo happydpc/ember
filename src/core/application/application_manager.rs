@@ -14,19 +14,8 @@ use crate::core::{
     physics::physics_manager::PhysicsManager,
     rendering::render_manager::RenderManager,
     scene::{
-        scene::{
-            Scene,
-            Initialized,
-        },
         scene_manager::{
             SceneManager,
-        },
-    },
-    rendering::{
-        geometries::{
-            geometry::{
-                Vertex
-            },
         },
     },
 };
