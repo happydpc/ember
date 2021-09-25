@@ -37,11 +37,13 @@ use vulkano::{
         physical::{
             PhysicalDevice,
             PhysicalDeviceType,
+            QueueFamily,
         },
         Device,
         DeviceExtensions,
         Features,
         Queue,
+        QueuesIter
     },
     swapchain::{
         AcquireError,
@@ -140,60 +142,25 @@ pub struct RenderManager{
 impl RenderManager{
     pub fn startup(&mut self) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>){
         log::info!("Starting RenderManager...");
-        // what extensions do we need to have in vulkan to draw a window
-        let required_extensions = vulkano_win::required_extensions();
 
-        // choose the logical device extensions we're going to use
-        let device_extensions = DeviceExtensions {
-            khr_swapchain: true,
-            ..DeviceExtensions::none()
-        };
-
-        // choose the minimal features we want our physical device to have
-        let minimal_features = Features {
-            geometry_shader: true,
-            .. Features::none()
-        };
-
-        // choose the optimal features we want our device to have
-        let optimal_features = vulkano::device::Features {
-            geometry_shader: true,
-            tessellation_shader: true,
-            .. Features::none()
-        };
+        // get extensions
+        let (required_extensions, device_extensions) = RenderManager::get_required_extensions();
 
         // create an instance of vulkan with the required extensions
         let instance = Instance::new(None, Version::V1_1, &required_extensions, None).unwrap();
 
         // create event_loop and surface
-        let event_loop = EventLoop::new();
-        let surface = WindowBuilder::new()
-            .with_title("I should probably name my game.")
-            .build_vk_surface(&event_loop, instance.clone())
-            .unwrap();
+        let (event_loop, surface) = RenderManager::create_event_loop_and_surface(instance.clone());
+
+        // get optimal and desired features
+        let (optimal_features, minimal_features) = RenderManager::get_desired_features();
 
         // get our physical device and queue family
-        let (physical_device, queue_family) = PhysicalDevice::enumerate(&instance)
-            .filter(|&p| { // filter to devices that contain desired features
-                p.supported_features().is_superset_of(&optimal_features)
-            })
-            .filter_map(|p| { // filter queue families to ones that support graphics
-                p.queue_families() // TODO : pick beter queue families since this is one single queue
-                    .find(|&q| {
-                        q.supports_graphics() && surface.is_supported(q).unwrap_or(false)
-                    })
-                    .map(|q| (p, q))
-            })
-            .min_by_key(|(p, _)| { // pick the best device based on a score we assign
-                match p.properties().device_type {
-                    PhysicalDeviceType::DiscreteGpu => 0,
-                    PhysicalDeviceType::IntegratedGpu => 1,
-                    PhysicalDeviceType::VirtualGpu => 2,
-                    PhysicalDeviceType::Cpu => 3,
-                    PhysicalDeviceType::Other => 4,
-                }
-            })
-            .unwrap();
+        let (physical_device, queue_family) = RenderManager::get_physical_device_and_queue_family(
+            &instance,
+            optimal_features.clone(),
+            surface.clone()
+        );
 
         // logging the physical device
         log::info!(
@@ -202,36 +169,23 @@ impl RenderManager{
             physical_device.properties().device_type,
         );
 
-        // now create logical device and queues
-        let (device, mut queues) = Device::new(
+        // now create the logical device and queues
+        let (device, mut queues) = RenderManager::get_logical_device_and_queues(
             physical_device,
-            &Features::none(),
-            &DeviceExtensions::required_extensions(physical_device.clone()).union(&device_extensions),
-            [(queue_family, 0.5)].iter().cloned(),
-        )
-        .unwrap();
+            &device_extensions,
+            queue_family
+        );
 
         // get queue
         let queue = queues.next().unwrap();
 
-        // get swapchain, images
-        let (swapchain, images) = {
-            let caps = surface.capabilities(physical_device).unwrap();
-            let composite_alpha = caps.supported_composite_alpha.iter().next().unwrap();
-            let format = caps.supported_formats[0].0;
-            let dimensions: [u32; 2] = surface.window().inner_size().into();
-
-            // Please take a look at the docs for the meaning of the parameters we didn't mention.
-            Swapchain::start(device.clone(), surface.clone())
-                .num_images(caps.min_image_count)
-                .format(format)
-                .dimensions(dimensions)
-                .usage(ImageUsage::color_attachment())
-                .sharing_mode(&queue)
-                .composite_alpha(composite_alpha)
-                .build()
-                .unwrap()
-        };
+        // create swapchain, images
+        let (swapchain, images) = RenderManager::create_swapchain_and_images(
+            physical_device,
+            surface.clone(),
+            device.clone(),
+            queue.clone()
+        );
 
         // compile our shaders
         let vs = vs::Shader::load(device.clone()).unwrap();
@@ -309,12 +263,17 @@ impl RenderManager{
 
         (event_loop, return_surface)
     }
+
+    // shut down render manager
     pub fn shutdown(&mut self){
         log::info!("Shutting down render manager...");
     }
+
+    // update render manager
     pub fn update(&mut self){
     }
 
+    // create a new render manager with uninitialized values
     pub fn create_new() -> Self {
         log::info!("Creating RenderManager...");
 
@@ -344,11 +303,14 @@ impl RenderManager{
         render_sys
     }
 
+    // run the render manager
     pub fn run(&mut self) {
         // self.window.run();
     }
 
     pub fn draw(&mut self, scene: &mut Scene<Initialized>){
+        // prep scene by inserting device and other operations
+        self.insert_render_data_into_scene(scene);
         self.scene_prep_system.run(scene.get_world().unwrap().system_data());
 
         // unwrap the options we'll be using
@@ -365,7 +327,6 @@ impl RenderManager{
 
         // if the swapchain needs to be recreated
         if self.recreate_swapchain {
-
             let dimensions: [u32; 2] = _surface.window().inner_size().into();
             let (new_swapchain, new_images) =
             match _swapchain.recreate().dimensions(dimensions).build() {
@@ -375,7 +336,6 @@ impl RenderManager{
                 Err(SwapchainCreationError::UnsupportedDimensions) => return,
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
             };
-
             self.recreate_swapchain = false;
             _swapchain = new_swapchain;
         } // end of if on swapchain recreation
@@ -501,12 +461,128 @@ impl RenderManager{
             .collect::<Vec<_>>()
     }
 
-    pub fn prep_scene(&mut self, scene: &mut Scene<Initialized>) {
+    // insert required render data into scene so systems can run
+    pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
         scene.insert_resource(self.device.clone().unwrap().clone());
         scene.insert_resource(self.dynamic_state.clone().unwrap().clone());
         scene.insert_resource(self.pipeline.clone().unwrap().clone());
     }
 
+    // returns the required winit extensions and the required extensions of my choosing
+    pub fn get_required_extensions() -> (InstanceExtensions, DeviceExtensions) {
+        // what extensions do we need to have in vulkan to draw a window
+        let required_extensions = vulkano_win::required_extensions();
+
+        // choose the logical device extensions we're going to use
+        let device_extensions = DeviceExtensions {
+            khr_swapchain: true,
+            ..DeviceExtensions::none()
+        };
+
+        (required_extensions, device_extensions)
+    }
+
+    // Returns a tuple of optimal features and minimal features
+    pub fn get_desired_features() -> (Features, Features) {
+        // choose the minimal features we want our physical device to have
+        let minimal_features = Features {
+            geometry_shader: true,
+            .. Features::none()
+        };
+
+        // choose the optimal features we want our device to have
+        let optimal_features = Features {
+            geometry_shader: true,
+            tessellation_shader: true,
+            wide_lines: true,
+            .. Features::none()
+        };
+        (optimal_features, minimal_features)
+    }
+
+    // creates a surface and ties it to the event loop
+    pub fn create_event_loop_and_surface(instance: Arc<Instance>) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>) {
+        let event_loop = EventLoop::new();
+        let surface = WindowBuilder::new()
+            .with_title("I should probably name my game.")
+            .build_vk_surface(&event_loop, instance)
+            .unwrap();
+        (event_loop, surface)
+    }
+
+    // gets physical GPU and queues
+    pub fn get_physical_device_and_queue_family(
+        instance: &Arc<Instance>,
+        optimal_features: Features,
+        surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>
+    ) -> (PhysicalDevice, QueueFamily) {
+        // get our physical device and queue family
+        let (physical_device, queues) = PhysicalDevice::enumerate(&instance)
+            .filter(|&p| { // filter to devices that contain desired features
+                p.supported_features().is_superset_of(&optimal_features)
+            })
+            .filter_map(|p| { // filter queue families to ones that support graphics
+                p.queue_families() // TODO : pick beter queue families since this is one single queue
+                    .find(|&q| {
+                        q.supports_graphics() && surface.is_supported(q).unwrap_or(false)
+                    })
+                    .map(|q| (p, q))
+            })
+            .min_by_key(|(p, _)| { // pick the best device based on a score we assign
+                match p.properties().device_type {
+                    PhysicalDeviceType::DiscreteGpu => 0,
+                    PhysicalDeviceType::IntegratedGpu => 1,
+                    PhysicalDeviceType::VirtualGpu => 2,
+                    PhysicalDeviceType::Cpu => 3,
+                    PhysicalDeviceType::Other => 4,
+                }
+            })
+            .unwrap();
+
+            (physical_device, queues)
+    }
+
+    // create logical device and queues. Currently a very thin pass-through
+    // but it's here in case i ever want to extend this
+    pub fn get_logical_device_and_queues(
+        physical_device: PhysicalDevice,
+        device_extensions: &DeviceExtensions,
+        queue_family: QueueFamily,
+    ) -> (Arc<Device>, QueuesIter){
+        // now create logical device and queues
+        let (device, mut queues) = Device::new(
+            physical_device,
+            &Features::none(),
+            &DeviceExtensions::required_extensions(physical_device.clone()).union(&device_extensions),
+            [(queue_family, 0.5)].iter().cloned(),
+        )
+        .unwrap();
+
+        (device, queues)
+    }
+
+    // Create swapchain and images
+    pub fn create_swapchain_and_images(
+        physical_device: PhysicalDevice,
+        surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>,
+        device: Arc<Device>,
+        queue: Arc<Queue>
+    ) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>) {
+        let caps = surface.capabilities(physical_device).unwrap();
+        let composite_alpha = caps.supported_composite_alpha.iter().next().unwrap();
+        let format = caps.supported_formats[0].0;
+        let dimensions: [u32; 2] = surface.window().inner_size().into();
+
+        Swapchain::start(device.clone(), surface.clone())
+            .num_images(caps.min_image_count)
+            .format(format)
+            .dimensions(dimensions)
+            .usage(ImageUsage::color_attachment())
+            .sharing_mode(&queue)
+            .composite_alpha(composite_alpha)
+            .build()
+            .unwrap()
+    }
 }
 
 

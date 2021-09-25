@@ -170,7 +170,6 @@ impl Application{
                 // check if render manager exists, and if so, draw
                 match &self.render_manager {
                     Some(manager) => {
-                        manager.borrow_mut().prep_scene(current_scene.borrow_mut());
                         manager.borrow_mut().draw(current_scene.borrow_mut());
                     },
                     None => log::error!("Render manager does not exist on application manager."),
