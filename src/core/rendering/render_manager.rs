@@ -49,6 +49,7 @@ use vulkano::{
         AcquireError,
         Swapchain,
         SwapchainCreationError,
+        SwapchainAcquireFuture,
     },
     swapchain,
     image::{
@@ -313,46 +314,13 @@ impl RenderManager{
         self.insert_render_data_into_scene(scene);
         self.scene_prep_system.run(scene.get_world().unwrap().system_data());
 
-        // unwrap the options we'll be using
-        let mut _framebuffers = self.framebuffers.clone().unwrap();
-        let mut _pipeline = self.pipeline.clone().unwrap();
-        let mut _dynamic_state = self.dynamic_state.clone().unwrap();
-        let mut _device = self.device.clone().unwrap();
-        let mut _queue = self.queue.clone().unwrap();
-        let mut _surface = self.surface.clone().unwrap();
-        let mut _render_pass = self.render_pass.clone().unwrap();
-        let mut _swapchain = self.swapchain.clone().unwrap();
-
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-        // if the swapchain needs to be recreated
-        if self.recreate_swapchain {
-            let dimensions: [u32; 2] = _surface.window().inner_size().into();
-            let (new_swapchain, new_images) =
-            match _swapchain.recreate().dimensions(dimensions).build() {
-                Ok(r) => r,
-                // This error tends to happen when the user is manually resizing the window.
-                // Simply restarting the loop is the easiest way to fix this issue.
-                Err(SwapchainCreationError::UnsupportedDimensions) => return,
-                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-            };
-            self.recreate_swapchain = false;
-            _swapchain = new_swapchain;
-        } // end of if on swapchain recreation
-
         // acquire an image from the swapchain
-        let (image_num, suboptimal, acquire_future) =
-            match swapchain::acquire_next_image(_swapchain.clone(), None) {
-                Ok(r) => r,
-                Err(AcquireError::OutOfDate) => {
-                    self.recreate_swapchain = true;
-                    return;
-                }
-                Err(e) => panic!("Failed to acquire next image: {:?}", e),
-            };
+        let (image_num, suboptimal, acquire_future) = self.acquire_swapchain_image();
 
         if suboptimal {
-            self.recreate_swapchain = true;
+            self.recreate_swapchain()
         }
 
         // this is the default color of the framebuffer
@@ -360,8 +328,8 @@ impl RenderManager{
 
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::primary(
-            _device.clone(),
-            _queue.family(),
+            self.device(),
+            self.queue().family(),
             CommandBufferUsage::OneTimeSubmit,
         )
         .unwrap();
@@ -375,7 +343,7 @@ impl RenderManager{
 
         builder
             .begin_render_pass(
-                _framebuffers[image_num].clone(),
+                self.framebuffers()[image_num].clone(),
                 SubpassContents::Inline,
                 clear_values,
             )
@@ -389,8 +357,8 @@ impl RenderManager{
             let geometry = g_arc.lock().unwrap();
             // let a: u32 = geometry;
             &builder.draw_indexed(
-                _pipeline.clone(),
-                &_dynamic_state,
+                self.pipeline(),//.clone(),
+                &self.dynamic_state(),
                 geometry.vertex_buffer().clone(),
                 geometry.index_buffer().clone(),
                 (),
@@ -406,13 +374,14 @@ impl RenderManager{
 
         // now get future state and try to draw
         // let x: u32 = _previous_frame_end.take().unwrap();
+        // TODO : Fix crash here
         let future = self.previous_frame_end
             .take()
             .unwrap()
             .join(acquire_future)
-            .then_execute(_queue.clone(), command_buffer)
+            .then_execute(self.queue(), command_buffer)
             .unwrap()
-            .then_swapchain_present(_queue.clone(), _swapchain.clone(), image_num)
+            .then_swapchain_present(self.queue(), self.swapchain(), image_num)
             .then_signal_fence_and_flush();
 
         match future {
@@ -421,15 +390,19 @@ impl RenderManager{
             }
             Err(FlushError::OutOfDate) => {
                 self.recreate_swapchain = true;
-                self.previous_frame_end = Some(sync::now(_device.clone()).boxed());
+                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
             }
             Err(e) => {
                 log::error!("Failed to flush future: {:?}", e);
-                self.previous_frame_end = Some(sync::now(_device.clone()).boxed());
+                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
             }
         }
 
     }
+
+    // ================= //
+    // Helper Functions  //
+    // ================= //
 
     /// This method is called once during initialization, then again whenever the window is resized
     fn window_size_dependent_setup(
@@ -582,6 +555,70 @@ impl RenderManager{
             .composite_alpha(composite_alpha)
             .build()
             .unwrap()
+    }
+
+    // if the swapchain needs to be recreated
+    pub fn recreate_swapchain(&mut self){
+        log::debug!("Recreating swapchain...");
+        let dimensions: [u32; 2] = self.surface.clone().unwrap().clone().window().inner_size().into();
+        let mut _dynamic_state = self.dynamic_state.take().unwrap();
+        let (new_swapchain, new_images) =
+        match self.swapchain.clone().unwrap().clone().recreate().dimensions(dimensions).build() {
+            Ok(r) => r,
+            // This error tends to happen when the user is manually resizing the window.
+            // Simply restarting the loop is the easiest way to fix this issue.
+            Err(SwapchainCreationError::UnsupportedDimensions) => return,
+            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+        };
+        self.recreate_swapchain = false;
+        self.framebuffers = Some(RenderManager::window_size_dependent_setup(&new_images, self.render_pass.clone().unwrap().clone(), &mut _dynamic_state));
+        self.swapchain = Some(new_swapchain);
+        self.dynamic_state = Some(_dynamic_state);
+    } // end of if on swapchain recreation
+
+    // acquires the next swapchain image
+    pub fn acquire_swapchain_image(&mut self) -> (usize, bool, SwapchainAcquireFuture<Window>) {
+        match swapchain::acquire_next_image(self.swapchain(), None) {
+            Ok(r) => r,
+            Err(AcquireError::OutOfDate) => {
+                self.recreate_swapchain();
+                self.acquire_swapchain_image()
+            }
+            Err(e) => panic!("Failed to acquire next image: {:?}", e),
+        }
+    }
+
+    // getters
+    pub fn framebuffers(&self) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+        self.framebuffers.clone().unwrap().clone()
+    }
+
+    pub fn pipeline(&self) -> Arc<GraphicsPipeline<BuffersDefinition>> {
+        self.pipeline.clone().unwrap().clone()
+    }
+
+    pub fn dynamic_state(&self) -> DynamicState {
+        self.dynamic_state.clone().unwrap().clone()
+    }
+
+    pub fn device(&self) -> Arc<Device> {
+        self.device.clone().unwrap().clone()
+    }
+
+    pub fn queue(&self) -> Arc<Queue> {
+        self.queue.clone().unwrap().clone()
+    }
+
+    pub fn surface(&self) -> Arc<vulkano::swapchain::Surface<winit::window::Window>> {
+        self.surface.clone().unwrap().clone()
+    }
+
+    pub fn render_pass(&self) -> Arc<RenderPass> {
+        self.render_pass.clone().unwrap().clone()
+    }
+
+    pub fn swapchain(&self) -> Arc<Swapchain<winit::window::Window>> {
+        self.swapchain.clone().unwrap().clone()
     }
 }
 
