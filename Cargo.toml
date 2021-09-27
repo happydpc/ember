@@ -14,4 +14,5 @@ vulkano-shaders = "*"
 vulkano-win = "*"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
-euler = "*"
+# euler = "*"
+cgmath = "*"

@@ -3,6 +3,7 @@ use crate::core::{
     plugins::{
         components::{
             renderable_component::RenderableComponent,
+            transform_component::TransformComponent,
         },
     },
     rendering::{
@@ -85,6 +86,9 @@ use vulkano::{
         CommandBufferUsage,
         DynamicState,
         SubpassContents,
+        PrimaryAutoCommandBuffer,
+        SecondaryAutoCommandBuffer,
+        SecondaryCommandBuffer
     },
     buffer::{
         BufferUsage,
@@ -112,6 +116,8 @@ use winit::{
 
 // std imports
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::thread;
 
 // logging
 use log;
@@ -120,7 +126,7 @@ use log;
 pub struct RenderManager{
     // ECS Systems
     scene_prep_system: RenderableInitializerSystem,
-    command_buffer_builder_system: CommandBufferBuilderSystem,
+    primitive_command_buffer_builder_system: PrimitiveCommandBufferBuilderSystem,
 
     // Vulkan
     required_extensions: Option<InstanceExtensions>,
@@ -282,7 +288,7 @@ impl RenderManager{
         let render_sys = RenderManager{
             // ECS Systemes
             scene_prep_system: RenderableInitializerSystem{},
-            command_buffer_builder_system: CommandBufferBuilderSystem{},
+            primitive_command_buffer_builder_system: PrimitiveCommandBufferBuilderSystem{},
 
             // Vulkan
             required_extensions: None,
@@ -311,8 +317,8 @@ impl RenderManager{
 
     pub fn draw(&mut self, scene: &mut Scene<Initialized>){
         // prep scene by inserting device and other operations
-        self.insert_render_data_into_scene(scene);
-        self.scene_prep_system.run(scene.get_world().unwrap().system_data());
+        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
+        self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
@@ -337,6 +343,7 @@ impl RenderManager{
         let world = scene.get_world().unwrap();
         let system_data: ReadStorage<RenderableComponent> = world.system_data();
         let renderables = world.read_storage::<RenderableComponent>();
+        let transforms = world.read_storage::<TransformComponent>();
         // let vertex_buffers: Vec<_> = (&renderables).join();
         // let mut vertex_buffers = vec!();
         // let mut index_buffers = vec!();
@@ -349,7 +356,7 @@ impl RenderManager{
             )
             .unwrap();
 
-        for renderable in (renderables).join() {
+        for (renderable, transform) in (&renderables, &transforms).join() {
             // vertex_buffers.push(renderable.geometry().vertex_buffer().clone());
             // index_buffers.push(renderable.geometry().index_buffer().clone());
             // let x: u32 = renderable.geometry().vertex_buffer();
@@ -437,7 +444,7 @@ impl RenderManager{
     // insert required render data into scene so systems can run
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
         scene.insert_resource(self.device.clone().unwrap().clone());
-        scene.insert_resource(self.dynamic_state.clone().unwrap().clone());
+        scene.insert_resource(Arc::new(self.dynamic_state.clone().unwrap().clone()));
         scene.insert_resource(self.pipeline.clone().unwrap().clone());
     }
 
@@ -645,18 +652,28 @@ impl<'a> System<'a> for RenderableInitializerSystem{
 
 }
 
-pub struct CommandBufferBuilderSystem;
-
-// impl<'a> System<'a> for CommandBufferBuilderSystem{
+pub struct PrimitiveCommandBufferBuilderSystem;
+//
+// impl<'a> System<'a> for PrimitiveCommandBufferBuilderSystem{
 //     type SystemData = (
-//         ReadExpect<'a, Arc<GraphicsPipeline<SingleBufferDefinition<Vertex>>>>,
-//         ReadExpect<'a, DynamicState>,
+//         ReadExpect<'a, Arc<GraphicsPipeline<BuffersDefinition>>>,
+//         ReadExpect<'a, Arc<DynamicState>>,
+//         ReadExpect<'a, Arc<Device>>,
 //         ReadStorage<'a, RenderableComponent>,
-//         // ReadExpect<'a, AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>>,
+//         // ReadExpect<'a, AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>>,
 //     );
 //
 //     fn run(&mut self, data: Self::SystemData){
-//         let(pipeline, dynamic_state, renderable, command_buffer) = data;
+//         let(pipeline, dynamic_state, device, renderable) = data;
+//         // let(pipeline, dynamic_state, renderable, command_buffer) = data;
+//
+//         // create a command buffer builder
+//         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+//             self.device(),
+//             self.queue().family(),
+//             CommandBufferUsage::OneTimeSubmit,
+//         )
+//         .unwrap();
 //
 //     }
 // }

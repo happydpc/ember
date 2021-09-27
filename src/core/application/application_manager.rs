@@ -163,13 +163,11 @@ impl Application{
         let mut loops: u32 = 0;
         let mut interpolation: f32 = 0.0;
         let mut next_tick = Instant::now();
-
         event_loop.run(move |event, _, control_flow| {
 
             loops = 0;
             while((Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip){
                 self.get_physics_manager().unwrap().update();
-
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;
             }
