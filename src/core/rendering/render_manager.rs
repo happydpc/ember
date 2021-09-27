@@ -4,6 +4,7 @@ use crate::core::{
         components::{
             renderable_component::RenderableComponent,
             transform_component::TransformComponent,
+            camera_component::CameraComponent,
         },
     },
     rendering::{
@@ -30,6 +31,15 @@ use specs::prelude::*;
 
 // Vulkano imports
 use vulkano::{
+    descriptor_set::{
+        persistent::PersistentDescriptorSet,
+        layout::DescriptorSetDesc,
+        layout::DescriptorSetLayout,
+        layout::DescriptorDesc,
+        layout::DescriptorDescTy,
+        layout::DescriptorType,
+        layout::DescriptorBufferDesc,
+    },
     instance::{
         Instance,
         InstanceExtensions,
@@ -74,7 +84,14 @@ use vulkano::{
             // SingleBufferDefinition,
             BuffersDefinition,
         },
+        layout::{
+            PipelineLayout,
+        },
+        shader::{
+            ShaderStages,
+        },
         GraphicsPipeline,
+        GraphicsPipelineAbstract,
     },
     sync::{
         FlushError,
@@ -94,6 +111,7 @@ use vulkano::{
         BufferUsage,
         CpuAccessibleBuffer,
         BufferAccess,
+        CpuBufferPool,
     },
     Version,
 };
@@ -118,6 +136,9 @@ use winit::{
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
+
+// math
+use cgmath::Matrix4;
 
 // logging
 use log;
@@ -218,6 +239,37 @@ impl RenderManager{
             .unwrap(),
         );
 
+        let layout = {
+            let buffer_desc = DescriptorBufferDesc {
+                dynamic: Some(true),
+                storage: true,
+            };
+            let descriptors = DescriptorDesc{
+                ty: DescriptorDescTy::Buffer(buffer_desc),
+                array_count: 1,
+                stages: ShaderStages{
+                    vertex: true,
+                    tessellation_control: false,
+                    tessellation_evaluation: false,
+                    geometry: false,
+                    fragment: false,
+                    compute: false,
+                },
+                readonly: true,
+            };
+            let set_desc = DescriptorSetDesc::new([Some(descriptors)]);
+            let desc_layout = [
+                Arc::new(
+                    DescriptorSetLayout::new(
+                        device.clone(),
+                        set_desc
+                    ).unwrap()
+                )
+            ];
+            // let desc_layout = [Arc::new(DescriptorSetLayout::new(device.clone(), None).unwrap())];
+            Arc::new(PipelineLayout::new(device.clone(), desc_layout, None).unwrap())
+        };
+
         // create our pipeline. like an opengl program but more specific
         let pipeline = Arc::new(
             GraphicsPipeline::start()
@@ -231,8 +283,9 @@ impl RenderManager{
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(device.clone())
-                .unwrap(),
+                .with_pipeline_layout(device.clone(), layout)
+                // .build(device.clone())
+                .expect("Pipeline creation failed."),
         );
 
         // create dynamic state for resizing viewport
@@ -356,10 +409,46 @@ impl RenderManager{
             )
             .unwrap();
 
+        let dimensions: [u32; 2] = self.surface().window().inner_size().into();
+        let aspect = dimensions[0] as f64 / dimensions[1] as f64;
+
+        let (view, perspective) = {
+            let mut cameras = world.write_storage::<CameraComponent>();
+            let mut view: Matrix4<f64> = Matrix4::from_scale(1.0);
+            let mut perspective: Matrix4<f64> = Matrix4::from_scale(1.0);
+
+            for camera in (&mut cameras).join() {
+                camera.aspect = aspect;
+                camera.calculate_view();
+                view = camera.get_view();
+                perspective = camera.get_perspective();
+            }
+            (view, perspective)
+        };
+
+        let uniform_buffer: CpuBufferPool::<Matrix4<f64>> = CpuBufferPool::new(self.device(), BufferUsage::all());
+
         for (renderable, transform) in (&renderables, &transforms).join() {
-            // vertex_buffers.push(renderable.geometry().vertex_buffer().clone());
-            // index_buffers.push(renderable.geometry().index_buffer().clone());
-            // let x: u32 = renderable.geometry().vertex_buffer();
+            // create matrix
+            let translation_matrix = Matrix4::from_translation(transform.global_position);
+            let rotation_matrix = transform.rotation;
+            let model_to_world = rotation_matrix * translation_matrix;
+
+            let uniform_buffer_subbuffer = {
+                uniform_buffer.next(perspective * view * model_to_world).unwrap()
+            };
+            let pipeline = self.pipeline();
+            log::info!("{:?}", &pipeline.layout());
+            let layout = pipeline.layout().descriptor_set_layouts().get(0).unwrap();
+            // let layout = DescriptorSetLayout::new(self.device(), DescriptorSetDesc::empty()).unwrap();
+            log::info!("about to build a set");
+            let set_builder = PersistentDescriptorSet::start(layout.clone())
+                .add_buffer(uniform_buffer_subbuffer)
+                .unwrap()
+                .build()
+                .unwrap();
+            let set = Arc::new(set_builder);
+            log::info!("made it this far");
             let g_arc = &renderable.geometry();
             let geometry = g_arc.lock().unwrap();
             // let a: u32 = geometry;
@@ -368,12 +457,12 @@ impl RenderManager{
                 &self.dynamic_state(),
                 geometry.vertex_buffer().clone(),
                 geometry.index_buffer().clone(),
-                (),
+                set,
                 (),
             )
             .unwrap();
         }
-
+        log::info!("made it all the way out");
         builder.end_render_pass().unwrap();
 
         // actually build command buffer now
