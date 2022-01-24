@@ -6,7 +6,6 @@ use vulkano::{
 };
 use specs::{Component, VecStorage};
 use std::sync::{Arc, Mutex};
-use std::borrow::Borrow;
 
 #[derive(Component)]
 #[storage(VecStorage)]

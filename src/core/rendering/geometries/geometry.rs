@@ -1,12 +1,7 @@
 use std::sync::Arc;
 use vulkano::{
-    buffer::{
-        CpuAccessibleBuffer,
-        BufferAccess,
-    },
-    device::{
-        Device
-    }
+    buffer::CpuAccessibleBuffer,
+    device::Device,
 };
 
 #[derive(Debug, Clone)]

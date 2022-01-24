@@ -11,9 +11,6 @@ use super::{
         Uninitialized
     },
 };
-use specs::{
-    World,
-};
 
 pub struct SceneManager{
     active_scene: Option<RefCell<Scene<Initialized>>>,

@@ -9,9 +9,9 @@ edition = "2018"
 [dependencies]
 specs = {version = "*", features = ["specs-derive"] }
 vulkano = "*"
-winit = "*"
 vulkano-shaders = "*"
 vulkano-win = "*"
+winit = "0.25"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
 # euler = "*"

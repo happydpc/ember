@@ -3,7 +3,7 @@ use super::geometry::{
     GeometryData,
     Vertex
 };
-use vulkano::buffer::{BufferAccess, CpuAccessibleBuffer, BufferUsage};
+use vulkano::buffer::{CpuAccessibleBuffer, BufferUsage};
 use vulkano::device::Device;
 use std::sync::Arc;
 

@@ -33,8 +33,6 @@ use winit::{
         WindowEvent,
         KeyboardInput,
         ElementState,
-        StartCause,
-        VirtualKeyCode
     },
     event_loop::{
         EventLoop,
@@ -166,7 +164,7 @@ impl Application{
         event_loop.run(move |event, _, control_flow| {
 
             loops = 0;
-            while((Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip){
+            while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
                 self.get_physics_manager().unwrap().update();
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;

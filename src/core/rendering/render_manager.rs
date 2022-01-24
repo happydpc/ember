@@ -23,23 +23,12 @@ use crate::core::{
     },
 };
 
-use std::borrow::BorrowMut;
-
 // ecs
 use specs::{System, ReadStorage, ReadExpect, WriteStorage, Join};
 use specs::prelude::*;
 
 // Vulkano imports
 use vulkano::{
-    descriptor_set::{
-        persistent::PersistentDescriptorSet,
-        layout::DescriptorSetDesc,
-        layout::DescriptorSetLayout,
-        layout::DescriptorDesc,
-        layout::DescriptorDescTy,
-        layout::DescriptorType,
-        layout::DescriptorBufferDesc,
-    },
     instance::{
         Instance,
         InstanceExtensions,
@@ -69,29 +58,20 @@ use vulkano::{
         },
         ImageUsage,
         SwapchainImage,
+        ImageAccess,
     },
     render_pass::{
         Framebuffer,
-        FramebufferAbstract,
         RenderPass,
         Subpass,
     },
     pipeline::{
-        viewport::{
-            Viewport,
-        },
-        vertex::{
-            // SingleBufferDefinition,
-            BuffersDefinition,
-        },
-        layout::{
-            PipelineLayout,
-        },
-        shader::{
-            ShaderStages,
+        graphics::{
+            vertex_input::BuffersDefinition,
+            input_assembly::InputAssemblyState,
+            viewport::{Viewport, ViewportState}
         },
         GraphicsPipeline,
-        GraphicsPipelineAbstract,
     },
     sync::{
         FlushError,
@@ -101,17 +81,12 @@ use vulkano::{
     command_buffer::{
         AutoCommandBufferBuilder,
         CommandBufferUsage,
-        DynamicState,
         SubpassContents,
-        PrimaryAutoCommandBuffer,
-        SecondaryAutoCommandBuffer,
-        SecondaryCommandBuffer
     },
     buffer::{
         BufferUsage,
-        CpuAccessibleBuffer,
-        BufferAccess,
         CpuBufferPool,
+        TypedBufferAccess,
     },
     Version,
 };
@@ -134,8 +109,6 @@ use winit::{
 
 // std imports
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::thread;
 
 // math
 use cgmath::Matrix4;
@@ -160,11 +133,11 @@ pub struct RenderManager{
     pub queue: Option<Arc<Queue>>,
     pub swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
     pub render_pass: Option<Arc<RenderPass>>,
-    pub pipeline: Option<Arc<GraphicsPipeline<BuffersDefinition>>>,
-    pub dynamic_state: Option<DynamicState>,
-    pub framebuffers: Option<Vec<Arc<dyn FramebufferAbstract + Send + Sync>>>,
+    pub pipeline: Option<Arc<GraphicsPipeline>>,
+    pub framebuffers: Option<Vec<Arc<Framebuffer>>>,
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
+    pub viewport: Option<Viewport>,
 }
 
 impl RenderManager{
@@ -180,13 +153,10 @@ impl RenderManager{
         // create event_loop and surface
         let (event_loop, surface) = RenderManager::create_event_loop_and_surface(instance.clone());
 
-        // get optimal and desired features
-        let (optimal_features, minimal_features) = RenderManager::get_desired_features();
-
         // get our physical device and queue family
         let (physical_device, queue_family) = RenderManager::get_physical_device_and_queue_family(
             &instance,
-            optimal_features.clone(),
+            device_extensions.clone(),
             surface.clone()
         );
 
@@ -216,12 +186,11 @@ impl RenderManager{
         );
 
         // compile our shaders
-        let vs = vs::Shader::load(device.clone()).unwrap();
-        let fs = fs::Shader::load(device.clone()).unwrap();
+        let vs = vs::load(device.clone()).unwrap();
+        let fs = fs::load(device.clone()).unwrap();
 
         // create our render pass
-        let render_pass = Arc::new(
-            vulkano::single_pass_renderpass!(
+        let render_pass = vulkano::single_pass_renderpass!(
                 device.clone(),
                 attachments: {
                     color: {
@@ -236,69 +205,35 @@ impl RenderManager{
                     depth_stencil: {}
                 }
             )
-            .unwrap(),
-        );
-
-        let layout = {
-            let buffer_desc = DescriptorBufferDesc {
-                dynamic: Some(true),
-                storage: true,
-            };
-            let descriptors = DescriptorDesc{
-                ty: DescriptorDescTy::Buffer(buffer_desc),
-                array_count: 1,
-                stages: ShaderStages{
-                    vertex: true,
-                    tessellation_control: false,
-                    tessellation_evaluation: false,
-                    geometry: false,
-                    fragment: false,
-                    compute: false,
-                },
-                readonly: true,
-            };
-            let set_desc = DescriptorSetDesc::new([Some(descriptors)]);
-            let desc_layout = [
-                Arc::new(
-                    DescriptorSetLayout::new(
-                        device.clone(),
-                        set_desc
-                    ).unwrap()
-                )
-            ];
-            // let desc_layout = [Arc::new(DescriptorSetLayout::new(device.clone(), None).unwrap())];
-            Arc::new(PipelineLayout::new(device.clone(), desc_layout, None).unwrap())
-        };
-
+            .unwrap();
+        
         // create our pipeline. like an opengl program but more specific
-        let pipeline = Arc::new(
-            GraphicsPipeline::start()
-                // .vertex_input_single_buffer::<Vertex>()
-                .vertex_input(
-                    BuffersDefinition::new()
-                        .vertex::<Vertex>(),
-                )
-                .vertex_shader(vs.main_entry_point(), ())
-                .triangle_list()
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(fs.main_entry_point(), ())
+        let pipeline = GraphicsPipeline::start()
+                // We need to indicate the layout of the vertices.
+                .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+                // A Vulkan shader can in theory contain multiple entry points, so we have to specify
+                // which one.
+                .vertex_shader(vs.entry_point("main").unwrap(), ())
+                // The content of the vertex buffer describes a list of triangles.
+                .input_assembly_state(InputAssemblyState::new())
+                // Use a resizable viewport set to draw over the entire window
+                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                // See `vertex_shader`.
+                .fragment_shader(fs.entry_point("main").unwrap(), ())
+                // We have to indicate which subpass of which render pass this pipeline is going to be used
+                // in. The pipeline will only be usable from this particular subpass.
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .with_pipeline_layout(device.clone(), layout)
-                // .build(device.clone())
-                .expect("Pipeline creation failed."),
-        );
+                // Now that our builder is filled, we call `build()` to obtain an actual pipeline.
+                .build(device.clone())
+                .unwrap();
 
-        // create dynamic state for resizing viewport
-        let mut dynamic_state = DynamicState {
-            line_width: None,
-            viewports: None,
-            scissors: None,
-            compare_mask: None,
-            write_mask: None,
-            reference: None,
+        let mut viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions: [0.0, 0.0],
+            depth_range: 0.0..1.0,
         };
 
-        let framebuffers = RenderManager::window_size_dependent_setup(&images, render_pass.clone(), &mut dynamic_state);
+        let framebuffers = RenderManager::window_size_dependent_setup(&images, render_pass.clone(), &mut viewport);
         let recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
@@ -308,7 +243,6 @@ impl RenderManager{
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
         self.device_extensions = Some(device_extensions);
-        self.minimal_features = Some(minimal_features);
         self.instance = Some(instance);
         self.surface = Some(surface);
         self.device = Some(device);
@@ -316,10 +250,10 @@ impl RenderManager{
         self.swapchain = Some(swapchain);
         self.render_pass = Some(render_pass);
         self.pipeline = Some(pipeline);
-        self.dynamic_state = Some(dynamic_state);
         self.framebuffers = Some(framebuffers);
         self.previous_frame_end = previous_frame_end;
         self.recreate_swapchain = false;
+        self.viewport = Some(viewport);
 
         (event_loop, return_surface)
     }
@@ -355,10 +289,10 @@ impl RenderManager{
             swapchain: None,
             render_pass: None,
             pipeline: None,
-            dynamic_state: None,
             framebuffers: None,
             recreate_swapchain: false,
             previous_frame_end: None,
+            viewport: None,
         };
         render_sys
     }
@@ -407,7 +341,9 @@ impl RenderManager{
                 SubpassContents::Inline,
                 clear_values,
             )
-            .unwrap();
+            .unwrap()
+            .set_viewport(0, [self.viewport.clone().unwrap()])
+            .bind_pipeline_graphics(self.pipeline());
 
         let dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let aspect = dimensions[0] as f64 / dimensions[1] as f64;
@@ -438,29 +374,20 @@ impl RenderManager{
                 uniform_buffer.next(perspective * view * model_to_world).unwrap()
             };
             let pipeline = self.pipeline();
-            log::info!("{:?}", &pipeline.layout());
-            let layout = pipeline.layout().descriptor_set_layouts().get(0).unwrap();
-            // let layout = DescriptorSetLayout::new(self.device(), DescriptorSetDesc::empty()).unwrap();
-            log::info!("about to build a set");
-            let set_builder = PersistentDescriptorSet::start(layout.clone())
-                .add_buffer(uniform_buffer_subbuffer)
-                .unwrap()
-                .build()
-                .unwrap();
-            let set = Arc::new(set_builder);
-            log::info!("made it this far");
             let g_arc = &renderable.geometry();
             let geometry = g_arc.lock().unwrap();
             // let a: u32 = geometry;
-            &builder.draw_indexed(
-                self.pipeline(),//.clone(),
-                &self.dynamic_state(),
-                geometry.vertex_buffer().clone(),
-                geometry.index_buffer().clone(),
-                set,
-                (),
-            )
-            .unwrap();
+            &builder
+                .bind_vertex_buffers(0, geometry.vertex_buffer().clone())
+                .bind_index_buffer(geometry.index_buffer().clone())
+                .draw_indexed(
+                    (*geometry.index_buffer()).len() as u32,
+                    1,
+                    0,
+                    0,
+                    0
+                )
+                .unwrap();
         }
         log::info!("made it all the way out");
         builder.end_render_pass().unwrap();
@@ -504,28 +431,20 @@ impl RenderManager{
     fn window_size_dependent_setup(
         images: &[Arc<SwapchainImage<Window>>],
         render_pass: Arc<RenderPass>,
-        dynamic_state: &mut DynamicState,
-    ) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
-        let dimensions = images[0].dimensions();
-
-        let viewport = Viewport {
-            origin: [0.0, 0.0],
-            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-            depth_range: 0.0..1.0,
-        };
-        dynamic_state.viewports = Some(vec![viewport]);
+        viewport: &mut Viewport,
+    ) -> Vec<Arc<Framebuffer>> {
+        let dimensions = images[0].dimensions().width_height();
+        viewport.dimensions = [dimensions[0] as f32, dimensions[1] as f32];
 
         images
             .iter()
             .map(|image| {
                 let view = ImageView::new(image.clone()).unwrap();
-                Arc::new(
-                    Framebuffer::start(render_pass.clone())
-                        .add(view)
-                        .unwrap()
-                        .build()
-                        .unwrap(),
-                ) as Arc<dyn FramebufferAbstract + Send + Sync>
+                Framebuffer::start(render_pass.clone())
+                    .add(view)
+                    .unwrap()
+                    .build()
+                    .unwrap()
             })
             .collect::<Vec<_>>()
     }
@@ -533,7 +452,6 @@ impl RenderManager{
     // insert required render data into scene so systems can run
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
         scene.insert_resource(self.device.clone().unwrap().clone());
-        scene.insert_resource(Arc::new(self.dynamic_state.clone().unwrap().clone()));
         scene.insert_resource(self.pipeline.clone().unwrap().clone());
     }
 
@@ -551,29 +469,11 @@ impl RenderManager{
         (required_extensions, device_extensions)
     }
 
-    // Returns a tuple of optimal features and minimal features
-    pub fn get_desired_features() -> (Features, Features) {
-        // choose the minimal features we want our physical device to have
-        let minimal_features = Features {
-            geometry_shader: true,
-            .. Features::none()
-        };
-
-        // choose the optimal features we want our device to have
-        let optimal_features = Features {
-            geometry_shader: true,
-            tessellation_shader: true,
-            wide_lines: true,
-            .. Features::none()
-        };
-        (optimal_features, minimal_features)
-    }
-
     // creates a surface and ties it to the event loop
     pub fn create_event_loop_and_surface(instance: Arc<Instance>) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>) {
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
-            .with_title("I should probably name my game.")
+            .with_title("Ember")
             .build_vk_surface(&event_loop, instance)
             .unwrap();
         (event_loop, surface)
@@ -582,13 +482,13 @@ impl RenderManager{
     // gets physical GPU and queues
     pub fn get_physical_device_and_queue_family(
         instance: &Arc<Instance>,
-        optimal_features: Features,
+        device_extensions: DeviceExtensions,
         surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>
     ) -> (PhysicalDevice, QueueFamily) {
         // get our physical device and queue family
-        let (physical_device, queues) = PhysicalDevice::enumerate(&instance)
+        let (physical_device, queue_family) = PhysicalDevice::enumerate(&instance)
             .filter(|&p| { // filter to devices that contain desired features
-                p.supported_features().is_superset_of(&optimal_features)
+                p.supported_extensions().is_superset_of(&device_extensions)
             })
             .filter_map(|p| { // filter queue families to ones that support graphics
                 p.queue_families() // TODO : pick beter queue families since this is one single queue
@@ -608,7 +508,7 @@ impl RenderManager{
             })
             .unwrap();
 
-            (physical_device, queues)
+            (physical_device, queue_family)
     }
 
     // create logical device and queues. Currently a very thin pass-through
@@ -622,10 +522,11 @@ impl RenderManager{
         let (device, mut queues) = Device::new(
             physical_device,
             &Features::none(),
-            &DeviceExtensions::required_extensions(physical_device.clone()).union(&device_extensions),
+            &physical_device
+                .required_extensions()
+                .union(&device_extensions),
             [(queue_family, 0.5)].iter().cloned(),
-        )
-        .unwrap();
+        ).unwrap();
 
         (device, queues)
     }
@@ -657,19 +558,34 @@ impl RenderManager{
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
         let dimensions: [u32; 2] = self.surface.clone().unwrap().clone().window().inner_size().into();
-        let mut _dynamic_state = self.dynamic_state.take().unwrap();
         let (new_swapchain, new_images) =
-        match self.swapchain.clone().unwrap().clone().recreate().dimensions(dimensions).build() {
-            Ok(r) => r,
-            // This error tends to happen when the user is manually resizing the window.
-            // Simply restarting the loop is the easiest way to fix this issue.
-            Err(SwapchainCreationError::UnsupportedDimensions) => return,
-            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+        match self.swapchain
+            .clone()
+            .unwrap()
+            .clone()
+            .recreate()
+            .dimensions(dimensions)
+            .build() {
+                Ok(r) => r,
+                // This error tends to happen when the user is manually resizing the window.
+                // Simply restarting the loop is the easiest way to fix this issue.
+                Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
         };
         self.recreate_swapchain = false;
-        self.framebuffers = Some(RenderManager::window_size_dependent_setup(&new_images, self.render_pass.clone().unwrap().clone(), &mut _dynamic_state));
+        self.framebuffers = Some(
+            RenderManager::window_size_dependent_setup(
+                &new_images,
+                self.render_pass
+                    .clone()
+                    .unwrap()
+                    .clone(),
+                &mut self.viewport
+                    .clone()
+                    .unwrap()
+            )
+        );
         self.swapchain = Some(new_swapchain);
-        self.dynamic_state = Some(_dynamic_state);
     } // end of if on swapchain recreation
 
     // acquires the next swapchain image
@@ -685,16 +601,12 @@ impl RenderManager{
     }
 
     // getters
-    pub fn framebuffers(&self) -> Vec<Arc<dyn FramebufferAbstract + Send + Sync>> {
+    pub fn framebuffers(&self) -> Vec<Arc<Framebuffer>> {
         self.framebuffers.clone().unwrap().clone()
     }
 
-    pub fn pipeline(&self) -> Arc<GraphicsPipeline<BuffersDefinition>> {
+    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
         self.pipeline.clone().unwrap().clone()
-    }
-
-    pub fn dynamic_state(&self) -> DynamicState {
-        self.dynamic_state.clone().unwrap().clone()
     }
 
     pub fn device(&self) -> Arc<Device> {
@@ -715,6 +627,10 @@ impl RenderManager{
 
     pub fn swapchain(&self) -> Arc<Swapchain<winit::window::Window>> {
         self.swapchain.clone().unwrap().clone()
+    }
+
+    pub fn viewport(&self) -> Viewport {
+        self.viewport.clone().unwrap()
     }
 }
 
