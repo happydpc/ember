@@ -59,6 +59,7 @@ use vulkano::{
         ImageUsage,
         SwapchainImage,
         ImageAccess,
+        AttachmentImage
     },
     render_pass::{
         Framebuffer,
@@ -69,9 +70,12 @@ use vulkano::{
         graphics::{
             vertex_input::BuffersDefinition,
             input_assembly::InputAssemblyState,
-            viewport::{Viewport, ViewportState}
+            viewport::{Viewport, ViewportState},
+            depth_stencil::DepthStencilState,
         },
+        PipelineBindPoint,
         GraphicsPipeline,
+        Pipeline,
     },
     sync::{
         FlushError,
@@ -88,6 +92,11 @@ use vulkano::{
         CpuBufferPool,
         TypedBufferAccess,
     },
+    descriptor_set::{
+        layout::DescriptorSetLayout,
+        PersistentDescriptorSet,
+    },
+    format::Format,
     Version,
 };
 
@@ -198,11 +207,17 @@ impl RenderManager{
                         store: Store,
                         format: swapchain.format(),
                         samples: 1,
+                    },
+                    depth: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::D16_UNORM,
+                        samples: 1,
                     }
                 },
                 pass: {
                     color: [color],
-                    depth_stencil: {}
+                    depth_stencil: {depth}
                 }
             )
             .unwrap();
@@ -220,6 +235,7 @@ impl RenderManager{
                 .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
                 // See `vertex_shader`.
                 .fragment_shader(fs.entry_point("main").unwrap(), ())
+                .depth_stencil_state(DepthStencilState::simple_depth_test())
                 // We have to indicate which subpass of which render pass this pipeline is going to be used
                 // in. The pipeline will only be usable from this particular subpass.
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
@@ -233,7 +249,7 @@ impl RenderManager{
             depth_range: 0.0..1.0,
         };
 
-        let framebuffers = RenderManager::window_size_dependent_setup(&images, render_pass.clone(), &mut viewport);
+        let framebuffers = RenderManager::window_size_dependent_setup(&images, render_pass.clone(), &mut viewport, device.clone());
         let recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
@@ -317,7 +333,7 @@ impl RenderManager{
         }
 
         // this is the default color of the framebuffer
-        let clear_values = vec![[0.2, 0.2, 0.2, 1.0].into()];
+        let clear_values = vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()];
 
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::primary(
@@ -331,9 +347,6 @@ impl RenderManager{
         let system_data: ReadStorage<RenderableComponent> = world.system_data();
         let renderables = world.read_storage::<RenderableComponent>();
         let transforms = world.read_storage::<TransformComponent>();
-        // let vertex_buffers: Vec<_> = (&renderables).join();
-        // let mut vertex_buffers = vec!();
-        // let mut index_buffers = vec!();
 
         builder
             .begin_render_pass(
@@ -346,12 +359,12 @@ impl RenderManager{
             .bind_pipeline_graphics(self.pipeline());
 
         let dimensions: [u32; 2] = self.surface().window().inner_size().into();
-        let aspect = dimensions[0] as f64 / dimensions[1] as f64;
+        let aspect = dimensions[0] as f32/ dimensions[1] as f32;
 
         let (view, perspective) = {
             let mut cameras = world.write_storage::<CameraComponent>();
-            let mut view: Matrix4<f64> = Matrix4::from_scale(1.0);
-            let mut perspective: Matrix4<f64> = Matrix4::from_scale(1.0);
+            let mut view: Matrix4<f32> = Matrix4::from_scale(1.0);
+            let mut perspective: Matrix4<f32> = Matrix4::from_scale(1.0);
 
             for camera in (&mut cameras).join() {
                 camera.aspect = aspect;
@@ -362,22 +375,39 @@ impl RenderManager{
             (view, perspective)
         };
 
-        let uniform_buffer: CpuBufferPool::<Matrix4<f64>> = CpuBufferPool::new(self.device(), BufferUsage::all());
+        let uniform_buffer: CpuBufferPool::<vs::ty::Data> = CpuBufferPool::new(self.device(), BufferUsage::all());
+        
+        let pipeline = self.pipeline();
+        let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
 
         for (renderable, transform) in (&renderables, &transforms).join() {
             // create matrix
-            let translation_matrix = Matrix4::from_translation(transform.global_position);
-            let rotation_matrix = transform.rotation;
-            let model_to_world = rotation_matrix * translation_matrix;
+            let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
+            let rotation_matrix: Matrix4<f32> = transform.rotation;
+            let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix;
 
-            let uniform_buffer_subbuffer = {
-                uniform_buffer.next(perspective * view * model_to_world).unwrap()
-            };
-            let pipeline = self.pipeline();
             let g_arc = &renderable.geometry();
             let geometry = g_arc.lock().unwrap();
-            // let a: u32 = geometry;
+
+            let m = vs::ty::Data{
+                mwv: (perspective * view * model_to_world).into()
+            };
+    
+            let uniform_buffer_subbuffer = {
+                uniform_buffer.next(m).unwrap()
+            };
+    
+            let mut set_builder = PersistentDescriptorSet::start(layout.clone());
+            set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
+            let set = set_builder.build().unwrap();
+
             &builder
+                .bind_descriptor_sets(
+                    PipelineBindPoint::Graphics,
+                    pipeline.layout().clone(),
+                    0,
+                    set.clone(),
+                )
                 .bind_vertex_buffers(0, geometry.vertex_buffer().clone())
                 .bind_index_buffer(geometry.index_buffer().clone())
                 .draw_indexed(
@@ -389,14 +419,13 @@ impl RenderManager{
                 )
                 .unwrap();
         }
-        log::info!("made it all the way out");
         builder.end_render_pass().unwrap();
 
         // actually build command buffer now
         let command_buffer = builder.build().unwrap();
 
         // now get future state and try to draw
-        // let x: u32 = _previous_frame_end.take().unwrap();
+
         // TODO : Fix crash here
         let future = self.previous_frame_end
             .take()
@@ -432,21 +461,41 @@ impl RenderManager{
         images: &[Arc<SwapchainImage<Window>>],
         render_pass: Arc<RenderPass>,
         viewport: &mut Viewport,
+        device: Arc<Device>,
     ) -> Vec<Arc<Framebuffer>> {
         let dimensions = images[0].dimensions().width_height();
         viewport.dimensions = [dimensions[0] as f32, dimensions[1] as f32];
 
-        images
+        // images
+        //     .iter()
+        //     .map(|image| {
+        //         let view = ImageView::new(image.clone()).unwrap();
+        //         Framebuffer::start(render_pass.clone())
+        //             .add(view)
+        //             .unwrap()
+        //             .build()
+        //             .unwrap()
+        //     })
+        //     .collect::<Vec<_>>()
+        let depth_buffer = ImageView::new(
+            AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
+        )
+        .unwrap();
+    
+        let framebuffers = images
             .iter()
             .map(|image| {
                 let view = ImageView::new(image.clone()).unwrap();
                 Framebuffer::start(render_pass.clone())
                     .add(view)
                     .unwrap()
+                    .add(depth_buffer.clone())
+                    .unwrap()
                     .build()
                     .unwrap()
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        framebuffers
     }
 
     // insert required render data into scene so systems can run
@@ -582,7 +631,8 @@ impl RenderManager{
                     .clone(),
                 &mut self.viewport
                     .clone()
-                    .unwrap()
+                    .unwrap(),
+                self.device()
             )
         );
         self.swapchain = Some(new_swapchain);

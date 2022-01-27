@@ -10,15 +10,15 @@ use cgmath;
 #[derive(Component, Debug)]
 #[storage(HashMapStorage)]
 pub struct CameraComponent{
-    pub fov: f64,
-    pub near: f64,
-    pub far: f64,
-    pub aspect: f64,
-    pub look_at: Vector3<f64>,
-    pub eye: Vector3<f64>,
-    pub up: Vector3<f64>,
-    pub perspective: Matrix4<f64>,
-    pub view: Matrix4<f64>,
+    pub fov: f32,
+    pub near: f32,
+    pub far: f32,
+    pub aspect: f32,
+    pub look_at: Vector3<f32>,
+    pub eye: Vector3<f32>,
+    pub up: Vector3<f32>,
+    pub perspective: Matrix4<f32>,
+    pub view: Matrix4<f32>,
 }
 
 impl CameraComponent {
@@ -28,7 +28,7 @@ impl CameraComponent {
         let far = 1e6;
         let aspect = 0.5;
         let look_at = Vector3::new(0.0, 0.0, 0.0);
-        let eye = Vector3::new(1.0, 0.0, 1.0);
+        let eye = Vector3::new(3.0, 0.0, 3.0);
         let up = Vector3::new(0.0, 0.0, 1.0);
         let mut cam = CameraComponent{
             fov: fov,
@@ -72,11 +72,11 @@ impl CameraComponent {
         self.view = orientation_matrix * translation_matrix;
     }
 
-    pub fn get_view(&self) -> Matrix4<f64> {
+    pub fn get_view(&self) -> Matrix4<f32> {
         self.view.clone()
     }
 
-    pub fn get_perspective(&self) -> Matrix4<f64> {
+    pub fn get_perspective(&self) -> Matrix4<f32> {
         self.perspective.clone()
     }
 }

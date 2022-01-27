@@ -9,8 +9,8 @@ use cgmath::{
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct TransformComponent{
-    pub global_position: Vector3<f64>,
-    pub rotation: Matrix4<f64>,
+    pub global_position: Vector3<f32>,
+    pub rotation: Matrix4<f32>,
 }
 
 impl TransformComponent{
@@ -21,7 +21,7 @@ impl TransformComponent{
         }
     }
 
-    pub fn create(global_pos: Vector3<f64>, rot: Matrix4<f64>) -> Self {
+    pub fn create(global_pos: Vector3<f32>, rot: Matrix4<f32>) -> Self {
         TransformComponent{
             global_position: global_pos,
             rotation: rot,
