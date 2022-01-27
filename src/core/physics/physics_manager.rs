@@ -1,4 +1,5 @@
 use crate::core::managers::manager::Manager;
+use crate::core::scene::{Scene, Initialized};
 
 pub struct PhysicsManager{}
 
@@ -9,7 +10,7 @@ impl Manager for PhysicsManager{
     fn shutdown(&mut self){
         log::info!("Shutting down physics manager...");
     }
-    fn update(&mut self){
+    fn update(&mut self, scene: &mut Scene<Initialized>){
     }
 }
 

@@ -19,6 +19,8 @@ use crate::core::{
     rendering::render_manager::RenderManager,
     input::input_manager::InputManager,
     scene::{
+        Scene,
+        Initialized,
         scene_manager::{
             SceneManager,
         },
@@ -111,22 +113,22 @@ impl Manager for Application{
     }
 
     // update process
-    fn update(&mut self){
+    fn update(&mut self, scene: &mut Scene<Initialized>){
+        match &self.input_manager {
+            Some(manager) => manager.borrow_mut().update(scene),
+            None => log::error!("No input manager to update."),
+        }
         match &self.physics_manager {
-            Some(manager) => manager.borrow_mut().update(),
+            Some(manager) => manager.borrow_mut().update(scene),
             None => log::error!("No physics manager to update."),
         }
         match &self.scene_manager {
-            Some(manager) => manager.borrow_mut().update(),
+            Some(manager) => manager.borrow_mut().update(scene),
             None => log::error!("No scene manager to update."),
         }
         match &self.render_manager {
-            Some(manager) => manager.borrow_mut().update(),
+            Some(manager) => manager.borrow_mut().update(scene),
             None => log::error!("No render manager to update."),
-        }
-        match &self.input_manager {
-            Some(manager) => manager.borrow_mut().update(),
-            None => log::error!("No input manager to update."),
         }
     }
 }
@@ -161,12 +163,22 @@ impl Application{
         let mut loops: u32 = 0;
         let mut interpolation: f32 = 0.0;
         let mut next_tick = Instant::now();
+
         event_loop.run(move |event, _, control_flow| {
 
             loops = 0;
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
-                self.get_physics_manager().unwrap().update();
-                self.get_input_manager().unwrap().update();
+                let scene_manager = self.get_scene_manager().unwrap();
+                let mut active_scene = scene_manager.get_active_scene().unwrap();
+                self.get_physics_manager().unwrap().update(active_scene.borrow_mut());
+                self.get_input_manager().unwrap().update(active_scene.borrow_mut());
+                // self.get_physics_manager().unwrap().update();
+                // self.get_input_manager().unwrap().update();
+                // let mut update = |app: &mut Application| {
+                    // app.update(active_scene.borrow_mut());
+                    // app
+                // };
+                // update(&mut self);
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;
             }

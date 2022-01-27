@@ -28,7 +28,7 @@ impl CameraComponent {
         let far = 1e6;
         let aspect = 0.5;
         let look_at = Vector3::new(0.0, 0.0, 0.0);
-        let eye = Vector3::new(3.0, 0.0, 3.0);
+        let eye = Vector3::new(3.0, 0.0, -3.0);
         let up = Vector3::new(0.0, 0.0, 1.0);
         let mut cam = CameraComponent{
             fov: fov,

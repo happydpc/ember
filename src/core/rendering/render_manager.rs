@@ -280,7 +280,7 @@ impl RenderManager{
     }
 
     // update render manager
-    pub fn update(&mut self){
+    pub fn update(&mut self, scene: &mut Scene<Initialized>){
     }
 
     // create a new render manager with uninitialized values
@@ -700,17 +700,17 @@ pub struct PrimitiveCommandBufferBuilderSystem;
 //
 // impl<'a> System<'a> for PrimitiveCommandBufferBuilderSystem{
 //     type SystemData = (
-//         ReadExpect<'a, Arc<GraphicsPipeline<BuffersDefinition>>>,
+//         ReadExpect<'a, Arc<GraphicsPipeline>>,
 //         ReadExpect<'a, Arc<DynamicState>>,
 //         ReadExpect<'a, Arc<Device>>,
 //         ReadStorage<'a, RenderableComponent>,
 //         // ReadExpect<'a, AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>>,
 //     );
-//
+
 //     fn run(&mut self, data: Self::SystemData){
 //         let(pipeline, dynamic_state, device, renderable) = data;
 //         // let(pipeline, dynamic_state, renderable, command_buffer) = data;
-//
+
 //         // create a command buffer builder
 //         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
 //             self.device(),
@@ -718,6 +718,6 @@ pub struct PrimitiveCommandBufferBuilderSystem;
 //             CommandBufferUsage::OneTimeSubmit,
 //         )
 //         .unwrap();
-//
+
 //     }
 // }

@@ -26,7 +26,7 @@ impl Manager for SceneManager{
     fn shutdown(&mut self){
         self.scenes.clear();
     }
-    fn update(&mut self){
+    fn update(&mut self, scene: &mut Scene<Initialized>){
     }
 }
 
