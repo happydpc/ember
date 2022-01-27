@@ -466,17 +466,6 @@ impl RenderManager{
         let dimensions = images[0].dimensions().width_height();
         viewport.dimensions = [dimensions[0] as f32, dimensions[1] as f32];
 
-        // images
-        //     .iter()
-        //     .map(|image| {
-        //         let view = ImageView::new(image.clone()).unwrap();
-        //         Framebuffer::start(render_pass.clone())
-        //             .add(view)
-        //             .unwrap()
-        //             .build()
-        //             .unwrap()
-        //     })
-        //     .collect::<Vec<_>>()
         let depth_buffer = ImageView::new(
             AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
         )

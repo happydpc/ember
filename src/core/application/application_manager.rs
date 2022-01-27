@@ -166,6 +166,7 @@ impl Application{
             loops = 0;
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
                 self.get_physics_manager().unwrap().update();
+                self.get_input_manager().unwrap().update();
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;
             }
@@ -240,6 +241,13 @@ impl Application{
 
     pub fn get_physics_manager(&self) -> Option<RefMut<PhysicsManager>> {
         match &self.physics_manager {
+            Some(manager) => Some(manager.borrow_mut()),
+            None => None,
+        }
+    }
+
+    pub fn get_input_manager(&self) -> Option<RefMut<InputManager>> {
+        match &self.input_manager {
             Some(manager) => Some(manager.borrow_mut()),
             None => None,
         }
