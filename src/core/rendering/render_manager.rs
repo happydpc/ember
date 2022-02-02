@@ -116,6 +116,9 @@ use winit::{
     },
 };
 
+// egui
+use egui;
+
 // std imports
 use std::sync::Arc;
 
@@ -637,6 +640,11 @@ impl RenderManager{
             }
             Err(e) => panic!("Failed to acquire next image: {:?}", e),
         }
+    }
+
+    // create an egui painter
+    pub fn initialize_egui(&self) {
+
     }
 
     // getters
