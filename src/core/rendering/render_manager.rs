@@ -95,15 +95,14 @@ use vulkano::{
     descriptor_set::{
         layout::DescriptorSetLayout,
         PersistentDescriptorSet,
+        WriteDescriptorSet,
     },
     format::Format,
     Version,
 };
 
 // vulkano_win imports
-use vulkano_win::{
-    VkSurfaceBuild,
-};
+use vulkano_win::VkSurfaceBuild;
 
 // winit imports
 use winit::{
@@ -118,6 +117,7 @@ use winit::{
 
 // egui
 use egui;
+use egui_winit::State;
 
 // std imports
 use std::sync::Arc;
@@ -383,6 +383,7 @@ impl RenderManager{
         let pipeline = self.pipeline();
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
 
+        // TODO : put this in a system
         for (renderable, transform) in (&renderables, &transforms).join() {
             // create matrix
             let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
@@ -400,9 +401,13 @@ impl RenderManager{
                 uniform_buffer.next(m).unwrap()
             };
     
-            let mut set_builder = PersistentDescriptorSet::start(layout.clone());
-            set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
-            let set = set_builder.build().unwrap();
+            // let mut set_builder = PersistentDescriptorSet::start(layout.clone());
+            // set_builder.add_buffer(uniform_buffer_subbuffer).unwrap();
+            // let set = set_builder.build().unwrap();
+            let set = PersistentDescriptorSet::new(
+                layout.clone(),
+                [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)]
+            ).unwrap();
 
             &builder
                 .bind_descriptor_sets(
@@ -422,6 +427,9 @@ impl RenderManager{
                 )
                 .unwrap();
         }
+
+        
+
         builder.end_render_pass().unwrap();
 
         // actually build command buffer now
@@ -515,7 +523,7 @@ impl RenderManager{
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
             .with_title("Ember")
-            .build_vk_surface(&event_loop, instance)
+            .build_vk_surface(&event_loop, instance.clone())
             .unwrap();
         (event_loop, surface)
     }
@@ -644,7 +652,8 @@ impl RenderManager{
 
     // create an egui painter
     pub fn initialize_egui(&self) {
-
+        let mut egui_ctx = egui::CtxRef::default();
+        // let mut egui_winit = egui_winit::State::new(self.surface().window());
     }
 
     // getters

@@ -8,11 +8,12 @@ edition = "2018"
 
 [dependencies]
 specs = {version = "*", features = ["specs-derive"] }
-vulkano = "0.27.1"
-vulkano-shaders = "*"
-vulkano-win = "*"
+vulkano = "0.28"
+vulkano-shaders = "0.28"
+vulkano-win = "0.28"
 egui = "*"
-winit = "0.25"
+egui-winit = "*"
+winit = "0.26.1"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
 # euler = "*"
