@@ -72,6 +72,10 @@ impl SceneManager{
         }
     }
 
+    pub fn borrow_mut_scene(&mut self, id: i16) -> Option<&mut Scene<Uninitialized>>{
+        self.scenes.get_mut(&id)
+    }
+
     pub fn set_active_scene(&mut self, scene_id: i16){
         log::info!("Attempting to activate scene {}.", scene_id);
         // if there is an active scene id, deactivate that scene and restore it in the hash map

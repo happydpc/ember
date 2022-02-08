@@ -18,6 +18,7 @@ use crate::core::{
     physics::physics_manager::PhysicsManager,
     rendering::render_manager::RenderManager,
     input::input_manager::InputManager,
+    plugins::components::EguiComponent,
     scene::{
         Scene,
         Initialized,
@@ -42,7 +43,15 @@ use winit::{
     }
 };
 
-//logging
+// egui
+use egui;
+use egui_winit::State;
+use egui::CtxRef;
+
+// specs
+use specs::{Builder, WorldExt};
+
+// logging
 use simple_logger::SimpleLogger;
 use log;
 use log::LevelFilter;
@@ -62,6 +71,11 @@ pub struct Application{
 
     log_level: LevelFilter,
     start_instant: Instant,
+
+    // egui
+    egui_ctx: Option<CtxRef>,
+    egui_winit: Option<egui_winit::State>,
+    egui_painter: Option<egui_vulkano::Painter>
 }
 
 impl Manager for Application{
@@ -80,6 +94,13 @@ impl Manager for Application{
         physics_manager.startup();
         scene_manager.startup();
         input_manager.startup();
+
+        // initialize egui?
+        // let (egui_ctx, egui_winit, egui_painter) = render_manager.initialize_egui();
+
+        // self.egui_ctx = Some(egui_ctx);
+        // self.egui_winit = Some(egui_winit);
+        // self.egui_painter = Some(egui_painter);
 
         self.render_manager = Some(RefCell::new(render_manager));
         self.physics_manager = Some(RefCell::new(physics_manager));
@@ -145,6 +166,9 @@ impl Application{
             surface: None,
             log_level: log_level.unwrap_or(LevelFilter::Info),
             start_instant: Instant::now(),
+            egui_ctx: None,
+            egui_winit: None,
+            egui_painter: None,
         }
     }
 
@@ -244,6 +268,31 @@ impl Application{
         } // end of event match
     }
 
+    pub fn create_scene(&mut self) -> i16{
+        // get scene manager
+        let mut scene_manager = self.get_scene_manager().unwrap();
+        let id = scene_manager.generate_and_register_scene();
+
+        // create scene and register egui component
+        let mut scene = scene_manager.borrow_mut_scene(id).unwrap();
+        scene.register::<EguiComponent>();
+
+        // get required egui data
+        let mut render_manager = self.get_render_manager().unwrap();
+        let (egui_ctx, egui_painter) = render_manager.initialize_egui();
+        let egui_winit = render_manager.create_egui_winit_state();
+        
+        scene.insert_resource(egui_winit);
+
+        // load it into a component in the world
+        scene.get_world()
+            .unwrap()
+            .create_entity()
+            .with(EguiComponent{egui_ctx, egui_painter})
+            .build();
+        id // return id
+    }
+
     pub fn get_scene_manager(&self) -> Option<RefMut<SceneManager>> {
         match &self.scene_manager{
             Some(manager) => Some(manager.borrow_mut()),
@@ -260,6 +309,13 @@ impl Application{
 
     pub fn get_input_manager(&self) -> Option<RefMut<InputManager>> {
         match &self.input_manager {
+            Some(manager) => Some(manager.borrow_mut()),
+            None => None,
+        }
+    }
+
+    pub fn get_render_manager(&self) -> Option<RefMut<RenderManager>> {
+        match &self.render_manager{
             Some(manager) => Some(manager.borrow_mut()),
             None => None,
         }

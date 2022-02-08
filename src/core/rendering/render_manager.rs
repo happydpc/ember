@@ -19,7 +19,8 @@ use crate::core::{
         },
     },
     scene::{
-        scene::{Scene, Initialized}
+        scene::{Scene, Initialized},
+        system_dispatch::SystemDispatch,
     },
 };
 
@@ -84,6 +85,7 @@ use vulkano::{
     sync,
     command_buffer::{
         AutoCommandBufferBuilder,
+        PrimaryAutoCommandBuffer,
         CommandBufferUsage,
         SubpassContents,
     },
@@ -118,6 +120,7 @@ use winit::{
 // egui
 use egui;
 use egui_winit::State;
+use egui::CtxRef;
 
 // std imports
 use std::sync::Arc;
@@ -202,7 +205,7 @@ impl RenderManager{
         let fs = fs::load(device.clone()).unwrap();
 
         // create our render pass
-        let render_pass = vulkano::single_pass_renderpass!(
+        let render_pass = vulkano::ordered_passes_renderpass!(
                 device.clone(),
                 attachments: {
                     color: {
@@ -218,10 +221,10 @@ impl RenderManager{
                         samples: 1,
                     }
                 },
-                pass: {
-                    color: [color],
-                    depth_stencil: {depth}
-                }
+                passes: [
+                    { color: [color], depth_stencil: {depth}, input: [] },
+                    { color: [color], depth_stencil: {depth}, input: [] }
+                ]
             )
             .unwrap();
         
@@ -324,8 +327,8 @@ impl RenderManager{
     pub fn draw(&mut self, scene: &mut Scene<Initialized>){
         // prep scene by inserting device and other operations
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
-        self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
-
+        // self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
+        scene.run_render_dispatch();
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
         // acquire an image from the swapchain
@@ -335,9 +338,6 @@ impl RenderManager{
             self.recreate_swapchain()
         }
 
-        // this is the default color of the framebuffer
-        let clear_values = vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()];
-
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::primary(
             self.device(),
@@ -346,11 +346,8 @@ impl RenderManager{
         )
         .unwrap();
 
-        let world = scene.get_world().unwrap();
-        let system_data: ReadStorage<RenderableComponent> = world.system_data();
-        let renderables = world.read_storage::<RenderableComponent>();
-        let transforms = world.read_storage::<TransformComponent>();
-
+        // this is the default color of the framebuffer
+        let clear_values = vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()];
         builder
             .begin_render_pass(
                 self.framebuffers()[image_num].clone(),
@@ -361,6 +358,10 @@ impl RenderManager{
             .set_viewport(0, [self.viewport.clone().unwrap()])
             .bind_pipeline_graphics(self.pipeline());
 
+        let world = scene.get_world().unwrap();
+        let system_data: ReadStorage<RenderableComponent> = world.system_data();
+        let renderables = world.read_storage::<RenderableComponent>();
+        let transforms = world.read_storage::<TransformComponent>();
         let dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let aspect = dimensions[0] as f32/ dimensions[1] as f32;
 
@@ -428,8 +429,6 @@ impl RenderManager{
                 .unwrap();
         }
 
-        
-
         builder.end_render_pass().unwrap();
 
         // actually build command buffer now
@@ -461,6 +460,45 @@ impl RenderManager{
             }
         }
 
+    }
+
+    pub fn new_draw(
+        &mut self,
+        scene: &mut Scene<Initialized>
+    ){
+        self.prep_scene_and_swapchain(scene);
+        let command_buffer_builder = self.init_command_buffer_builder();
+    }
+
+    // render steps
+    fn prep_scene_and_swapchain(
+        &mut self,
+        scene: &mut Scene<Initialized>
+    )->(usize, SwapchainAcquireFuture<winit::window::Window>)
+    {
+        // prep scene by inserting device and other operations
+        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
+        self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
+
+        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+        // acquire an image from the swapchain
+        let (image_num, suboptimal, acquire_future) = self.acquire_swapchain_image();
+
+        if suboptimal {
+            self.recreate_swapchain()
+        }
+        (image_num, acquire_future)
+    }
+
+    fn init_command_buffer_builder(&self)->AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>{
+        // create a command buffer builder
+        let mut builder = AutoCommandBufferBuilder::primary(
+            self.device(),
+            self.queue().family(),
+            CommandBufferUsage::OneTimeSubmit,
+        ).unwrap();
+        builder
     }
 
     // ================= //
@@ -651,9 +689,22 @@ impl RenderManager{
     }
 
     // create an egui painter
-    pub fn initialize_egui(&self) {
+    pub fn initialize_egui(&self) -> (CtxRef, egui_vulkano::Painter){
         let mut egui_ctx = egui::CtxRef::default();
-        // let mut egui_winit = egui_winit::State::new(self.surface().window());
+        let mut egui_painter = egui_vulkano::Painter::new(
+            self.device(),
+            self.queue(),
+            Subpass::from(self.render_pass(), 1).unwrap(),
+        )
+        .unwrap();
+
+        (egui_ctx, egui_painter)
+    }
+
+    pub fn create_egui_winit_state(&self) -> egui_winit::State{
+        let surface = self.surface();
+        let window = surface.window();
+        egui_winit::State::new(window)
     }
 
     // getters
