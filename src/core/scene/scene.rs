@@ -15,8 +15,21 @@ use std::{
 };
 
 use super::system_dispatch::{MultiThreadedDispatcher, SystemDispatch};
-use crate::core::rendering::render_manager::RenderableInitializerSystem;
-use crate::core::scene::ui_systems::DebugUiSystem;
+use crate::core::input::input_manager::KeyInputQueue;
+use crate::core::systems::{
+    ui_systems::{
+        DebugUiSystem,
+    },
+    input_systems::{
+        CameraMoveSystem,
+    },
+    update_systems::{
+    },
+    render_systems::{
+        RenderableInitializerSystem,
+        CameraUpdateSystem,
+    }
+};
 use crate::construct_dispatcher;
 
 pub struct Scene<S>{
@@ -117,14 +130,15 @@ impl Scene<Initialized> {
     pub fn create_render_dispatch(&mut self){
         construct_dispatcher!(
             (RenderableInitializerSystem, "render_init", &[]),
-            (DebugUiSystem, "debug_ui", &[])
+            (DebugUiSystem, "debug_ui", &[]),
+            (CameraUpdateSystem, "camera_update", &[])
         );
         self.render_dispatch = Some(new_dispatch());
     }
 
     pub fn create_update_dispatch(&mut self){
         construct_dispatcher!(
-            (RenderableInitializerSystem, "render_init_system", &[])
+            (CameraMoveSystem, "camera_move", &[])
         );
         self.update_dispatch = Some(new_dispatch());
     }
@@ -139,6 +153,10 @@ impl Scene<Initialized> {
         let mut dispatch = self.update_dispatch.take().unwrap();
         dispatch.run_now(&mut *self.get_world().unwrap());
         self.update_dispatch = Some(dispatch);
+    }
+
+    pub fn insert_required_resources(&mut self){
+        self.insert_resource(KeyInputQueue::new());
     }
 }
 
@@ -155,6 +173,7 @@ impl From<Scene<Uninitialized>> for Scene<Initialized> {
         };
         scene.create_render_dispatch();
         scene.create_update_dispatch();
+        scene.insert_required_resources();
         scene
     }
 }

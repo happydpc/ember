@@ -4,24 +4,24 @@ use specs::prelude::*;
 use winit::event::VirtualKeyCode;
 use cgmath::InnerSpace;
 use std::collections::VecDeque;
+use crate::core::input::input_manager::KeyInputQueue;
 
-
-pub struct CameraMoveSystem{
-    pub key_input_queue: VecDeque<VirtualKeyCode>,
-}
+pub struct CameraMoveSystem;
 
 impl<'a> System<'a> for CameraMoveSystem{
     type SystemData = (
         WriteStorage<'a, CameraComponent>,
-        WriteStorage<'a, InputComponent>,
+        Read<'a, KeyInputQueue>,
     );
 
-    fn run(&mut self, (mut cam, mut input): Self::SystemData) {
+    fn run(&mut self, data: Self::SystemData) {
         use specs::Join;
-        for (cam, input) in (&mut cam, &mut input).join() {
+        let (mut cams, _input) = data;
+        let mut input = _input.clone();
+        for cam in (&mut cams).join() {
             let forward = (cam.eye - cam.look_at).normalize();
             let right = forward.cross(cam.up).normalize();
-            let keys = self.key_input_queue.drain(..);
+            let keys = input.drain(..);
             let delta = 0.2;
             for key in keys{
                 match key {
@@ -53,5 +53,3 @@ impl<'a> System<'a> for CameraMoveSystem{
         }
     }
 }
-
-

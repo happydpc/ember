@@ -2,19 +2,19 @@ use winit::event::ModifiersState;
 use winit::event::VirtualKeyCode;
 use super::super::managers::manager::Manager;
 use std::collections::VecDeque;
-use crate::core::systems::CameraMoveSystem;
+use crate::core::systems::input_systems::CameraMoveSystem;
 use crate::core::scene::{Scene, Initialized};
 use crate::core::plugins::components::InputComponent;
 use specs::System;
 
 use log;
 
+pub type KeyInputQueue = VecDeque<VirtualKeyCode>;
 
 pub struct InputManager{
     modifier_state: Option<ModifiersState>,
     current_key_pressed: Option<VirtualKeyCode>,
     key_input_queue: VecDeque<VirtualKeyCode>,
-    camera_move_system: CameraMoveSystem,
 }
 
 impl Manager for InputManager{
@@ -42,7 +42,10 @@ impl Manager for InputManager{
         //     }
         // }
         self.current_key_pressed = None;
-        self.camera_move_system.run(scene.get_world().unwrap().system_data());
+        scene.insert_resource(self.key_input_queue.clone());
+        self.key_input_queue.clear();
+        scene.run_update_dispatch();
+        // self.camera_move_system.run(scene.get_world().unwrap().system_data());
     }
 }
 
@@ -55,9 +58,6 @@ impl InputManager {
             modifier_state: None,
             current_key_pressed: None,
             key_input_queue: VecDeque::new(),
-            camera_move_system: CameraMoveSystem{
-                key_input_queue: VecDeque::new(),
-            },
         }
     }
 
@@ -71,7 +71,7 @@ impl InputManager {
     pub fn handle_key_input(&mut self, key_pressed: Option<VirtualKeyCode>){
         log::debug!("Key input picked up by InputManager...");
         match key_pressed {
-            Some(key) => self.camera_move_system.key_input_queue.push_back(key),
+            Some(key) => self.key_input_queue.push_back(key),
             _ => (),
         }
         self.current_key_pressed = key_pressed;

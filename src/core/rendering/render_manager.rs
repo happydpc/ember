@@ -131,12 +131,9 @@ use cgmath::Matrix4;
 // logging
 use log;
 
+pub type Aspect = [u32; 2];
 
 pub struct RenderManager{
-    // ECS Systems
-    scene_prep_system: RenderableInitializerSystem,
-    primitive_command_buffer_builder_system: PrimitiveCommandBufferBuilderSystem,
-
     // Vulkan
     required_extensions: Option<InstanceExtensions>,
     device_extensions: Option<DeviceExtensions>,
@@ -295,10 +292,6 @@ impl RenderManager{
 
         // initialize our render system with all of the required vulkan components
         let render_sys = RenderManager{
-            // ECS Systemes
-            scene_prep_system: RenderableInitializerSystem{},
-            primitive_command_buffer_builder_system: PrimitiveCommandBufferBuilderSystem{},
-
             // Vulkan
             required_extensions: None,
             device_extensions: None,
@@ -359,12 +352,10 @@ impl RenderManager{
             .bind_pipeline_graphics(self.pipeline());
 
         let world = scene.get_world().unwrap();
-        let system_data: ReadStorage<RenderableComponent> = world.system_data();
-        let renderables = world.read_storage::<RenderableComponent>();
-        let transforms = world.read_storage::<TransformComponent>();
         let dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let aspect = dimensions[0] as f32/ dimensions[1] as f32;
 
+        // this should be a system
         let (view, perspective) = {
             let mut cameras = world.write_storage::<CameraComponent>();
             let mut view: Matrix4<f32> = Matrix4::from_scale(1.0);
@@ -384,6 +375,8 @@ impl RenderManager{
         let pipeline = self.pipeline();
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
 
+        let renderables = world.read_storage::<RenderableComponent>();
+        let transforms = world.read_storage::<TransformComponent>();
         // TODO : put this in a system
         for (renderable, transform) in (&renderables, &transforms).join() {
             // create matrix
@@ -478,7 +471,8 @@ impl RenderManager{
     {
         // prep scene by inserting device and other operations
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
-        self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
+
+        // self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
@@ -538,8 +532,11 @@ impl RenderManager{
 
     // insert required render data into scene so systems can run
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
-        scene.insert_resource(self.device.clone().unwrap().clone());
-        scene.insert_resource(self.pipeline.clone().unwrap().clone());
+        // insert
+        scene.insert_resource(self.device());
+        scene.insert_resource(self.pipeline());
+        scene.insert_resource(self.surface());
+        log::info!("Resources submitted");
     }
 
     // returns the required winit extensions and the required extensions of my choosing
@@ -741,28 +738,6 @@ impl RenderManager{
     }
 }
 
-
-pub struct RenderableInitializerSystem;
-
-
-impl<'a> System<'a> for RenderableInitializerSystem{
-    type SystemData = (
-        ReadExpect<'a, Arc<Device>>,
-        WriteStorage<'a, RenderableComponent>,
-    );
-
-    fn run(&mut self, data: Self::SystemData) {
-
-        let (device, mut renderable) = data;
-        let device = &*device;
-        for renderable in (&mut renderable).join() {
-            if renderable.initialized() == false{
-                renderable.initialize(device.clone());
-            }
-        }
-    }
-
-}
 
 pub struct PrimitiveCommandBufferBuilderSystem;
 //
