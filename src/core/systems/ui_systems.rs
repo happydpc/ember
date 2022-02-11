@@ -7,6 +7,9 @@ use egui::containers::Frame;
 use egui::Color32;
 use egui::Window;
 
+use log;
+
+
 pub struct EguiState{
     pub ctx: CtxRef,
     pub painter: Painter,
@@ -27,11 +30,12 @@ impl<'a> System<'a> for DebugUiSystem{
         let (winit_state, egui_state, egui_comps) = data;
         let ctx = egui_state.ctx.clone();
         for comp in (&egui_comps).join() {
+            log::debug!("drawing a window");
             egui::Window::new("window")
                 .resizable(true)
                 .frame(Frame::none().fill(Color32::DARK_RED)).show(&ctx, |ui| {
-                ui.label("Debug Panel!");
-            });
+                    ui.label("Debug Panel!");
+                });
         }
     }
 

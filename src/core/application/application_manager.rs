@@ -177,20 +177,13 @@ impl Application{
         event_loop.run(move |event, _, control_flow| {
 
             loops = 0;
-            // let scene_manager = self.get_scene_manager().unwrap();
-            // let mut active_scene = scene_manager.get_active_scene().unwrap();
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut active_scene = scene_manager.get_active_scene().unwrap();
                 self.get_physics_manager().unwrap().update(active_scene.borrow_mut());
                 self.get_input_manager().unwrap().update(active_scene.borrow_mut());
-                // self.get_physics_manager().unwrap().update();
-                // self.get_input_manager().unwrap().update();
-                // let mut update = |app: &mut Application| {
-                    // app.update(active_scene.borrow_mut());
-                    // app
-                // };
-                // update(&mut self);
+                active_scene.run_update_dispatch();
+
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;
             }
@@ -207,7 +200,7 @@ impl Application{
     ){  
         match event {
             Event::WindowEvent { event, .. } => match event {
-                
+
                 // close requested
                 WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
@@ -219,6 +212,7 @@ impl Application{
                     match &self.render_manager {
                         Some(manager) => {
                             manager.borrow_mut().recreate_swapchain();
+                            log::info!("Swapchain Recreated...");
                         },
                         None => log::error!("Render manager not found when trying to recreate swapchain."),
                     }

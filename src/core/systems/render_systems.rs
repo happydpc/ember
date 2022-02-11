@@ -39,6 +39,8 @@ use vulkano::pipeline::graphics::viewport::Viewport;
 
 use winit::window::Window;
 
+use log;
+
 
 pub struct RenderableInitializerSystem;
 
@@ -54,6 +56,7 @@ impl<'a> System<'a> for RenderableInitializerSystem{
         let device = &*device;
         for renderable in (&mut renderable).join() {
             if renderable.initialized() == false{
+                log::debug!("Init renderable.");
                 renderable.initialize(device.clone());
             }
         }
@@ -63,6 +66,8 @@ impl<'a> System<'a> for RenderableInitializerSystem{
 
 pub type CameraState = [Matrix4<f32>; 2];
 
+// this could be an update system. we do need the view / proj every frame but that only changes
+// on update
 pub struct CameraUpdateSystem;
 
 impl<'a> System<'a> for CameraUpdateSystem{
@@ -77,6 +82,7 @@ impl<'a> System<'a> for CameraUpdateSystem{
         let dimensions: [u32; 2] = surface.window().inner_size().into();
         let aspect = dimensions[0] as f32/ dimensions[1] as f32;
         for camera in (&mut cams).join(){
+            log::debug!("updating camera");
             camera.aspect = aspect;
             camera.calculate_view();
 
@@ -119,6 +125,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
         
         for (renderable, transform) in (&renderables, &transforms).join() {
+            log::debug!("Building secondary command buffer");
             // create buffer buildres
             // create a command buffer builder
             let mut builder = AutoCommandBufferBuilder::secondary_graphics(
@@ -142,7 +149,6 @@ impl <'a> System<'a> for RenderableDrawSystem{
 
             let g_arc = &renderable.geometry();
             let geometry = g_arc.lock().unwrap();
-
             let m = vs::ty::Data{
                 mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
             };

@@ -261,7 +261,7 @@ impl RenderManager{
             depth_range: 0.0..1.0,
         };
 
-        let framebuffers = RenderManager::window_size_dependent_setup(&images, render_pass.clone(), &mut viewport, device.clone());
+        let framebuffers = self.window_size_dependent_setup(&images, render_pass.clone(), &mut viewport, device.clone());
         let recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
@@ -469,6 +469,7 @@ impl RenderManager{
         &mut self,
         scene: &mut Scene<Initialized>
     ){
+        log::debug!("Entering render manager draw");
         // create primary command buffer builder
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
@@ -476,11 +477,12 @@ impl RenderManager{
         let (image_num, future) = self.prep_scene_and_swapchain(scene);
 
         // begin main render pass
-        let clear_values = vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()];
+        log::debug!("Entering main render pass");
+        let clear_values = vec![[0.25, 0.2, 0.2, 1.0].into(), 1f32.into()];
         command_buffer_builder
             .begin_render_pass(
                 self.framebuffers()[image_num].clone(),
-                SubpassContents::Inline,
+                SubpassContents::SecondaryCommandBuffers,
                 clear_values,
             )
             .unwrap()
@@ -488,10 +490,12 @@ impl RenderManager{
             .bind_pipeline_graphics(self.pipeline());
 
         // insert stuff into scene that systems will need
+        log::debug!("Inserting resources into scene.");
         scene.insert_resource(image_num);
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
         let mut secondary_buffer_vec: Vec<Box<SecondaryCommandBuffer>> = Vec::new(); 
         scene.insert_resource(secondary_buffer_vec);
+        log::debug!("Done inserting resources");
 
         // start egui frame
         {
@@ -502,23 +506,17 @@ impl RenderManager{
         }
 
         // run all systems
+        log::debug!("About to run render dispatch...");
         scene.run_render_dispatch();
+        log::debug!("Done with render dispatch...");
 
-        // get secondary command buffers
-        {
-            let world = scene.get_world().unwrap();
-            let mut secondary_buffers = world.write_resource::<Vec<Box<SecondaryCommandBuffer>>>();
-
-            // submit secondary buffers
-            for buff in secondary_buffers.drain(..){
-                command_buffer_builder.execute_commands(buff);
-            }
-        }
+        
 
         // end renderpass
         // command_buffer_builder.end_render_pass().unwrap();
 
         // get egui shapes from world
+        log::debug!("Getting egui shapes");
         let clipped_shapes = {
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
@@ -528,9 +526,12 @@ impl RenderManager{
             egui_winit.handle_output(self.surface().window(), &state.ctx, egui_output);
             clipped_shapes
         };
-
+        log::debug!("rect {:?}", clipped_shapes[0].0);
+        log::debug!("viewport {:?}", self.viewport().clone().dimensions);
+        log::debug!("window {:?}", self.surface().window().inner_size());
         // send to egui
         // Automatically start the next render subpass and draw the gui
+        log::debug!("submitting egui shapes to painter");
         {
             let surface = self.surface();
             let size = surface.window().inner_size();
@@ -538,23 +539,38 @@ impl RenderManager{
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
+            ctx.set_pixels_per_point(1.0);
             state.painter
                 .draw(
                     &mut command_buffer_builder,
-                    [(size.width as f32)/sf, (size.height as f32)/sf],
+                    [(size.width as f32) / sf, (size.height as f32) / sf],
                     &ctx,
                     clipped_shapes,
                 )
                 .unwrap();
         }
 
+        // get secondary command buffers
+        {
+            let world = scene.get_world().unwrap();
+            let mut secondary_buffers = world.write_resource::<Vec<Box<SecondaryCommandBuffer>>>();
+            // submit secondary buffers
+            for buff in secondary_buffers.drain(..){
+                log::debug!("Executing secondary buffer");
+                command_buffer_builder.execute_commands(buff);
+            }
+        }
+
         // end egui pass
+        log::debug!("ending egui pass");
         command_buffer_builder.end_render_pass().unwrap();
 
         // build command buffer
+        log::debug!("Building command buffer");
         let command_buffer = command_buffer_builder.build().unwrap();
 
         // submit and render
+        log::debug!("Submitting");
         let future = self.previous_frame_end
             .take()
             .unwrap()
@@ -639,6 +655,7 @@ impl RenderManager{
 
     /// This method is called once during initialization, then again whenever the window is resized
     fn window_size_dependent_setup(
+        &mut self,
         images: &[Arc<SwapchainImage<Window>>],
         render_pass: Arc<RenderPass>,
         viewport: &mut Viewport,
@@ -646,7 +663,7 @@ impl RenderManager{
     ) -> Vec<Arc<Framebuffer>> {
         let dimensions = images[0].dimensions().width_height();
         viewport.dimensions = [dimensions[0] as f32, dimensions[1] as f32];
-
+        self.viewport = Some(viewport.clone());
         let depth_buffer = ImageView::new(
             AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
         )
@@ -747,7 +764,7 @@ impl RenderManager{
         // now create logical device and queues
         let (device, mut queues) = Device::new(
             physical_device,
-            &Features::none(),
+            physical_device.supported_features(),
             &physical_device
                 .required_extensions()
                 .union(&device_extensions),
@@ -783,12 +800,9 @@ impl RenderManager{
     // if the swapchain needs to be recreated
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
-        let dimensions: [u32; 2] = self.surface.clone().unwrap().clone().window().inner_size().into();
+        let dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let (new_swapchain, new_images) =
-        match self.swapchain
-            .clone()
-            .unwrap()
-            .clone()
+        match self.swapchain()
             .recreate()
             .dimensions(dimensions)
             .build() {
@@ -800,15 +814,10 @@ impl RenderManager{
         };
         self.recreate_swapchain = false;
         self.framebuffers = Some(
-            RenderManager::window_size_dependent_setup(
+            self.window_size_dependent_setup(
                 &new_images,
-                self.render_pass
-                    .clone()
-                    .unwrap()
-                    .clone(),
-                &mut self.viewport
-                    .clone()
-                    .unwrap(),
+                self.render_pass(),
+                &mut self.viewport(),
                 self.device()
             )
         );

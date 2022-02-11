@@ -133,7 +133,7 @@ impl Scene<Initialized> {
             (RenderableInitializerSystem, "render_init", &[]),
             (DebugUiSystem, "debug_ui", &[]),
             (CameraUpdateSystem, "camera_update", &[]),
-            (RenderableDrawSystem, "renderable_draw", &["camera_update"])
+            (RenderableDrawSystem, "renderable_draw", &["camera_update", "render_init"])
         );
         self.render_dispatch = Some(new_dispatch());
     }

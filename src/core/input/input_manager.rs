@@ -28,24 +28,9 @@ impl Manager for InputManager{
 
     fn update(&mut self, scene: &mut Scene<Initialized>){
         log::debug!("Updating input manager.");
-        // let keys = self.key_input_queue.drain(..);
-        // for key in keys{
-        //     match key {
-        //         VirtualKeyCode::W => log::info!("W pressed!"),
-        //         VirtualKeyCode::A => log::info!("A pressed!"),
-        //         VirtualKeyCode::S => log::info!("S pressed!"),
-        //         VirtualKeyCode::D => log::info!("D pressed!"),
-        //         VirtualKeyCode::Z => log::info!("Z pressed!"),
-        //         VirtualKeyCode::Q => log::info!("Q pressed!"),
-        //         VirtualKeyCode::E => log::info!("E pressed!"),
-        //         _ => (),
-        //     }
-        // }
         self.current_key_pressed = None;
         scene.insert_resource(self.key_input_queue.clone());
         self.key_input_queue.clear();
-        scene.run_update_dispatch();
-        // self.camera_move_system.run(scene.get_world().unwrap().system_data());
     }
 }
 
