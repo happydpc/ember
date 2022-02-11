@@ -14,6 +14,7 @@ vulkano-win = "0.28"
 egui = "*"
 egui-winit = "*"
 egui_vulkano = {path="../egui_vulkano"}
+# egui_vulkano = "*"
 winit = "0.26.1"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}

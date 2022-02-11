@@ -26,6 +26,7 @@ use crate::core::{
             SceneManager,
         },
     },
+    systems::ui_systems::EguiState,
 };
 
 
@@ -71,11 +72,6 @@ pub struct Application{
 
     log_level: LevelFilter,
     start_instant: Instant,
-
-    // egui
-    egui_ctx: Option<CtxRef>,
-    egui_winit: Option<egui_winit::State>,
-    egui_painter: Option<egui_vulkano::Painter>
 }
 
 impl Manager for Application{
@@ -94,13 +90,6 @@ impl Manager for Application{
         physics_manager.startup();
         scene_manager.startup();
         input_manager.startup();
-
-        // initialize egui?
-        // let (egui_ctx, egui_winit, egui_painter) = render_manager.initialize_egui();
-
-        // self.egui_ctx = Some(egui_ctx);
-        // self.egui_winit = Some(egui_winit);
-        // self.egui_painter = Some(egui_painter);
 
         self.render_manager = Some(RefCell::new(render_manager));
         self.physics_manager = Some(RefCell::new(physics_manager));
@@ -166,9 +155,6 @@ impl Application{
             surface: None,
             log_level: log_level.unwrap_or(LevelFilter::Info),
             start_instant: Instant::now(),
-            egui_ctx: None,
-            egui_winit: None,
-            egui_painter: None,
         }
     }
 
@@ -191,6 +177,8 @@ impl Application{
         event_loop.run(move |event, _, control_flow| {
 
             loops = 0;
+            // let scene_manager = self.get_scene_manager().unwrap();
+            // let mut active_scene = scene_manager.get_active_scene().unwrap();
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut active_scene = scene_manager.get_active_scene().unwrap();
@@ -212,10 +200,14 @@ impl Application{
         }); // end of event_loop run
     } // end of run function
 
-    fn handle_event(&mut self, event: winit::event::Event<()>, control_flow: &mut ControlFlow){
+    fn handle_event(
+        &mut self,
+        event: winit::event::Event<()>,
+        control_flow: &mut ControlFlow,
+    ){  
         match event {
             Event::WindowEvent { event, .. } => match event {
-
+                
                 // close requested
                 WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
@@ -247,7 +239,7 @@ impl Application{
                             None => log::error!("Key detected, but no input manager is loaded..."),
                         };
                 }
-
+                
                 // key modifiers, alt, shift, etc
                 WindowEvent::ModifiersChanged(state) => {
                     match &self.input_manager{
@@ -281,15 +273,10 @@ impl Application{
         let mut render_manager = self.get_render_manager().unwrap();
         let (egui_ctx, egui_painter) = render_manager.initialize_egui();
         let egui_winit = render_manager.create_egui_winit_state();
-        
+        let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
+        scene.insert_resource(egui_state);
         scene.insert_resource(egui_winit);
 
-        // load it into a component in the world
-        scene.get_world()
-            .unwrap()
-            .create_entity()
-            .with(EguiComponent{egui_ctx, egui_painter})
-            .build();
         id // return id
     }
 

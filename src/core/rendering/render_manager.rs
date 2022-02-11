@@ -22,6 +22,10 @@ use crate::core::{
         scene::{Scene, Initialized},
         system_dispatch::SystemDispatch,
     },
+    systems::{
+        render_systems::CameraState,
+        ui_systems::EguiState,
+    }
 };
 
 // ecs
@@ -88,6 +92,10 @@ use vulkano::{
         PrimaryAutoCommandBuffer,
         CommandBufferUsage,
         SubpassContents,
+        synced::SyncCommandBufferBuilder,
+        CommandBufferLevel,
+        pool::UnsafeCommandPool,
+        SecondaryCommandBuffer,
     },
     buffer::{
         BufferUsage,
@@ -132,6 +140,7 @@ use cgmath::Matrix4;
 use log;
 
 pub type Aspect = [u32; 2];
+pub type SwapchainImageNum = usize;
 
 pub struct RenderManager{
     // Vulkan
@@ -317,7 +326,7 @@ impl RenderManager{
         // self.window.run();
     }
 
-    pub fn draw(&mut self, scene: &mut Scene<Initialized>){
+    pub fn _draw(&mut self, scene: &mut Scene<Initialized>){
         // prep scene by inserting device and other operations
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
         // self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
@@ -351,9 +360,10 @@ impl RenderManager{
             .set_viewport(0, [self.viewport.clone().unwrap()])
             .bind_pipeline_graphics(self.pipeline());
 
-        let world = scene.get_world().unwrap();
         let dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let aspect = dimensions[0] as f32/ dimensions[1] as f32;
+        
+        let world = scene.get_world().unwrap();
 
         // this should be a system
         let (view, perspective) = {
@@ -374,7 +384,7 @@ impl RenderManager{
         
         let pipeline = self.pipeline();
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
-
+        
         let renderables = world.read_storage::<RenderableComponent>();
         let transforms = world.read_storage::<TransformComponent>();
         // TODO : put this in a system
@@ -455,12 +465,118 @@ impl RenderManager{
 
     }
 
-    pub fn new_draw(
+    pub fn draw(
         &mut self,
         scene: &mut Scene<Initialized>
     ){
-        self.prep_scene_and_swapchain(scene);
-        let command_buffer_builder = self.init_command_buffer_builder();
+        // create primary command buffer builder
+        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
+
+        // get swapchain image num and future
+        let (image_num, future) = self.prep_scene_and_swapchain(scene);
+
+        // begin main render pass
+        let clear_values = vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()];
+        command_buffer_builder
+            .begin_render_pass(
+                self.framebuffers()[image_num].clone(),
+                SubpassContents::Inline,
+                clear_values,
+            )
+            .unwrap()
+            .set_viewport(0, [self.viewport.clone().unwrap()])
+            .bind_pipeline_graphics(self.pipeline());
+
+        // insert stuff into scene that systems will need
+        scene.insert_resource(image_num);
+        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
+        let mut secondary_buffer_vec: Vec<Box<SecondaryCommandBuffer>> = Vec::new(); 
+        scene.insert_resource(secondary_buffer_vec);
+
+        // start egui frame
+        {
+            let world = scene.get_world().unwrap();
+            let mut state = world.write_resource::<EguiState>();
+            let mut egui_winit = world.write_resource::<egui_winit::State>();
+            state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
+        }
+
+        // run all systems
+        scene.run_render_dispatch();
+
+        // get secondary command buffers
+        {
+            let world = scene.get_world().unwrap();
+            let mut secondary_buffers = world.write_resource::<Vec<Box<SecondaryCommandBuffer>>>();
+
+            // submit secondary buffers
+            for buff in secondary_buffers.drain(..){
+                command_buffer_builder.execute_commands(buff);
+            }
+        }
+
+        // end renderpass
+        // command_buffer_builder.end_render_pass().unwrap();
+
+        // get egui shapes from world
+        let clipped_shapes = {
+            let world = scene.get_world().unwrap();
+            let mut state = world.write_resource::<EguiState>();
+            let mut egui_winit = world.write_resource::<egui_winit::State>();
+            state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
+            let (egui_output, clipped_shapes) = state.ctx.end_frame();
+            egui_winit.handle_output(self.surface().window(), &state.ctx, egui_output);
+            clipped_shapes
+        };
+
+        // send to egui
+        // Automatically start the next render subpass and draw the gui
+        {
+            let surface = self.surface();
+            let size = surface.window().inner_size();
+            let sf: f32 = surface.window().scale_factor() as f32;
+            let world = scene.get_world().unwrap();
+            let mut state = world.write_resource::<EguiState>();
+            let ctx = state.ctx.clone();
+            state.painter
+                .draw(
+                    &mut command_buffer_builder,
+                    [(size.width as f32)/sf, (size.height as f32)/sf],
+                    &ctx,
+                    clipped_shapes,
+                )
+                .unwrap();
+        }
+
+        // end egui pass
+        command_buffer_builder.end_render_pass().unwrap();
+
+        // build command buffer
+        let command_buffer = command_buffer_builder.build().unwrap();
+
+        // submit and render
+        let future = self.previous_frame_end
+            .take()
+            .unwrap()
+            .join(future)
+            .then_execute(self.queue(), command_buffer)
+            .unwrap()
+            .then_swapchain_present(self.queue(), self.swapchain(), image_num)
+            .then_signal_fence_and_flush();
+
+        match future {
+            Ok(future) => {
+                self.previous_frame_end = Some(future.boxed());
+            }
+            Err(FlushError::OutOfDate) => {
+                self.recreate_swapchain = true;
+                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
+            }
+            Err(e) => {
+                log::error!("Failed to flush future: {:?}", e);
+                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
+            }
+        }
     }
 
     // render steps
@@ -470,8 +586,6 @@ impl RenderManager{
     )->(usize, SwapchainAcquireFuture<winit::window::Window>)
     {
         // prep scene by inserting device and other operations
-        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
-
         // self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
 
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -485,7 +599,7 @@ impl RenderManager{
         (image_num, acquire_future)
     }
 
-    fn init_command_buffer_builder(&self)->AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>{
+    pub fn get_auto_command_buffer_builder(&self)->AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>{
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::primary(
             self.device(),
@@ -495,9 +609,33 @@ impl RenderManager{
         builder
     }
 
-    // ================= //
-    // Helper Functions  //
-    // ================= //
+    fn init_synced_command_buffer_builder(&self) -> SyncCommandBufferBuilder {
+        let device = self.device();
+        let queue_family = device
+            .physical_device()
+            .queue_families()
+            .find(|&q| {
+                q.supports_graphics() && self.surface().is_supported(q).unwrap_or(false)
+            }).unwrap();
+        // let queue_family = self.queue_family();
+        let device = self.device();
+        let pool = UnsafeCommandPool::new(
+            // self.device(),
+            device,
+            queue_family,
+            true,
+            true
+        );
+        let unsafe_command_pool_alloc = pool.unwrap().alloc_command_buffers(false, 1).unwrap().next().unwrap();
+        let mut builder = unsafe{
+            SyncCommandBufferBuilder::new(
+                &unsafe_command_pool_alloc,
+                CommandBufferLevel::Primary,
+                CommandBufferUsage::OneTimeSubmit,
+            ).unwrap()
+        };
+        builder
+    }
 
     /// This method is called once during initialization, then again whenever the window is resized
     fn window_size_dependent_setup(
@@ -532,11 +670,15 @@ impl RenderManager{
 
     // insert required render data into scene so systems can run
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
-        // insert
+        let camera_state: [Matrix4<f32>; 2] = [Matrix4::from_scale(1.0), Matrix4::from_scale(1.0)];
+        // insert resources. some of these should eventually be submitted more often than othrs
         scene.insert_resource(self.device());
         scene.insert_resource(self.pipeline());
         scene.insert_resource(self.surface());
-        log::info!("Resources submitted");
+        scene.insert_resource(self.queue());
+        scene.insert_resource(self.viewport());
+        scene.insert_resource(self.framebuffers());
+        scene.insert_resource(camera_state);
     }
 
     // returns the required winit extensions and the required extensions of my choosing

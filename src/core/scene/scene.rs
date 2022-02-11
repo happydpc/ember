@@ -28,6 +28,7 @@ use crate::core::systems::{
     render_systems::{
         RenderableInitializerSystem,
         CameraUpdateSystem,
+        RenderableDrawSystem,
     }
 };
 use crate::construct_dispatcher;
@@ -131,7 +132,8 @@ impl Scene<Initialized> {
         construct_dispatcher!(
             (RenderableInitializerSystem, "render_init", &[]),
             (DebugUiSystem, "debug_ui", &[]),
-            (CameraUpdateSystem, "camera_update", &[])
+            (CameraUpdateSystem, "camera_update", &[]),
+            (RenderableDrawSystem, "renderable_draw", &["camera_update"])
         );
         self.render_dispatch = Some(new_dispatch());
     }
