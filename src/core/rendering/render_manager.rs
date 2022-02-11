@@ -510,10 +510,16 @@ impl RenderManager{
         scene.run_render_dispatch();
         log::debug!("Done with render dispatch...");
 
-        
-
-        // end renderpass
-        // command_buffer_builder.end_render_pass().unwrap();
+        // get secondary command buffers
+        {
+            let world = scene.get_world().unwrap();
+            let mut secondary_buffers = world.write_resource::<Vec<Box<SecondaryCommandBuffer>>>();
+            // submit secondary buffers
+            for buff in secondary_buffers.drain(..){
+                log::debug!("Executing secondary buffer");
+                command_buffer_builder.execute_commands(buff);
+            }
+        }
 
         // get egui shapes from world
         log::debug!("Getting egui shapes");
@@ -540,6 +546,7 @@ impl RenderManager{
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
             ctx.set_pixels_per_point(1.0);
+            command_buffer_builder.set_viewport(0, [self.viewport.clone().unwrap()]);
             state.painter
                 .draw(
                     &mut command_buffer_builder,
@@ -548,17 +555,6 @@ impl RenderManager{
                     clipped_shapes,
                 )
                 .unwrap();
-        }
-
-        // get secondary command buffers
-        {
-            let world = scene.get_world().unwrap();
-            let mut secondary_buffers = world.write_resource::<Vec<Box<SecondaryCommandBuffer>>>();
-            // submit secondary buffers
-            for buff in secondary_buffers.drain(..){
-                log::debug!("Executing secondary buffer");
-                command_buffer_builder.execute_commands(buff);
-            }
         }
 
         // end egui pass
