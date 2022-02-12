@@ -19,8 +19,10 @@ impl<'a> System<'a> for CameraMoveSystem{
         let (mut cams, _input) = data;
         let mut input = _input.clone();
         for cam in (&mut cams).join() {
-            let forward = (cam.eye - cam.look_at).normalize();
-            let right = forward.cross(cam.up).normalize();
+            let mut forward = (cam.eye - cam.look_at).normalize();
+            forward.z = 0.0;
+            let mut right = forward.cross(cam.up).normalize();
+            right.z = 0.0;
             let keys = input.drain(..);
             let delta = 0.2;
             for key in keys{

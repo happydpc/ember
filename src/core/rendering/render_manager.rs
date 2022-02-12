@@ -129,6 +129,7 @@ use winit::{
 use egui;
 use egui_winit::State;
 use egui::CtxRef;
+use egui::Rect;
 
 // std imports
 use std::sync::Arc;
@@ -545,7 +546,7 @@ impl RenderManager{
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
-            ctx.set_pixels_per_point(1.0);
+            // ctx.set_pixels_per_point(1.0);
             command_buffer_builder.set_viewport(0, [self.viewport.clone().unwrap()]);
             state.painter
                 .draw(

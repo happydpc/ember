@@ -188,66 +188,97 @@ impl Application{
                 loops = loops + 1;
             }
 
-            // draws and handles events
-            self.handle_event(event, control_flow);
+            // pass events to egui
+            let egui_consumed_event = {
+                let scene_manager = self.get_scene_manager().unwrap();
+                let mut scene = scene_manager.get_active_scene().unwrap();
+                let world = scene.get_world().unwrap();
+                let mut state = world.write_resource::<EguiState>();
+                let mut egui_winit = world.write_resource::<egui_winit::State>();
+                let egui_ctx = state.ctx.clone();
+                match event{
+                    Event::WindowEvent{ref event, ..} => {
+                        egui_winit.on_event(&egui_ctx, &event)
+                    },
+                    _ => false
+                }
+            };
+
+            // if egui didn't need it
+            if !egui_consumed_event{
+                self.handle_event(&event, control_flow);
+            }
+
+            // if it's a draw, draw
+            match event{
+                Event::MainEventsCleared => {
+                    self.render_scene();
+                },
+                _ => (),
+            }
         }); // end of event_loop run
     } // end of run function
 
     fn handle_event(
         &mut self,
-        event: winit::event::Event<()>,
+        event: &winit::event::Event<()>,
         control_flow: &mut ControlFlow,
     ){  
         match event {
-            Event::WindowEvent { event, .. } => match event {
+            Event::WindowEvent { event, .. } => {
+                let egui_consumed_event = false;//egui_winit.on_event(&egui_ctx, &event);
+                if !egui_consumed_event{
+                    match event {
 
-                // close requested
-                WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                }
+                        // close requested
+                        WindowEvent::CloseRequested => {
+                            *control_flow = ControlFlow::Exit;
+                        }
 
-                // window resized
-                WindowEvent::Resized(_) => {
-                    log::debug!("Window resized...");
-                    match &self.render_manager {
-                        Some(manager) => {
-                            manager.borrow_mut().recreate_swapchain();
-                            log::info!("Swapchain Recreated...");
-                        },
-                        None => log::error!("Render manager not found when trying to recreate swapchain."),
+                        // window resized
+                        WindowEvent::Resized(_) => {
+                            log::debug!("Window resized...");
+                            match &self.render_manager {
+                                Some(manager) => {
+                                    manager.borrow_mut().recreate_swapchain();
+                                    log::info!("Swapchain Recreated...");
+                                },
+                                None => log::error!("Render manager not found when trying to recreate swapchain."),
+                            }
+                        }
+
+                        // keyboard input
+                        WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    virtual_keycode: Some(virtual_code),
+                                    state: ElementState::Pressed,
+                                    ..
+                                },
+                            ..
+                            } => {
+                                match &self.input_manager {
+                                    Some(manager) => manager.borrow_mut().handle_key_input(Some(virtual_code.clone())),
+                                    None => log::error!("Key detected, but no input manager is loaded..."),
+                                };
+                        }
+                        
+                        // key modifiers, alt, shift, etc
+                        WindowEvent::ModifiersChanged(state) => {
+                            match &self.input_manager{
+                                Some(manager) => manager.borrow_mut().handle_modifier_change(Some(state.clone())),
+                                None => log::error!("Key modifier change detected, but no input manager is loaded..."),
+                            };
+                        }
+
+                        _ => () // catch all for window event
                     }
                 }
-
-                // keyboard input
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(virtual_code),
-                            state: ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                    } => {
-                        match &self.input_manager {
-                            Some(manager) => manager.borrow_mut().handle_key_input(Some(virtual_code)),
-                            None => log::error!("Key detected, but no input manager is loaded..."),
-                        };
-                }
-                
-                // key modifiers, alt, shift, etc
-                WindowEvent::ModifiersChanged(state) => {
-                    match &self.input_manager{
-                        Some(manager) => manager.borrow_mut().handle_modifier_change(Some(state)),
-                        None => log::error!("Key modifier change detected, but no input manager is loaded..."),
-                    };
-                }
-
-                _ => () // catch all for window event
             }
 
-            Event::MainEventsCleared => {
-                self.render_scene();
-            }
+            // Event::MainEventsCleared => {
+            //     self.render_scene();
+            // }
 
 
             _ => (), // catch all of event match

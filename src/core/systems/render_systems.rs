@@ -63,11 +63,7 @@ impl<'a> System<'a> for RenderableInitializerSystem{
     }
 }
 
-
 pub type CameraState = [Matrix4<f32>; 2];
-
-// this could be an update system. we do need the view / proj every frame but that only changes
-// on update
 pub struct CameraUpdateSystem;
 
 impl<'a> System<'a> for CameraUpdateSystem{
@@ -91,7 +87,6 @@ impl<'a> System<'a> for CameraUpdateSystem{
         }
     }
 }
-
 
 pub struct RenderableDrawSystem;
 

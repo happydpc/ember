@@ -27,8 +27,8 @@ use crate::core::systems::{
     },
     render_systems::{
         RenderableInitializerSystem,
-        CameraUpdateSystem,
         RenderableDrawSystem,
+        CameraUpdateSystem,
     }
 };
 use crate::construct_dispatcher;
@@ -132,15 +132,15 @@ impl Scene<Initialized> {
         construct_dispatcher!(
             (RenderableInitializerSystem, "render_init", &[]),
             (DebugUiSystem, "debug_ui", &[]),
-            (CameraUpdateSystem, "camera_update", &[]),
-            (RenderableDrawSystem, "renderable_draw", &["camera_update", "render_init"])
+            (CameraMoveSystem, "camera_move", &[]),
+            (CameraUpdateSystem, "camera_update", &["camera_move"]),
+            (RenderableDrawSystem, "renderable_draw", &["camera_update","render_init"])
         );
         self.render_dispatch = Some(new_dispatch());
     }
 
     pub fn create_update_dispatch(&mut self){
         construct_dispatcher!(
-            (CameraMoveSystem, "camera_move", &[])
         );
         self.update_dispatch = Some(new_dispatch());
     }

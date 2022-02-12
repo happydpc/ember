@@ -6,6 +6,8 @@ use egui::CtxRef;
 use egui::containers::Frame;
 use egui::Color32;
 use egui::Window;
+use egui::containers::TopBottomPanel;
+use egui::plot::{Line, Plot, Value, Values};
 
 use log;
 
@@ -31,10 +33,15 @@ impl<'a> System<'a> for DebugUiSystem{
         let ctx = egui_state.ctx.clone();
         for comp in (&egui_comps).join() {
             log::debug!("drawing a window");
-            egui::Window::new("window")
+            egui::TopBottomPanel::top("Debug")
+                .show(&ctx, |ui| {
+                    ui.label("Debug Panel.");
+                });
+            egui::Window::new("Floating Window")
                 .resizable(true)
-                .frame(Frame::none().fill(Color32::DARK_RED)).show(&ctx, |ui| {
-                    ui.label("Debug Panel!");
+                .show(&ctx, |ui| {
+                    ui.label("first label");
+                    ui.label("and second");
                 });
         }
     }
