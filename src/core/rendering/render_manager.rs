@@ -17,6 +17,9 @@ use crate::core::{
             vs,
             fs,
         },
+        triangle_draw::TriangleDrawSystem,
+        frame_handler::FrameSystem,
+        directional_lighting::DirectionalLightingSystem,
     },
     scene::{
         scene::{Scene, Initialized},
@@ -265,6 +268,12 @@ impl RenderManager{
         let framebuffers = self.window_size_dependent_setup(&images, render_pass.clone(), &mut viewport, device.clone());
         let recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
+
+        // create our frame system
+        let frame_system = FrameSystem::new(queue.clone(), swapchain.format());
+        
+        // create our triangle draw system
+        let triangle_draw_system = TriangleDrawSystem::new(queue.clone(), frame_system.deferred_subpass());
 
         // clone the surface so we can return this clone
         let return_surface = surface.clone();

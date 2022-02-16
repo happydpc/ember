@@ -7,6 +7,9 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use crate::core::rendering::shaders::ambient_lighting::{vs, fs};
+use crate::core::rendering::geometries::geometry::Vertex;
+
 use std::sync::Arc;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess};
 use vulkano::command_buffer::{
@@ -43,13 +46,13 @@ impl AmbientLightingSystem {
                 false,
                 [
                     Vertex {
-                        position: [-1.0, -1.0],
+                        position: [-1.0, -1.0, 0.0],
                     },
                     Vertex {
-                        position: [-1.0, 3.0],
+                        position: [-1.0, 3.0, 0.0],
                     },
                     Vertex {
-                        position: [3.0, -1.0],
+                        position: [3.0, -1.0, 0.0],
                     },
                 ]
                 .iter()
@@ -151,51 +154,5 @@ impl AmbientLightingSystem {
             .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
         builder.build().unwrap()
-    }
-}
-
-#[repr(C)]
-#[derive(Default, Debug, Clone)]
-struct Vertex {
-    position: [f32; 2],
-}
-vulkano::impl_vertex!(Vertex, position);
-
-mod vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-#version 450
-
-layout(location = 0) in vec2 position;
-
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}"
-    }
-}
-
-mod fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
-#version 450
-
-// The `color_input` parameter of the `draw` method.
-layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
-
-layout(push_constant) uniform PushConstants {
-    // The `ambient_color` parameter of the `draw` method.
-    vec4 color;
-} push_constants;
-
-layout(location = 0) out vec4 f_color;
-
-void main() {
-    // Load the value at the current pixel.
-    vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
-    f_color.rgb = push_constants.color.rgb * in_diffuse;
-    f_color.a = 1.0;
-}"
     }
 }
