@@ -6,9 +6,8 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-use crate::core::rendering::shaders::directional_lighting::{vs, fs};
-use crate::core::rendering::geometries::geometry::Vertex;
-use cgmath::Vector3;
+
+use cgmath::{Matrix4, Vector3};
 use std::sync::Arc;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess};
 use vulkano::command_buffer::{
@@ -26,32 +25,31 @@ use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::Subpass;
 
-/// Allows applying a directional light source to a scene.
-pub struct DirectionalLightingSystem {
-    queue: Arc<Queue>,
+pub struct PointLightingSystem {
+    gfx_queue: Arc<Queue>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     pipeline: Arc<GraphicsPipeline>,
 }
 
-impl DirectionalLightingSystem {
-    /// Initializes the directional lighting system.
-    pub fn new(queue: Arc<Queue>, subpass: Subpass) -> DirectionalLightingSystem {
+impl PointLightingSystem {
+    /// Initializes the point lighting system.
+    pub fn new(gfx_queue: Arc<Queue>, subpass: Subpass) -> PointLightingSystem {
         // TODO: vulkano doesn't allow us to draw without a vertex buffer, otherwise we could
         //       hard-code these values in the shader
         let vertex_buffer = {
             CpuAccessibleBuffer::from_iter(
-                queue.device().clone(),
+                gfx_queue.device().clone(),
                 BufferUsage::all(),
                 false,
                 [
                     Vertex {
-                        position: [-1.0, -1.0, 0.0],
+                        position: [-1.0, -1.0],
                     },
                     Vertex {
-                        position: [-1.0, 3.0, 0.0],
+                        position: [-1.0, 3.0],
                     },
                     Vertex {
-                        position: [3.0, -1.0, 0.0],
+                        position: [3.0, -1.0],
                     },
                 ]
                 .iter()
@@ -61,8 +59,8 @@ impl DirectionalLightingSystem {
         };
 
         let pipeline = {
-            let vs = vs::load(queue.device().clone()).expect("failed to create shader module");
-            let fs = fs::load(queue.device().clone()).expect("failed to create shader module");
+            let vs = vs::load(gfx_queue.device().clone()).expect("failed to create shader module");
+            let fs = fs::load(gfx_queue.device().clone()).expect("failed to create shader module");
 
             GraphicsPipeline::start()
                 .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
@@ -81,47 +79,59 @@ impl DirectionalLightingSystem {
                     },
                 ))
                 .render_pass(subpass)
-                .build(queue.device().clone())
+                .build(gfx_queue.device().clone())
                 .unwrap()
         };
 
-        DirectionalLightingSystem {
-            queue: queue,
+        PointLightingSystem {
+            gfx_queue: gfx_queue,
             vertex_buffer: vertex_buffer,
             pipeline: pipeline,
         }
     }
 
-    /// Builds a secondary command buffer that applies directional lighting.
+    /// Builds a secondary command buffer that applies a point lighting.
     ///
-    /// This secondary command buffer will read `color_input` and `normals_input`, and multiply the
-    /// color with `color` and the dot product of the `direction` with the normal.
+    /// This secondary command buffer will read `depth_input` and rebuild the world position of the
+    /// pixel currently being processed (modulo rounding errors). It will then compare this
+    /// position with `position`, and process the lighting based on the distance and orientation
+    /// (similar to the directional lighting system).
+    ///
     /// It then writes the output to the current framebuffer with additive blending (in other words
     /// the value will be added to the existing value in the framebuffer, and not replace the
     /// existing value).
     ///
-    /// Since `normals_input` contains normals in world coordinates, `direction` should also be in
-    /// world coordinates.
+    /// Note that in a real-world application, you probably want to pass additional parameters
+    /// such as some way to indicate the distance at which the lighting decrease. In this example
+    /// this value is hardcoded in the shader.
     ///
     /// - `viewport_dimensions` contains the dimensions of the current framebuffer.
     /// - `color_input` is an image containing the albedo of each object of the scene. It is the
     ///   result of the deferred pass.
     /// - `normals_input` is an image containing the normals of each object of the scene. It is the
     ///   result of the deferred pass.
-    /// - `direction` is the direction of the light in world coordinates.
-    /// - `color` is the color to apply.
+    /// - `depth_input` is an image containing the depth value of each pixel of the scene. It is
+    ///   the result of the deferred pass.
+    /// - `screen_to_world` is a matrix that turns coordinates from framebuffer space into world
+    ///   space. This matrix is used alongside with `depth_input` to determine the world
+    ///   coordinates of each pixel being processed.
+    /// - `position` is the position of the spot light in world coordinates.
+    /// - `color` is the color of the light.
     ///
     pub fn draw(
         &self,
         viewport_dimensions: [u32; 2],
         color_input: Arc<dyn ImageViewAbstract + 'static>,
         normals_input: Arc<dyn ImageViewAbstract + 'static>,
-        direction: Vector3<f32>,
+        depth_input: Arc<dyn ImageViewAbstract + 'static>,
+        screen_to_world: Matrix4<f32>,
+        position: Vector3<f32>,
         color: [f32; 3],
     ) -> SecondaryAutoCommandBuffer {
         let push_constants = fs::ty::PushConstants {
+            screen_to_world: screen_to_world.into(),
             color: [color[0], color[1], color[2], 1.0],
-            direction: direction.extend(0.0).into(),
+            position: position.extend(0.0).into(),
         };
 
         let layout = self
@@ -135,6 +145,7 @@ impl DirectionalLightingSystem {
             [
                 WriteDescriptorSet::image_view(0, color_input),
                 WriteDescriptorSet::image_view(1, normals_input),
+                WriteDescriptorSet::image_view(2, depth_input),
             ],
         )
         .unwrap();
@@ -146,8 +157,8 @@ impl DirectionalLightingSystem {
         };
 
         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
-            self.queue.device().clone(),
-            self.queue.family(),
+            self.gfx_queue.device().clone(),
+            self.gfx_queue.family(),
             CommandBufferUsage::MultipleSubmit,
             self.pipeline.subpass().clone(),
         )
@@ -166,5 +177,81 @@ impl DirectionalLightingSystem {
             .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
         builder.build().unwrap()
+    }
+}
+
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
+struct Vertex {
+    position: [f32; 2],
+}
+vulkano::impl_vertex!(Vertex, position);
+
+mod vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        src: "
+#version 450
+
+layout(location = 0) in vec2 position;
+layout(location = 0) out vec2 v_screen_coords;
+
+void main() {
+    v_screen_coords = position;
+    gl_Position = vec4(position, 0.0, 1.0);
+}"
+    }
+}
+
+mod fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        src: "
+#version 450
+
+// The `color_input` parameter of the `draw` method.
+layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
+// The `normals_input` parameter of the `draw` method.
+layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput u_normals;
+// The `depth_input` parameter of the `draw` method.
+layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput u_depth;
+
+layout(push_constant) uniform PushConstants {
+    // The `screen_to_world` parameter of the `draw` method.
+    mat4 screen_to_world;
+    // The `color` parameter of the `draw` method.
+    vec4 color;
+    // The `position` parameter of the `draw` method.
+    vec4 position;
+} push_constants;
+
+layout(location = 0) in vec2 v_screen_coords;
+layout(location = 0) out vec4 f_color;
+
+void main() {
+    float in_depth = subpassLoad(u_depth).x;
+    // Any depth superior or equal to 1.0 means that the pixel has been untouched by the deferred
+    // pass. We don't want to deal with them.
+    if (in_depth >= 1.0) {
+        discard;
+    }
+    // Find the world coordinates of the current pixel.
+    vec4 world = push_constants.screen_to_world * vec4(v_screen_coords, in_depth, 1.0);
+    world /= world.w;
+
+    vec3 in_normal = normalize(subpassLoad(u_normals).rgb);
+    vec3 light_direction = normalize(push_constants.position.xyz - world.xyz);
+    // Calculate the percent of lighting that is received based on the orientation of the normal
+    // and the direction of the light.
+    float light_percent = max(-dot(light_direction, in_normal), 0.0);
+
+    float light_distance = length(push_constants.position.xyz - world.xyz);
+    // Further decrease light_percent based on the distance with the light position.
+    light_percent *= 1.0 / exp(light_distance);
+
+    vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
+    f_color.rgb = push_constants.color.rgb * light_percent * in_diffuse;
+    f_color.a = 1.0;
+}"
     }
 }
