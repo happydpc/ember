@@ -11,9 +11,9 @@ specs = {version = "*", features = ["specs-derive"] }
 vulkano = "0.28"
 vulkano-shaders = "0.28"
 vulkano-win = "0.28"
-egui = "*"
-egui-winit = "*"
-egui_vulkano = "*"
+egui = "0.16"
+egui-winit = "0.16"
+egui_vulkano = "0.5"
 winit = "0.26.1"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
