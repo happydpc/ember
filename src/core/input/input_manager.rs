@@ -2,10 +2,10 @@ use winit::event::ModifiersState;
 use winit::event::VirtualKeyCode;
 use super::super::managers::manager::Manager;
 use std::collections::VecDeque;
-use crate::core::systems::input_systems::CameraMoveSystem;
+
 use crate::core::scene::{Scene, Initialized};
-use crate::core::plugins::components::InputComponent;
-use specs::System;
+
+
 
 use log;
 

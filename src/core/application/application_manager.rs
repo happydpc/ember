@@ -45,12 +45,12 @@ use winit::{
 };
 
 // egui
-use egui;
-use egui_winit::State;
-use egui::CtxRef;
+
+
+
 
 // specs
-use specs::{Builder, WorldExt};
+use specs::{WorldExt};
 
 // logging
 use simple_logger::SimpleLogger;
@@ -171,7 +171,7 @@ impl Application{
         let skip_ticks = 1000 / ticks_per_second; // tick every 40 ms
         let max_frame_skip = 5;
         let mut loops: u32 = 0;
-        let mut interpolation: f32 = 0.0;
+        let _interpolation: f32 = 0.0;
         let mut next_tick = Instant::now();
 
         event_loop.run(move |event, _, control_flow| {
@@ -193,7 +193,7 @@ impl Application{
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut scene = scene_manager.get_active_scene().unwrap();
                 let world = scene.get_world().unwrap();
-                let mut state = world.write_resource::<EguiState>();
+                let state = world.write_resource::<EguiState>();
                 let mut egui_winit = world.write_resource::<egui_winit::State>();
                 let egui_ctx = state.ctx.clone();
                 match event{
@@ -291,11 +291,11 @@ impl Application{
         let id = scene_manager.generate_and_register_scene();
 
         // create scene and register egui component
-        let mut scene = scene_manager.borrow_mut_scene(id).unwrap();
+        let scene = scene_manager.borrow_mut_scene(id).unwrap();
         scene.register::<EguiComponent>();
 
         // get required egui data
-        let mut render_manager = self.get_render_manager().unwrap();
+        let render_manager = self.get_render_manager().unwrap();
         let (egui_ctx, egui_painter) = render_manager.initialize_egui();
         let egui_winit = render_manager.create_egui_winit_state();
         let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};

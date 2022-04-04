@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use specs::{
     System,
-    SystemData,
     ReadExpect,
     WriteStorage,
     Join,
@@ -20,12 +19,10 @@ use crate::core::rendering::render_manager::{
     SwapchainImageNum,
     TriangleSecondaryBuffers,
     LightingSecondaryBuffers,
-    AmbientLightingPipeline,
     DirectionalLightingPipelne,
-    PointLightingPipeline,
 };
 use crate::core::rendering::shaders::*;
-use crate::core::rendering::frame_handler::{DiffuseImage, DepthImage, NormalsImage};
+use crate::core::rendering::frame_handler::{DiffuseImage, NormalsImage};
 
 use cgmath::Matrix4;
 
@@ -36,8 +33,8 @@ use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::graphics::viewport::Viewport;
-use vulkano::pipeline::DynamicState;
-use vulkano::render_pass::Framebuffer;
+
+
 use vulkano::render_pass::Subpass;
 use vulkano::render_pass::RenderPass;
 use vulkano::buffer::CpuBufferPool;
@@ -48,7 +45,7 @@ use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::command_buffer::CommandBufferUsage;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
-use vulkano::command_buffer::SubpassContents;
+
 use vulkano::command_buffer::SecondaryCommandBuffer;
 
 
@@ -88,7 +85,7 @@ impl<'a> System<'a> for CameraUpdateSystem{
         WriteExpect<'a, CameraState>,
     );
 
-    fn run(&mut self, mut data: Self::SystemData) {
+    fn run(&mut self, data: Self::SystemData) {
         let (mut cams, surface, mut state) = data;
         let dimensions: [u32; 2] = surface.window().inner_size().into();
         let aspect = dimensions[0] as f32/ dimensions[1] as f32;
@@ -119,15 +116,15 @@ impl <'a> System<'a> for RenderableDrawSystem{
         WriteExpect<'a, TriangleSecondaryBuffers>
     );
 
-    fn run(&mut self, mut data: Self::SystemData){
-        let (mut transforms,
+    fn run(&mut self, data: Self::SystemData){
+        let (transforms,
             renderables,
             pipeline,
             camera_state,
             device,
             queue,
             viewport,
-            image_num,
+            _image_num,
             render_pass,
             mut buffer_vec,
         ) = data;
@@ -179,7 +176,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
             ).unwrap();
 
             log::debug!("Building secondary commands...");
-            &builder
+            let _ = &builder
                 .bind_descriptor_sets(
                     PipelineBindPoint::Graphics,
                     pipeline.layout().clone(),
@@ -219,7 +216,7 @@ impl <'a> System<'a> for DirectionalLightingHandler {
         WriteExpect<'a, LightingSecondaryBuffers>,
     );
 
-    fn run(&mut self, mut data: Self::SystemData){
+    fn run(&mut self, data: Self::SystemData){
 
         let (
             light_comps,

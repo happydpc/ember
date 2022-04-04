@@ -1,13 +1,13 @@
-use specs::{System, SystemData, ReadStorage, WriteStorage, ReadExpect, Join};
-use crate::core::plugins::components::{DebugUiComponent, EguiComponent};
+use specs::{System, ReadStorage, ReadExpect, Join};
+use crate::core::plugins::components::{DebugUiComponent};
 use egui_winit::State;
 use egui_vulkano::Painter;
 use egui::CtxRef;
-use egui::containers::Frame;
-use egui::Color32;
-use egui::Window;
-use egui::containers::TopBottomPanel;
-use egui::plot::{Line, Plot, Value, Values};
+
+
+
+
+
 
 use log;
 
@@ -29,9 +29,9 @@ impl<'a> System<'a> for DebugUiSystem{
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (winit_state, egui_state, egui_comps) = data;
+        let (_winit_state, egui_state, egui_comps) = data;
         let ctx = egui_state.ctx.clone();
-        for comp in (&egui_comps).join() {
+        for _comp in (&egui_comps).join() {
             log::debug!("drawing a window");
             egui::TopBottomPanel::top("Debug")
                 .show(&ctx, |ui| {

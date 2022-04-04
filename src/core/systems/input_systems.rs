@@ -1,9 +1,9 @@
-use crate::core::plugins::components::{CameraComponent, TransformComponent, InputComponent};
-use specs::{System, ReadStorage, ReadExpect, WriteStorage, Join};
+use crate::core::plugins::components::{CameraComponent};
+use specs::{System, WriteStorage, Join};
 use specs::prelude::*;
 use winit::event::VirtualKeyCode;
 use cgmath::InnerSpace;
-use std::collections::VecDeque;
+
 use crate::core::input::input_manager::KeyInputQueue;
 
 pub struct CameraMoveSystem;

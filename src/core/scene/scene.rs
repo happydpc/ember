@@ -2,9 +2,7 @@ use specs::{
     prelude::Resource,
     WorldExt,
     Component,
-    World,
-    Dispatcher,
-    System
+    World
 };
 
 use std::{
@@ -22,8 +20,6 @@ use crate::core::systems::{
     },
     input_systems::{
         CameraMoveSystem,
-    },
-    update_systems::{
     },
     render_systems::{
         RenderableInitializerSystem,
@@ -181,7 +177,7 @@ impl From<Scene<Uninitialized>> for Scene<Initialized> {
 }
 
 impl From<Scene<Initialized>> for Scene<Uninitialized> {
-    fn from(val: Scene<Initialized>) -> Scene<Uninitialized> {
+    fn from(_val: Scene<Initialized>) -> Scene<Uninitialized> {
         Scene{
             world: None,
             state: Uninitialized,

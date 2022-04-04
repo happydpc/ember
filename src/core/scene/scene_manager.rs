@@ -26,7 +26,7 @@ impl Manager for SceneManager{
     fn shutdown(&mut self){
         self.scenes.clear();
     }
-    fn update(&mut self, scene: &mut Scene<Initialized>){
+    fn update(&mut self, _scene: &mut Scene<Initialized>){
     }
 }
 
@@ -80,7 +80,7 @@ impl SceneManager{
         log::info!("Attempting to activate scene {}.", scene_id);
         // if there is an active scene id, deactivate that scene and restore it in the hash map
         match self.active_scene_id{
-            Some(id) => {
+            Some(_id) => {
                 let deinit_scene = Scene::<Uninitialized>::from(
                     self.active_scene
                     .take()

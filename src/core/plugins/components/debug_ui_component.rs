@@ -1,7 +1,7 @@
 use specs::{Component, HashMapStorage};
-use std::collections::VecDeque;
 
-use egui::containers::{Window,SidePanel};
+
+use egui::containers::{SidePanel};
 
 
 #[derive(Component)]

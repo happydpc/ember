@@ -23,7 +23,7 @@ impl RenderableComponent{
 
     pub fn initialize(&mut self, device: Arc<Device>){
         log::debug!("Initializing renderable component...");
-        let mut geometry = self.geometry.take().unwrap();//.as_ref();//unwrap();
+        let geometry = self.geometry.take().unwrap();//.as_ref();//unwrap();
         geometry.lock().unwrap().initialize(device);
         self.geometry = Some(geometry);
     }

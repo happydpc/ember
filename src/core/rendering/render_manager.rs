@@ -1,12 +1,5 @@
 // internal imports
 use crate::core::{
-    plugins::{
-        components::{
-            renderable_component::RenderableComponent,
-            transform_component::TransformComponent,
-            camera_component::CameraComponent,
-        },
-    },
     rendering::{
         geometries::{
             geometry::{
@@ -19,20 +12,17 @@ use crate::core::{
         },
         triangle_draw::TriangleDrawSystem,
         frame_handler::FrameSystem,
-        directional_lighting::DirectionalLightingHandler,
     },
     scene::{
         scene::{Scene, Initialized},
-        system_dispatch::SystemDispatch,
     },
     systems::{
-        render_systems::CameraState,
         ui_systems::EguiState,
     }
 };
 
 // ecs
-use specs::{System, ReadStorage, ReadExpect, WriteStorage, Join};
+use specs::{Join};
 use specs::prelude::*;
 
 // Vulkano imports
@@ -81,9 +71,7 @@ use vulkano::{
             viewport::{Viewport, ViewportState},
             depth_stencil::DepthStencilState,
         },
-        PipelineBindPoint,
         GraphicsPipeline,
-        Pipeline,
     },
     sync::{
         FlushError,
@@ -101,14 +89,7 @@ use vulkano::{
         SecondaryCommandBuffer,
     },
     buffer::{
-        BufferUsage,
-        CpuBufferPool,
         TypedBufferAccess,
-    },
-    descriptor_set::{
-        layout::DescriptorSetLayout,
-        PersistentDescriptorSet,
-        WriteDescriptorSet,
     },
     format::Format,
     Version,
@@ -130,24 +111,24 @@ use winit::{
 
 // egui
 use egui;
-use egui_winit::State;
+
 use egui::CtxRef;
-use egui::Rect;
+
 
 // std imports
 use std::sync::Arc;
 
 // math
 use cgmath::Matrix4;
-use cgmath::SquareMatrix;
+
 
 // logging
 use log;
 
 pub type Aspect = [u32; 2];
 pub type SwapchainImageNum = usize;
-pub type TriangleSecondaryBuffers = Vec<Box<SecondaryCommandBuffer>>;
-pub type LightingSecondaryBuffers = Vec<Box<SecondaryCommandBuffer>>;
+pub type TriangleSecondaryBuffers = Vec<Box<dyn SecondaryCommandBuffer>>;
+pub type LightingSecondaryBuffers = Vec<Box<dyn SecondaryCommandBuffer>>;
 pub type DirectionalLightingPipelne = GraphicsPipeline;
 pub type AmbientLightingPipeline = GraphicsPipeline;
 pub type PointLightingPipeline = GraphicsPipeline;
@@ -325,7 +306,7 @@ impl RenderManager{
         };
 
         let framebuffers = self.window_size_dependent_setup(&images, render_pass.clone(), &mut viewport, device.clone());
-        let recreate_swapchain = false;
+        let _recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
         // create our frame system
@@ -372,7 +353,7 @@ impl RenderManager{
     }
 
     // update render manager
-    pub fn update(&mut self, scene: &mut Scene<Initialized>){
+    pub fn update(&mut self, _scene: &mut Scene<Initialized>){
     }
 
     // create a new render manager with uninitialized values
@@ -445,7 +426,7 @@ impl RenderManager{
         log::debug!("Inserting resources into scene.");
         scene.insert_resource(image_num);
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
-        let mut secondary_buffer_vec: TriangleSecondaryBuffers = Vec::new(); 
+        let secondary_buffer_vec: TriangleSecondaryBuffers = Vec::new(); 
         scene.insert_resource(secondary_buffer_vec);
         log::debug!("Done inserting resources");
 
@@ -479,7 +460,7 @@ impl RenderManager{
         // get secondary command buffers
         {
             let world = scene.get_world().unwrap();
-            let mut secondary_buffers = world.write_resource::<Vec<Box<SecondaryCommandBuffer>>>();
+            let mut secondary_buffers = world.write_resource::<Vec<Box<dyn SecondaryCommandBuffer>>>();
             // submit secondary buffers
             for buff in secondary_buffers.drain(..){
                 log::debug!("Executing secondary buffer");
@@ -561,7 +542,7 @@ impl RenderManager{
     // render steps
     fn prep_scene_and_swapchain(
         &mut self,
-        scene: &mut Scene<Initialized>
+        _scene: &mut Scene<Initialized>
     )->(usize, SwapchainAcquireFuture<winit::window::Window>)
     {
         // prep scene by inserting device and other operations
@@ -580,7 +561,7 @@ impl RenderManager{
 
     pub fn get_auto_command_buffer_builder(&self)->AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>{
         // create a command buffer builder
-        let mut builder = AutoCommandBufferBuilder::primary(
+        let builder = AutoCommandBufferBuilder::primary(
             self.device(),
             self.queue().family(),
             CommandBufferUsage::OneTimeSubmit,
@@ -606,7 +587,7 @@ impl RenderManager{
             true
         );
         let unsafe_command_pool_alloc = pool.unwrap().alloc_command_buffers(false, 1).unwrap().next().unwrap();
-        let mut builder = unsafe{
+        let builder = unsafe{
             SyncCommandBufferBuilder::new(
                 &unsafe_command_pool_alloc,
                 CommandBufferLevel::Primary,
@@ -628,7 +609,7 @@ impl RenderManager{
         viewport.dimensions = [dimensions[0] as f32, dimensions[1] as f32];
         self.viewport = Some(viewport.clone());
 
-        let depth_buffer = ImageView::new(
+        let _depth_buffer = ImageView::new(
             AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
         )
         .unwrap();
@@ -787,7 +768,7 @@ impl RenderManager{
         queue_family: QueueFamily,
     ) -> (Arc<Device>, QueuesIter){
         // now create logical device and queues
-        let (device, mut queues) = Device::new(
+        let (device, queues) = Device::new(
             physical_device,
             physical_device.supported_features(),
             &physical_device
@@ -871,8 +852,8 @@ impl RenderManager{
 
     // create an egui painter
     pub fn initialize_egui(&self) -> (CtxRef, egui_vulkano::Painter){
-        let mut egui_ctx = egui::CtxRef::default();
-        let mut egui_painter = egui_vulkano::Painter::new(
+        let egui_ctx = egui::CtxRef::default();
+        let egui_painter = egui_vulkano::Painter::new(
             self.device(),
             self.queue(),
             Subpass::from(self.render_pass(), 1).unwrap(),
