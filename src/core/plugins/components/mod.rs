@@ -5,6 +5,7 @@ pub mod camera_component;
 pub mod input_component;
 pub mod debug_ui_component;
 pub mod egui_component;
+pub mod light_components;
 
 pub use input_component::InputComponent;
 pub use camera_component::CameraComponent;
@@ -12,3 +13,4 @@ pub use transform_component::TransformComponent;
 pub use debug_ui_component::DebugUiComponent;
 pub use egui_component::EguiComponent;
 pub use renderable_component::RenderableComponent;
+pub use light_components::DirectionalLightComponent;

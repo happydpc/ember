@@ -28,15 +28,15 @@ use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::Subpass;
 
-pub struct PointLightingSystem {
+pub struct PointLightingHandler {
     gfx_queue: Arc<Queue>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     pipeline: Arc<GraphicsPipeline>,
 }
 
-impl PointLightingSystem {
+impl PointLightingHandler {
     /// Initializes the point lighting system.
-    pub fn new(gfx_queue: Arc<Queue>, subpass: Subpass) -> PointLightingSystem {
+    pub fn new(gfx_queue: Arc<Queue>, subpass: Subpass) -> PointLightingHandler {
         // TODO: vulkano doesn't allow us to draw without a vertex buffer, otherwise we could
         //       hard-code these values in the shader
         let vertex_buffer = {
@@ -86,7 +86,7 @@ impl PointLightingSystem {
                 .unwrap()
         };
 
-        PointLightingSystem {
+        PointLightingHandler {
             gfx_queue: gfx_queue,
             vertex_buffer: vertex_buffer,
             pipeline: pipeline,
@@ -180,5 +180,10 @@ impl PointLightingSystem {
             .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
         builder.build().unwrap()
+    }
+
+    #[inline]
+    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.pipeline.clone()
     }
 }

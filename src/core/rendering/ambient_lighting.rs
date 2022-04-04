@@ -28,15 +28,15 @@ use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::Subpass;
 
 /// Allows applying an ambient lighting to a scene.
-pub struct AmbientLightingSystem {
+pub struct AmbientLightingHandler {
     gfx_queue: Arc<Queue>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     pipeline: Arc<GraphicsPipeline>,
 }
 
-impl AmbientLightingSystem {
+impl AmbientLightingHandler {
     /// Initializes the ambient lighting system.
-    pub fn new(gfx_queue: Arc<Queue>, subpass: Subpass) -> AmbientLightingSystem {
+    pub fn new(gfx_queue: Arc<Queue>, subpass: Subpass) -> AmbientLightingHandler {
         // TODO: vulkano doesn't allow us to draw without a vertex buffer, otherwise we could
         //       hard-code these values in the shader
         let vertex_buffer = {
@@ -86,7 +86,7 @@ impl AmbientLightingSystem {
                 .unwrap()
         };
 
-        AmbientLightingSystem {
+        AmbientLightingHandler {
             gfx_queue: gfx_queue,
             vertex_buffer: vertex_buffer,
             pipeline: pipeline,
@@ -154,5 +154,10 @@ impl AmbientLightingSystem {
             .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
         builder.build().unwrap()
+    }
+
+    #[inline]
+    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.pipeline.clone()
     }
 }

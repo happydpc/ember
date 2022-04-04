@@ -27,15 +27,15 @@ use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::Subpass;
 
 /// Allows applying a directional light source to a scene.
-pub struct DirectionalLightingSystem {
+pub struct DirectionalLightingHandler {
     queue: Arc<Queue>,
     vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     pipeline: Arc<GraphicsPipeline>,
 }
 
-impl DirectionalLightingSystem {
+impl DirectionalLightingHandler {
     /// Initializes the directional lighting system.
-    pub fn new(queue: Arc<Queue>, subpass: Subpass) -> DirectionalLightingSystem {
+    pub fn new(queue: Arc<Queue>, subpass: Subpass) -> DirectionalLightingHandler {
         // TODO: vulkano doesn't allow us to draw without a vertex buffer, otherwise we could
         //       hard-code these values in the shader
         let vertex_buffer = {
@@ -85,7 +85,7 @@ impl DirectionalLightingSystem {
                 .unwrap()
         };
 
-        DirectionalLightingSystem {
+        DirectionalLightingHandler {
             queue: queue,
             vertex_buffer: vertex_buffer,
             pipeline: pipeline,
@@ -166,5 +166,10 @@ impl DirectionalLightingSystem {
             .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
         builder.build().unwrap()
+    }
+
+    #[inline]
+    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.pipeline.clone()
     }
 }

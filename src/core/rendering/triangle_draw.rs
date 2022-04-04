@@ -6,6 +6,8 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+use crate::core::rendering::shaders::triangle::{vs, fs};
+use crate::core::rendering::geometries::geometry::Vertex;
 
 use std::sync::Arc;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess};
@@ -36,13 +38,13 @@ impl TriangleDrawSystem {
                 false,
                 [
                     Vertex {
-                        position: [-0.5, -0.25],
+                        position: [-0.5, -0.25, 0.0],
                     },
                     Vertex {
-                        position: [0.0, 0.5],
+                        position: [0.0, 0.5, 0.0],
                     },
                     Vertex {
-                        position: [0.25, -0.1],
+                        position: [0.25, -0.1, 0.0],
                     },
                 ]
                 .iter()
@@ -100,39 +102,39 @@ impl TriangleDrawSystem {
     }
 }
 
-#[repr(C)]
-#[derive(Default, Debug, Clone)]
-struct Vertex {
-    position: [f32; 2],
-}
-vulkano::impl_vertex!(Vertex, position);
+// #[repr(C)]
+// #[derive(Default, Debug, Clone)]
+// struct Vertex {
+//     position: [f32; 2],
+// }
+// vulkano::impl_vertex!(Vertex, position);
 
-mod vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-#version 450
+// mod vs {
+//     vulkano_shaders::shader! {
+//         ty: "vertex",
+//         src: "
+// #version 450
 
-layout(location = 0) in vec2 position;
+// layout(location = 0) in vec2 position;
 
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}"
-    }
-}
+// void main() {
+//     gl_Position = vec4(position, 0.0, 1.0);
+// }"
+//     }
+// }
 
-mod fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
-#version 450
+// mod fs {
+//     vulkano_shaders::shader! {
+//         ty: "fragment",
+//         src: "
+// #version 450
 
-layout(location = 0) out vec4 f_color;
-layout(location = 1) out vec3 f_normal;
+// layout(location = 0) out vec4 f_color;
+// layout(location = 1) out vec3 f_normal;
 
-void main() {
-    f_color = vec4(1.0, 1.0, 1.0, 1.0);
-    f_normal = vec3(0.0, 0.0, 1.0);
-}"
-    }
-}
+// void main() {
+//     f_color = vec4(1.0, 1.0, 1.0, 1.0);
+//     f_normal = vec3(0.0, 0.0, 1.0);
+// }"
+//     }
+// }

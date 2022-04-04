@@ -7,9 +7,9 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::core::rendering::ambient_lighting::AmbientLightingSystem;
-use crate::core::rendering::directional_lighting::DirectionalLightingSystem;
-use crate::core::rendering::point_lighting::PointLightingSystem;
+use crate::core::rendering::ambient_lighting::AmbientLightingHandler;
+use crate::core::rendering::directional_lighting::DirectionalLightingHandler;
+use crate::core::rendering::point_lighting::PointLightingHandler;
 use cgmath::Matrix4;
 use cgmath::SquareMatrix;
 use cgmath::Vector3;
@@ -29,6 +29,14 @@ use vulkano::render_pass::Framebuffer;
 use vulkano::render_pass::RenderPass;
 use vulkano::render_pass::Subpass;
 use vulkano::sync::GpuFuture;
+use vulkano::pipeline::GraphicsPipeline;
+
+
+pub type DiffuseImage = Arc<ImageView<AttachmentImage>>;
+pub type NormalsImage = Arc<ImageView<AttachmentImage>>;
+pub type DepthImage = Arc<ImageView<AttachmentImage>>;
+
+
 
 /// System that contains the necessary facilities for rendering a single frame.
 pub struct FrameSystem {
@@ -41,21 +49,21 @@ pub struct FrameSystem {
     render_pass: Arc<RenderPass>,
 
     // Intermediate render target that will contain the albedo of each pixel of the scene.
-    diffuse_buffer: Arc<ImageView<AttachmentImage>>,
+    pub diffuse_buffer: Arc<ImageView<AttachmentImage>>,
     // Intermediate render target that will contain the normal vector in world coordinates of each
     // pixel of the scene.
     // The normal vector is the vector perpendicular to the surface of the object at this point.
-    normals_buffer: Arc<ImageView<AttachmentImage>>,
+    pub normals_buffer: Arc<ImageView<AttachmentImage>>,
     // Intermediate render target that will contain the depth of each pixel of the scene.
     // This is a traditional depth buffer. `0.0` means "near", and `1.0` means "far".
-    depth_buffer: Arc<ImageView<AttachmentImage>>,
+    pub depth_buffer: Arc<ImageView<AttachmentImage>>,
 
     // Will allow us to add an ambient lighting to a scene during the second subpass.
-    ambient_lighting_system: AmbientLightingSystem,
+    ambient_lighting_system: AmbientLightingHandler,
     // Will allow us to add a directional light to a scene during the second subpass.
-    directional_lighting_system: DirectionalLightingSystem,
+    directional_lighting_system: DirectionalLightingHandler,
     // Will allow us to add a spot light source to a scene during the second subpass.
-    point_lighting_system: PointLightingSystem,
+    point_lighting_system: PointLightingHandler,
 }
 
 impl FrameSystem {
@@ -139,6 +147,12 @@ impl FrameSystem {
                     color: [final_color],
                     depth_stencil: {},
                     input: [diffuse, normals, depth]
+                },
+                // draw ui
+                { 
+                    color: [final_color],
+                    depth_stencil: {depth},
+                    input: []
                 }
             ]
         )
@@ -187,10 +201,10 @@ impl FrameSystem {
         // Note that we need to pass to them the subpass where they will be executed.
         let lighting_subpass = Subpass::from(render_pass.clone(), 1).unwrap();
         let ambient_lighting_system =
-            AmbientLightingSystem::new(gfx_queue.clone(), lighting_subpass.clone());
+            AmbientLightingHandler::new(gfx_queue.clone(), lighting_subpass.clone());
         let directional_lighting_system =
-            DirectionalLightingSystem::new(gfx_queue.clone(), lighting_subpass.clone());
-        let point_lighting_system = PointLightingSystem::new(gfx_queue.clone(), lighting_subpass);
+            DirectionalLightingHandler::new(gfx_queue.clone(), lighting_subpass.clone());
+        let point_lighting_system = PointLightingHandler::new(gfx_queue.clone(), lighting_subpass);
 
         FrameSystem {
             gfx_queue,
@@ -214,6 +228,41 @@ impl FrameSystem {
     #[inline]
     pub fn deferred_subpass(&self) -> Subpass {
         Subpass::from(self.render_pass.clone(), 0).unwrap()
+    }
+
+    #[inline]
+    pub fn render_pass(&self) -> Arc<RenderPass> {
+        self.render_pass.clone()
+    }
+
+    #[inline]
+    pub fn diffuse_buffer(&self) -> DiffuseImage {
+        self.diffuse_buffer.clone()
+    }
+
+    #[inline]
+    pub fn normal_buffer(&self) -> NormalsImage {
+        self.normals_buffer.clone()
+    }
+
+    #[inline]
+    pub fn depth_buffer(&self) -> DepthImage {
+        self.depth_buffer.clone()
+    }
+
+    #[inline]
+    pub fn ambient_lighting_pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.ambient_lighting_system.pipeline()
+    }
+
+    #[inline]
+    pub fn point_lighting_pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.point_lighting_system.pipeline()
+    }
+
+    #[inline]
+    pub fn directional_lighting_pipeline(&self) -> Arc<GraphicsPipeline> {
+        self.directional_lighting_system.pipeline()
     }
 
     /// Starts drawing a new frame.
