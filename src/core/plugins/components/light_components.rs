@@ -9,7 +9,7 @@ pub struct DirectionalLightComponent{
 }
 
 impl DirectionalLightComponent{
-    pub fn create(direction: Vector3<f32>, color: [f32; 3]) -> Self {
+    pub fn new(direction: Vector3<f32>, color: [f32; 3]) -> Self {
         DirectionalLightComponent{
             direction: direction,
             color: color,

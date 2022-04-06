@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::borrow::Borrow;
 use specs::{
     System,
     ReadExpect,
@@ -14,7 +15,9 @@ use crate::core::plugins::components::{
     DirectionalLightComponent,
 };
 use crate::core::rendering::geometries::Vertex;
+use crate::core::rendering::shaders;
 use crate::core::rendering::shaders::triangle::vs;
+
 use crate::core::rendering::render_manager::{
     SwapchainImageNum,
     TriangleSecondaryBuffers,
@@ -23,6 +26,7 @@ use crate::core::rendering::render_manager::{
 };
 use crate::core::rendering::shaders::*;
 use crate::core::rendering::frame_handler::{DiffuseImage, NormalsImage};
+use crate::core::rendering::SceneState;
 
 use cgmath::Matrix4;
 
@@ -33,7 +37,13 @@ use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::graphics::viewport::Viewport;
-
+use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
+use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
+use vulkano::pipeline::graphics::viewport::ViewportState;
+use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
+use vulkano::pipeline::graphics::color_blend::{
+    BlendFactor, BlendOp, AttachmentBlend, ColorBlendState,
+};
 
 use vulkano::render_pass::Subpass;
 use vulkano::render_pass::RenderPass;
@@ -41,18 +51,21 @@ use vulkano::buffer::CpuBufferPool;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::TypedBufferAccess;
+
 use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::command_buffer::CommandBufferUsage;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
-
 use vulkano::command_buffer::SecondaryCommandBuffer;
-
+use vulkano::format::Format;
 
 use winit::window::Window;
 
 use log;
 
+pub trait RequiresGraphicsPipeline{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>;
+}
 
 pub struct RenderableInitializerSystem;
 
@@ -63,7 +76,7 @@ impl<'a> System<'a> for RenderableInitializerSystem{
     );
 
     fn run(&mut self, data: Self::SystemData) {
-
+        log::debug!("Running renderable init system...");
         let (device, mut renderable) = data;
         let device = &*device;
         for renderable in (&mut renderable).join() {
@@ -86,6 +99,7 @@ impl<'a> System<'a> for CameraUpdateSystem{
     );
 
     fn run(&mut self, data: Self::SystemData) {
+        log::debug!("Running camera update system...");
         let (mut cams, surface, mut state) = data;
         let dimensions: [u32; 2] = surface.window().inner_size().into();
         let aspect = dimensions[0] as f32/ dimensions[1] as f32;
@@ -102,6 +116,38 @@ impl<'a> System<'a> for CameraUpdateSystem{
 
 pub struct RenderableDrawSystem;
 
+
+impl RequiresGraphicsPipeline for RenderableDrawSystem{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+
+            // compile our shaders
+            let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
+            let fs = shaders::triangle::fs::load(device.clone()).expect("Failed to create fragment shader for triangle draw system.");
+
+            // create our pipeline. like an opengl program but more specific
+            let pipeline = GraphicsPipeline::start()
+                // We need to indicate the layout of the vertices.
+                .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+                // A Vulkan shader can in theory contain multiple entry points, so we have to specify
+                // which one.
+                .vertex_shader(vs.entry_point("main").unwrap(), ())
+                // The content of the vertex buffer describes a list of triangles.
+                .input_assembly_state(InputAssemblyState::new())
+                // Use a resizable viewport set to draw over the entire window
+                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                // See `vertex_shader`.
+                .fragment_shader(fs.entry_point("main").unwrap(), ())
+                .depth_stencil_state(DepthStencilState::simple_depth_test())
+                // We have to indicate which subpass of which render pass this pipeline is going to be used
+                // in. The pipeline will only be usable from this particular subpass.
+                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+                // Now that our builder is filled, we call `build()` to obtain an actual pipeline.
+                .build(device.clone())
+                .unwrap();
+            pipeline
+    }
+}
+
 impl <'a> System<'a> for RenderableDrawSystem{
     type SystemData = (
         ReadStorage<'a, TransformComponent>,
@@ -117,6 +163,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
     );
 
     fn run(&mut self, data: Self::SystemData){
+        log::debug!("Running RenderableDrawSystem...");
         let (transforms,
             renderables,
             pipeline,
@@ -202,31 +249,62 @@ impl <'a> System<'a> for RenderableDrawSystem{
     }
 }
 
-pub struct DirectionalLightingHandler;
+pub struct DirectionalLightingSystem;
 
-impl <'a> System<'a> for DirectionalLightingHandler {
+
+impl RequiresGraphicsPipeline for DirectionalLightingSystem{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+
+        let vs = shaders::directional_lighting::vs::load(device.clone()).expect("failed to create vertex shader for direcitonal lighting system.");
+        let fs = shaders::directional_lighting::fs::load(device.clone()).expect("failed to create fragment shader for directional lighting system.");
+
+        GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+            .vertex_shader(vs.entry_point("main").unwrap(), ())
+            .input_assembly_state(InputAssemblyState::new())
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(fs.entry_point("main").unwrap(), ())
+            .color_blend_state(ColorBlendState::new(Subpass::from(render_pass.clone(), 1).unwrap().num_color_attachments()).blend(
+                AttachmentBlend {
+                    color_op: BlendOp::Add,
+                    color_source: BlendFactor::One,
+                    color_destination: BlendFactor::One,
+                    alpha_op: BlendOp::Max,
+                    alpha_source: BlendFactor::One,
+                    alpha_destination: BlendFactor::One,
+                },
+            ))
+            .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
+            .build(device.clone())
+            .unwrap()
+    }
+}
+
+impl <'a> System<'a> for DirectionalLightingSystem {
     type SystemData = (
         ReadStorage<'a, DirectionalLightComponent>,
         ReadExpect<'a, Viewport>,
         WriteExpect<'a, DiffuseImage>,
         WriteExpect<'a, NormalsImage>,
-        ReadExpect<'a, Arc<DirectionalLightingPipelne>>,
+        // ReadExpect<'a, Arc<DirectionalLightingPipelne>>,
         ReadExpect<'a, Arc<Queue>>,
         ReadExpect<'a, Arc<RenderPass>>,
         WriteExpect<'a, LightingSecondaryBuffers>,
+        ReadExpect<'a, Arc<SceneState>>,
     );
 
     fn run(&mut self, data: Self::SystemData){
-
+        log::debug!("Running Directional Lighting System...");
         let (
             light_comps,
             viewport,
             mut _color_input,
             mut _normals_input,
-            pipeline,
+            // pipeline,
             queue,
             renderpass,
-            mut buffer_vec
+            mut buffer_vec,
+            _scene_state
         ) = data;
 
         // v buffer
@@ -251,6 +329,10 @@ impl <'a> System<'a> for DirectionalLightingHandler {
             )
             .expect("failed to create buffer")
         };
+        log::debug!("thinking it should fail here");
+        let scene_state: &SceneState = &*_scene_state.borrow();
+        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let render_pass = scene_state.render_passes[0].clone();
 
         let color_input = &*_color_input;
         let normals_input = &*_normals_input;

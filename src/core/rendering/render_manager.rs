@@ -12,6 +12,7 @@ use crate::core::{
         },
         triangle_draw::TriangleDrawSystem,
         frame_handler::FrameSystem,
+        SceneState,
     },
     scene::{
         scene::{Scene, Initialized},
@@ -153,6 +154,7 @@ pub struct RenderManager{
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
     pub viewport: Option<Viewport>,
     pub images: Option<Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>>>,
+    pub scene_state: Option<Arc<SceneState>>,
 }
 
 impl RenderManager{
@@ -328,6 +330,10 @@ impl RenderManager{
         // clone the surface so we can return this clone
         let return_surface = surface.clone();
 
+        // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
+        let mut scene_state = SceneState::new();
+        scene_state.initialize(swapchain.clone(), device.clone());
+
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
         self.device_extensions = Some(device_extensions);
@@ -343,6 +349,7 @@ impl RenderManager{
         self.recreate_swapchain = false;
         self.viewport = Some(viewport);
         self.images = Some(images);
+        self.scene_state = Some(Arc::new(scene_state));
 
         (event_loop, return_surface)
     }
@@ -379,6 +386,7 @@ impl RenderManager{
             previous_frame_end: None,
             viewport: None,
             images: None,
+            scene_state: None,
 
             //deffered
             frame_system: None,
@@ -428,6 +436,8 @@ impl RenderManager{
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
         let secondary_buffer_vec: TriangleSecondaryBuffers = Vec::new(); 
         scene.insert_resource(secondary_buffer_vec);
+        let lighting_buffer_vec: LightingSecondaryBuffers = Vec::new();
+        scene.insert_resource(lighting_buffer_vec);
         log::debug!("Done inserting resources");
 
         // start egui frame
@@ -438,34 +448,27 @@ impl RenderManager{
             state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
         }
 
-        // handle frame bullshit
-        // let future = self.previous_frame_end
-        //     .take()
-        //     .unwrap()
-        //     .join(acquire_future);
-        // let frame_system = self.frame_system();
-        // // let future = previous_frame_end.take().unwrap().join(acquire_future);
-        // let mut frame = frame_system.frame(
-        //     future,
-        //     self.images()[image_num].clone(),
-        //     Matrix4::identity()
-        // );
-        // let mut after_future = None;
-
         // run all systems
         log::debug!("About to run render dispatch...");
         scene.run_render_dispatch();
         log::debug!("Done with render dispatch...");
 
-        // get secondary command buffers
+        // get and submit secondary command buffers
         {
             let world = scene.get_world().unwrap();
-            let mut secondary_buffers = world.write_resource::<Vec<Box<dyn SecondaryCommandBuffer>>>();
+            let mut secondary_buffers = world.write_resource::<TriangleSecondaryBuffers>();
             // submit secondary buffers
             for buff in secondary_buffers.drain(..){
                 log::debug!("Executing secondary buffer");
                 command_buffer_builder.execute_commands(buff);
             }
+            command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
+            let mut lighting_secondary_buffers = world.write_resource::<LightingSecondaryBuffers>();
+            for buff in lighting_secondary_buffers.drain(..){
+                log::debug!("Submitting lighting command!");
+                command_buffer_builder.execute_commands(buff);
+            }
+
         }
 
         // get egui shapes from world
@@ -479,9 +482,7 @@ impl RenderManager{
             egui_winit.handle_output(self.surface().window(), &state.ctx, egui_output);
             clipped_shapes
         };
-        log::debug!("rect {:?}", clipped_shapes[0].0);
-        log::debug!("viewport {:?}", self.viewport().clone().dimensions);
-        log::debug!("window {:?}", self.surface().window().inner_size());
+
         // send to egui
         // Automatically start the next render subpass and draw the gui
         log::debug!("submitting egui shapes to painter");
@@ -517,7 +518,6 @@ impl RenderManager{
         let future = self.previous_frame_end
             .take()
             .unwrap()
-        // future
             .join(acquire_future)
             .then_execute(self.queue(), command_buffer)
             .unwrap()
@@ -566,34 +566,6 @@ impl RenderManager{
             self.queue().family(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
-        builder
-    }
-
-    fn init_synced_command_buffer_builder(&self) -> SyncCommandBufferBuilder {
-        let device = self.device();
-        let queue_family = device
-            .physical_device()
-            .queue_families()
-            .find(|&q| {
-                q.supports_graphics() && self.surface().is_supported(q).unwrap_or(false)
-            }).unwrap();
-        // let queue_family = self.queue_family();
-        let device = self.device();
-        let pool = UnsafeCommandPool::new(
-            // self.device(),
-            device,
-            queue_family,
-            true,
-            true
-        );
-        let unsafe_command_pool_alloc = pool.unwrap().alloc_command_buffers(false, 1).unwrap().next().unwrap();
-        let builder = unsafe{
-            SyncCommandBufferBuilder::new(
-                &unsafe_command_pool_alloc,
-                CommandBufferLevel::Primary,
-                CommandBufferUsage::OneTimeSubmit,
-            ).unwrap()
-        };
         builder
     }
 
@@ -702,6 +674,7 @@ impl RenderManager{
         // scene.insert_resource(self.frame_system().ambient_lighting_pipeline());
         // scene.insert_resource(self.frame_system().point_lighting_pipeline());
         scene.insert_resource(camera_state);
+        scene.insert_resource(self.scene_state());
     }
 
     // returns the required winit extensions and the required extensions of my choosing
@@ -912,6 +885,10 @@ impl RenderManager{
 
     pub fn images(&self) -> Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>> {
         self.images.clone().unwrap().clone()
+    }
+
+    pub fn scene_state(&self) -> Arc<SceneState> {
+        self.scene_state.clone().unwrap().clone()
     }
 }
 

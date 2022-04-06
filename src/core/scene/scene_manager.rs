@@ -92,7 +92,7 @@ impl SceneManager{
             },
             None => (),
         }
-        // now set initialize the scene if it exists
+        // now initialize the scene if it exists
         let scene = self.scenes.remove(&scene_id);
         match scene{
             Some(s) => {
