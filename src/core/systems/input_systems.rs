@@ -1,5 +1,5 @@
 use crate::core::plugins::components::{CameraComponent};
-use specs::{System, WriteStorage, Join};
+use specs::{System, WriteStorage};
 use specs::prelude::*;
 use winit::event::VirtualKeyCode;
 use cgmath::InnerSpace;
@@ -15,7 +15,6 @@ impl<'a> System<'a> for CameraMoveSystem{
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        use specs::Join;
         let (mut cams, _input) = data;
         let mut input = _input.clone();
         for cam in (&mut cams).join() {

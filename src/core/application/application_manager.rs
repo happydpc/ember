@@ -170,13 +170,12 @@ impl Application{
         let ticks_per_second = 25;
         let skip_ticks = 1000 / ticks_per_second; // tick every 40 ms
         let max_frame_skip = 5;
-        let mut loops: u32 = 0;
         let _interpolation: f32 = 0.0;
         let mut next_tick = Instant::now();
 
         event_loop.run(move |event, _, control_flow| {
 
-            loops = 0;
+            let mut loops = 0;
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut active_scene = scene_manager.get_active_scene().unwrap();

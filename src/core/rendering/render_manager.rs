@@ -1,15 +1,6 @@
 // internal imports
 use crate::core::{
     rendering::{
-        geometries::{
-            geometry::{
-                Vertex
-            }
-        },
-        shaders::triangle::{
-            vs,
-            fs,
-        },
         SceneState,
     },
     scene::{
@@ -19,9 +10,8 @@ use crate::core::{
         ui_systems::EguiState,
     }
 };
-use crate::core::systems::render_systems::RenderableDrawSystem;
+
 // ecs
-use specs::{Join};
 use specs::prelude::*;
 
 // Vulkano imports
@@ -38,7 +28,6 @@ use vulkano::{
         },
         Device,
         DeviceExtensions,
-        Features,
         Queue,
         QueuesIter
     },
@@ -55,21 +44,12 @@ use vulkano::{
         },
         ImageUsage,
         SwapchainImage,
-        ImageAccess,
         AttachmentImage
     },
     render_pass::{
-        Framebuffer,
-        RenderPass,
         Subpass,
     },
     pipeline::{
-        graphics::{
-            vertex_input::BuffersDefinition,
-            input_assembly::InputAssemblyState,
-            viewport::{Viewport, ViewportState},
-            depth_stencil::DepthStencilState,
-        },
         GraphicsPipeline,
     },
     sync::{
@@ -84,10 +64,6 @@ use vulkano::{
         SubpassContents,
         SecondaryCommandBuffer,
     },
-    buffer::{
-        TypedBufferAccess,
-    },
-    format::Format,
     Version,
 };
 
@@ -137,8 +113,6 @@ pub struct RenderManager{
     // Vulkan
     required_extensions: Option<InstanceExtensions>,
     device_extensions: Option<DeviceExtensions>,
-    minimal_features: Option<Features>,
-    optimal_features: Option<Features>,
     instance: Option<Arc<Instance>>,
     pub surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
     pub device: Option<Arc<Device>>,
@@ -247,8 +221,6 @@ impl RenderManager{
             // Vulkan
             required_extensions: None,
             device_extensions: None,
-            minimal_features: None,
-            optimal_features: None,
             instance: None,
             surface: None,
             device: None,
@@ -332,14 +304,14 @@ impl RenderManager{
             let mut secondary_buffers = world.write_resource::<TriangleSecondaryBuffers>();
             // submit secondary buffers
             for buff in secondary_buffers.buffers.drain(..){
-                command_buffer_builder.execute_commands(buff);
+                command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
             }
             
             command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
             log::debug!("Stepping to deferred rendering and getting lighting command buffers.");
             let mut lighting_secondary_buffers = world.write_resource::<LightingSecondaryBuffers>();
             for buff in lighting_secondary_buffers.buffers.drain(..){
-                command_buffer_builder.execute_commands(buff);
+                command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
             }
 
         }

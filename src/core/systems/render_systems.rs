@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::borrow::Borrow;
+
 use specs::{
     System,
     ReadExpect,
@@ -22,11 +22,8 @@ use crate::core::rendering::render_manager::{
     SwapchainImageNum,
     TriangleSecondaryBuffers,
     LightingSecondaryBuffers,
-    DiffuseBuffer,
-    DepthBuffer,
-    NormalsBuffer,
 };
-use crate::core::rendering::shaders::*;
+
 use crate::core::rendering::SceneState;
 
 use cgmath::Matrix4;
@@ -37,7 +34,7 @@ use vulkano::swapchain::Surface;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::PipelineBindPoint;
-use vulkano::pipeline::graphics::viewport::Viewport;
+
 use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::viewport::ViewportState;
@@ -57,7 +54,6 @@ use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::command_buffer::CommandBufferUsage;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
-use vulkano::command_buffer::SecondaryCommandBuffer;
 
 
 use winit::window::Window;
