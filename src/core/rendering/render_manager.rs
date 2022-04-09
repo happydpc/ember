@@ -10,8 +10,6 @@ use crate::core::{
             vs,
             fs,
         },
-        triangle_draw::TriangleDrawSystem,
-        frame_handler::FrameSystem,
         SceneState,
     },
     scene::{
@@ -21,7 +19,7 @@ use crate::core::{
         ui_systems::EguiState,
     }
 };
-
+use crate::core::systems::render_systems::RenderableDrawSystem;
 // ecs
 use specs::{Join};
 use specs::prelude::*;
@@ -84,9 +82,6 @@ use vulkano::{
         PrimaryAutoCommandBuffer,
         CommandBufferUsage,
         SubpassContents,
-        synced::SyncCommandBufferBuilder,
-        CommandBufferLevel,
-        pool::UnsafeCommandPool,
         SecondaryCommandBuffer,
     },
     buffer::{
@@ -128,8 +123,12 @@ use log;
 
 pub type Aspect = [u32; 2];
 pub type SwapchainImageNum = usize;
-pub type TriangleSecondaryBuffers = Vec<Box<dyn SecondaryCommandBuffer>>;
-pub type LightingSecondaryBuffers = Vec<Box<dyn SecondaryCommandBuffer>>;
+pub struct TriangleSecondaryBuffers{pub buffers: Vec<Box<dyn SecondaryCommandBuffer>>}
+pub struct LightingSecondaryBuffers{pub buffers: Vec<Box<dyn SecondaryCommandBuffer>>}
+pub struct DiffuseBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
+pub struct DepthBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
+pub struct NormalsBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
+
 pub type DirectionalLightingPipelne = GraphicsPipeline;
 pub type AmbientLightingPipeline = GraphicsPipeline;
 pub type PointLightingPipeline = GraphicsPipeline;
@@ -141,18 +140,12 @@ pub struct RenderManager{
     minimal_features: Option<Features>,
     optimal_features: Option<Features>,
     instance: Option<Arc<Instance>>,
-    pub frame_system: Option<Arc<FrameSystem>>,
-    pub triangle_drawer: Option<Arc<TriangleDrawSystem>>,
     pub surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
     pub device: Option<Arc<Device>>,
     pub queue: Option<Arc<Queue>>,
     pub swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
-    pub render_pass: Option<Arc<RenderPass>>,
-    pub pipeline: Option<Arc<GraphicsPipeline>>,
-    pub framebuffers: Option<Vec<Arc<Framebuffer>>>,
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
-    pub viewport: Option<Viewport>,
     pub images: Option<Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>>>,
     pub scene_state: Option<Arc<SceneState>>,
 }
@@ -202,124 +195,13 @@ impl RenderManager{
             queue.clone()
         );
 
-        // compile our shaders
-        let vs = vs::load(device.clone()).unwrap();
-        let fs = fs::load(device.clone()).unwrap();
+        // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
+        let mut scene_state = SceneState::new();
+        scene_state.initialize(swapchain.clone(), device.clone());
+        scene_state.scale_scene_state_to_images(&images, device.clone());
 
-        // create our render pass
-        let _render_pass = vulkano::ordered_passes_renderpass!(
-                device.clone(),
-                attachments: {
-                    color: {
-                        load: Clear,
-                        store: Store,
-                        format: swapchain.format(),
-                        samples: 1,
-                    },
-                    depth: {
-                        load: Clear,
-                        store: DontCare,
-                        format: Format::D16_UNORM,
-                        samples: 1,
-                    }
-                },
-                passes: [
-                    { color: [color], depth_stencil: {depth}, input: [] },
-                    { color: [color], depth_stencil: {depth}, input: [] }
-                ]
-            )
-            .unwrap();
-
-        let render_pass = vulkano::ordered_passes_renderpass!(device.clone(),
-                attachments: {
-                    // The image that will contain the final rendering (in this example the swapchain
-                    // image, but it could be another image).
-                    final_color: {
-                        load: Clear,
-                        store: Store,
-                        format: swapchain.format(),
-                        samples: 1,
-                    },
-                    // Will be bound to `self.diffuse_buffer`.
-                    diffuse: {
-                        load: Clear,
-                        store: DontCare,
-                        // format: Format::A2R10G10B10_UNORM_PACK32,
-                        format: Format::A2B10G10R10_UNORM_PACK32,
-                        samples: 1,
-                    },
-                    // Will be bound to `self.normals_buffer`.
-                    normals: {
-                        load: Clear,
-                        store: DontCare,
-                        format: Format::R16G16B16A16_SFLOAT,
-                        samples: 1,
-                    },
-                    // Will be bound to `self.depth_buffer`.
-                    depth: {
-                        load: Clear,
-                        store: DontCare,
-                        format: Format::D16_UNORM,
-                        samples: 1,
-                    }
-                },
-                passes: [
-                    // Write to the diffuse, normals and depth attachments.
-                    {
-                        color: [diffuse, normals],
-                        depth_stencil: {depth},
-                        input: []
-                    },
-                    // Apply lighting by reading these three attachments and writing to `final_color`.
-                    {
-                        color: [final_color],
-                        depth_stencil: {},
-                        input: [diffuse, normals, depth]
-                    }
-                ]
-            )
-            .unwrap();
-        
-        // create our pipeline. like an opengl program but more specific
-        let pipeline = GraphicsPipeline::start()
-                // We need to indicate the layout of the vertices.
-                .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
-                // A Vulkan shader can in theory contain multiple entry points, so we have to specify
-                // which one.
-                .vertex_shader(vs.entry_point("main").unwrap(), ())
-                // The content of the vertex buffer describes a list of triangles.
-                .input_assembly_state(InputAssemblyState::new())
-                // Use a resizable viewport set to draw over the entire window
-                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-                // See `vertex_shader`.
-                .fragment_shader(fs.entry_point("main").unwrap(), ())
-                .depth_stencil_state(DepthStencilState::simple_depth_test())
-                // We have to indicate which subpass of which render pass this pipeline is going to be used
-                // in. The pipeline will only be usable from this particular subpass.
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                // Now that our builder is filled, we call `build()` to obtain an actual pipeline.
-                .build(device.clone())
-                .unwrap();
-
-        let mut viewport = Viewport {
-            origin: [0.0, 0.0],
-            dimensions: [0.0, 0.0],
-            depth_range: 0.0..1.0,
-        };
-
-        let framebuffers = self.window_size_dependent_setup(&images, render_pass.clone(), &mut viewport, device.clone());
         let _recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
-
-        // create our frame system
-        let frame_system = FrameSystem::new(queue.clone(), swapchain.format());
-
-        // create our triangle draw system
-        let triangle_draw_system = TriangleDrawSystem::new(queue.clone(), frame_system.deferred_subpass());
-
-        // store those two
-        self.frame_system = Some(Arc::new(frame_system));
-        self.triangle_drawer = Some(Arc::new(triangle_draw_system));
 
         // store swapchain images?
         let images = images
@@ -330,9 +212,7 @@ impl RenderManager{
         // clone the surface so we can return this clone
         let return_surface = surface.clone();
 
-        // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
-        let mut scene_state = SceneState::new();
-        scene_state.initialize(swapchain.clone(), device.clone());
+        
 
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
@@ -342,15 +222,10 @@ impl RenderManager{
         self.device = Some(device);
         self.queue = Some(queue);
         self.swapchain = Some(swapchain);
-        self.render_pass = Some(render_pass);
-        self.pipeline = Some(pipeline);
-        self.framebuffers = Some(framebuffers);
         self.previous_frame_end = previous_frame_end;
         self.recreate_swapchain = false;
-        self.viewport = Some(viewport);
         self.images = Some(images);
         self.scene_state = Some(Arc::new(scene_state));
-
         (event_loop, return_surface)
     }
 
@@ -379,18 +254,10 @@ impl RenderManager{
             device: None,
             queue: None,
             swapchain: None,
-            render_pass: None,
-            pipeline: None,
-            framebuffers: None,
             recreate_swapchain: false,
             previous_frame_end: None,
-            viewport: None,
             images: None,
             scene_state: None,
-
-            //deffered
-            frame_system: None,
-            triangle_drawer: None,
         };
         render_sys
     }
@@ -420,23 +287,29 @@ impl RenderManager{
             [0.0, 0.0, 0.0, 0.0].into(),
             1.0f32.into(),
         ];
+
         command_buffer_builder
             .begin_render_pass(
-                self.framebuffers()[image_num].clone(),
+                self.scene_state().get_framebuffer_image(image_num),
                 SubpassContents::SecondaryCommandBuffers,
                 clear_values,
             )
-            .unwrap()
-            .set_viewport(0, [self.viewport.clone().unwrap()])
-            .bind_pipeline_graphics(self.pipeline());
+            .unwrap();
+            // .set_viewport(0, [self.viewport.clone().unwrap()])
+            // .bind_pipeline_graphics(
+            //     (*self.scene_state()
+            //         .get_pipeline_for_system::<RenderableDrawSystem>()
+            //         .expect("Couldn't get pipeline.")
+            //     ).clone()
+            // );
 
         // insert stuff into scene that systems will need
         log::debug!("Inserting resources into scene.");
         scene.insert_resource(image_num);
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
-        let secondary_buffer_vec: TriangleSecondaryBuffers = Vec::new(); 
+        let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
         scene.insert_resource(secondary_buffer_vec);
-        let lighting_buffer_vec: LightingSecondaryBuffers = Vec::new();
+        let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
         scene.insert_resource(lighting_buffer_vec);
         log::debug!("Done inserting resources");
 
@@ -458,14 +331,14 @@ impl RenderManager{
             let world = scene.get_world().unwrap();
             let mut secondary_buffers = world.write_resource::<TriangleSecondaryBuffers>();
             // submit secondary buffers
-            for buff in secondary_buffers.drain(..){
-                log::debug!("Executing secondary buffer");
+            for buff in secondary_buffers.buffers.drain(..){
                 command_buffer_builder.execute_commands(buff);
             }
+            
             command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
+            log::debug!("Stepping to deferred rendering and getting lighting command buffers.");
             let mut lighting_secondary_buffers = world.write_resource::<LightingSecondaryBuffers>();
-            for buff in lighting_secondary_buffers.drain(..){
-                log::debug!("Submitting lighting command!");
+            for buff in lighting_secondary_buffers.buffers.drain(..){
                 command_buffer_builder.execute_commands(buff);
             }
 
@@ -494,7 +367,7 @@ impl RenderManager{
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
             // ctx.set_pixels_per_point(1.0);
-            command_buffer_builder.set_viewport(0, [self.viewport.clone().unwrap()]);
+            command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
             state.painter
                 .draw(
                     &mut command_buffer_builder,
@@ -545,9 +418,6 @@ impl RenderManager{
         _scene: &mut Scene<Initialized>
     )->(usize, SwapchainAcquireFuture<winit::window::Window>)
     {
-        // prep scene by inserting device and other operations
-        // self.scene_prep_system.run(scene.get_world().unwrap().system_data()); // initializes renderables
-
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
         // acquire an image from the swapchain
@@ -569,110 +439,13 @@ impl RenderManager{
         builder
     }
 
-    /// This method is called once during initialization, then again whenever the window is resized
-    fn window_size_dependent_setup(
-        &mut self,
-        images: &[Arc<SwapchainImage<Window>>],
-        render_pass: Arc<RenderPass>,
-        viewport: &mut Viewport,
-        device: Arc<Device>,
-    ) -> Vec<Arc<Framebuffer>> {
-        let dimensions = images[0].dimensions().width_height();
-        viewport.dimensions = [dimensions[0] as f32, dimensions[1] as f32];
-        self.viewport = Some(viewport.clone());
-
-        let _depth_buffer = ImageView::new(
-            AttachmentImage::transient(device.clone(), dimensions, Format::D16_UNORM).unwrap(),
-        )
-        .unwrap();
-
-    
-        let framebuffers = images
-            .iter()
-            .map(|image| {
-                let view = ImageView::new(image.clone()).unwrap();
-                // Framebuffer::start(render_pass.clone())
-                //     .add(view)
-                //     .unwrap()
-                //     .add(depth_buffer.clone())
-                //     .unwrap()
-                //     .build()
-                //     .unwrap()
-                // TODO: use shortcut provided in vulkano 0.6
-                let atch_usage = ImageUsage {
-                    transient_attachment: true,
-                    input_attachment: true,
-                    ..ImageUsage::none()
-                };
-
-                // Note that we create "transient" images here. This means that the content of the
-                // image is only defined when within a render pass. In other words you can draw to
-                // them in a subpass then read them in another subpass, but as soon as you leave the
-                // render pass their content becomes undefined.
-                let diffuse_buffer = ImageView::new(
-                    AttachmentImage::with_usage(
-                        device.clone(),
-                        dimensions,
-                        Format::A2B10G10R10_UNORM_PACK32,
-                        atch_usage,
-                    )
-                    .unwrap(),
-                )
-                .unwrap();
-                let normals_buffer = ImageView::new(
-                    AttachmentImage::with_usage(
-                        device.clone(),
-                        dimensions,
-                        Format::R16G16B16A16_SFLOAT,
-                        atch_usage,
-                    )
-                    .unwrap(),
-                )
-                .unwrap();
-                let depth_buffer = ImageView::new(
-                    AttachmentImage::with_usage(
-                        device.clone(),
-                        dimensions,
-                        Format::D16_UNORM,
-                        atch_usage,
-                    )
-                    .unwrap(),
-                )
-                .unwrap();
-
-                // Build the framebuffer. The image must be attached in the same order as they were defined
-                // with the `ordered_passes_renderpass!` macro.
-                Framebuffer::start(render_pass.clone())
-                    .add(view)
-                    .unwrap()
-                    .add(diffuse_buffer.clone())
-                    .unwrap()
-                    .add(normals_buffer.clone())
-                    .unwrap()
-                    .add(depth_buffer.clone())
-                    .unwrap()
-                    .build()
-                    .unwrap()
-            })
-            .collect::<Vec<_>>();
-        framebuffers
-    }
-
     // insert required render data into scene so systems can run
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
         let camera_state: [Matrix4<f32>; 2] = [Matrix4::from_scale(1.0), Matrix4::from_scale(1.0)];
         // insert resources. some of these should eventually be submitted more often than othrs
         scene.insert_resource(self.device());
-        scene.insert_resource(self.pipeline());
         scene.insert_resource(self.surface());
         scene.insert_resource(self.queue());
-        scene.insert_resource(self.viewport());
-        scene.insert_resource(self.render_pass());
-        scene.insert_resource(self.frame_system().normal_buffer());
-        scene.insert_resource(self.frame_system().diffuse_buffer());
-        // scene.insert_resource(self.frame_system().directional_lighting_pipeline());
-        // scene.insert_resource(self.frame_system().ambient_lighting_pipeline());
-        // scene.insert_resource(self.frame_system().point_lighting_pipeline());
         scene.insert_resource(camera_state);
         scene.insert_resource(self.scene_state());
     }
@@ -792,14 +565,7 @@ impl RenderManager{
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
         };
         self.recreate_swapchain = false;
-        self.framebuffers = Some(
-            self.window_size_dependent_setup(
-                &new_images,
-                self.render_pass(),
-                &mut self.viewport(),
-                self.device()
-            )
-        );
+        self.scene_state().scale_scene_state_to_images(&new_images, self.device());
 
         // convert images to image views
         let new_images = new_images
@@ -829,7 +595,7 @@ impl RenderManager{
         let egui_painter = egui_vulkano::Painter::new(
             self.device(),
             self.queue(),
-            Subpass::from(self.render_pass(), 1).unwrap(),
+            Subpass::from(self.scene_state().render_passes[0].clone(), 2).unwrap(),
         )
         .unwrap();
 
@@ -843,14 +609,6 @@ impl RenderManager{
     }
 
     // getters
-    pub fn framebuffers(&self) -> Vec<Arc<Framebuffer>> {
-        self.framebuffers.clone().unwrap().clone()
-    }
-
-    pub fn pipeline(&self) -> Arc<GraphicsPipeline> {
-        self.pipeline.clone().unwrap().clone()
-    }
-
     pub fn device(&self) -> Arc<Device> {
         self.device.clone().unwrap().clone()
     }
@@ -863,24 +621,8 @@ impl RenderManager{
         self.surface.clone().unwrap().clone()
     }
 
-    pub fn render_pass(&self) -> Arc<RenderPass> {
-        self.render_pass.clone().unwrap().clone()
-    }
-
     pub fn swapchain(&self) -> Arc<Swapchain<winit::window::Window>> {
         self.swapchain.clone().unwrap().clone()
-    }
-
-    pub fn viewport(&self) -> Viewport {
-        self.viewport.clone().unwrap()
-    }
-
-    pub fn frame_system(&self) -> Arc<FrameSystem> {
-        self.frame_system.clone().unwrap().clone()
-    }
-
-    pub fn triangle_drawer(&self) -> Arc<TriangleDrawSystem> {
-        self.triangle_drawer.clone().unwrap().clone()
     }
 
     pub fn images(&self) -> Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>> {
@@ -891,30 +633,3 @@ impl RenderManager{
         self.scene_state.clone().unwrap().clone()
     }
 }
-
-
-pub struct PrimitiveCommandBufferBuilderSystem;
-//
-// impl<'a> System<'a> for PrimitiveCommandBufferBuilderSystem{
-//     type SystemData = (
-//         ReadExpect<'a, Arc<GraphicsPipeline>>,
-//         ReadExpect<'a, Arc<DynamicState>>,
-//         ReadExpect<'a, Arc<Device>>,
-//         ReadStorage<'a, RenderableComponent>,
-//         // ReadExpect<'a, AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>>,
-//     );
-
-//     fn run(&mut self, data: Self::SystemData){
-//         let(pipeline, dynamic_state, device, renderable) = data;
-//         // let(pipeline, dynamic_state, renderable, command_buffer) = data;
-
-//         // create a command buffer builder
-//         let mut builder = AutoCommandBufferBuilder::secondary_graphics(
-//             self.device(),
-//             self.queue().family(),
-//             CommandBufferUsage::OneTimeSubmit,
-//         )
-//         .unwrap();
-
-//     }
-// }

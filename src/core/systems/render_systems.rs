@@ -22,10 +22,11 @@ use crate::core::rendering::render_manager::{
     SwapchainImageNum,
     TriangleSecondaryBuffers,
     LightingSecondaryBuffers,
-    DirectionalLightingPipelne,
+    DiffuseBuffer,
+    DepthBuffer,
+    NormalsBuffer,
 };
 use crate::core::rendering::shaders::*;
-use crate::core::rendering::frame_handler::{DiffuseImage, NormalsImage};
 use crate::core::rendering::SceneState;
 
 use cgmath::Matrix4;
@@ -57,7 +58,7 @@ use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::command_buffer::CommandBufferUsage;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::command_buffer::SecondaryCommandBuffer;
-use vulkano::format::Format;
+
 
 use winit::window::Window;
 
@@ -152,29 +153,30 @@ impl <'a> System<'a> for RenderableDrawSystem{
     type SystemData = (
         ReadStorage<'a, TransformComponent>,
         ReadStorage<'a, RenderableComponent>,
-        ReadExpect<'a, Arc<GraphicsPipeline>>,
         ReadExpect<'a, CameraState>,
         ReadExpect<'a, Arc<Device>>,
         ReadExpect<'a, Arc<Queue>>,
-        ReadExpect<'a, Viewport>,
         ReadExpect<'a, SwapchainImageNum>,
-        ReadExpect<'a, Arc<RenderPass>>,
-        WriteExpect<'a, TriangleSecondaryBuffers>
+        WriteExpect<'a, TriangleSecondaryBuffers>,
+        ReadExpect<'a, Arc<SceneState>>,
     );
 
     fn run(&mut self, data: Self::SystemData){
         log::debug!("Running RenderableDrawSystem...");
         let (transforms,
             renderables,
-            pipeline,
             camera_state,
             device,
             queue,
-            viewport,
             _image_num,
-            render_pass,
             mut buffer_vec,
+            _scene_state,
         ) = data;
+
+        let scene_state: &SceneState = &*_scene_state;
+        let viewport = scene_state.viewport();
+        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let render_pass = scene_state.render_passes[0].clone();
 
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
         let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
@@ -244,7 +246,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
             // actually build command buffer now
             let command_buffer = builder.build().unwrap();
             log::debug!("Pushing secondary command buffer to vec...");
-            buffer_vec.push(Box::new(command_buffer));
+            buffer_vec.buffers.push(Box::new(command_buffer));
         }
     }
 }
@@ -283,12 +285,7 @@ impl RequiresGraphicsPipeline for DirectionalLightingSystem{
 impl <'a> System<'a> for DirectionalLightingSystem {
     type SystemData = (
         ReadStorage<'a, DirectionalLightComponent>,
-        ReadExpect<'a, Viewport>,
-        WriteExpect<'a, DiffuseImage>,
-        WriteExpect<'a, NormalsImage>,
-        // ReadExpect<'a, Arc<DirectionalLightingPipelne>>,
         ReadExpect<'a, Arc<Queue>>,
-        ReadExpect<'a, Arc<RenderPass>>,
         WriteExpect<'a, LightingSecondaryBuffers>,
         ReadExpect<'a, Arc<SceneState>>,
     );
@@ -297,12 +294,7 @@ impl <'a> System<'a> for DirectionalLightingSystem {
         log::debug!("Running Directional Lighting System...");
         let (
             light_comps,
-            viewport,
-            mut _color_input,
-            mut _normals_input,
-            // pipeline,
             queue,
-            renderpass,
             mut buffer_vec,
             _scene_state
         ) = data;
@@ -329,30 +321,23 @@ impl <'a> System<'a> for DirectionalLightingSystem {
             )
             .expect("failed to create buffer")
         };
-        log::debug!("thinking it should fail here");
-        let scene_state: &SceneState = &*_scene_state.borrow();
-        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
-        let render_pass = scene_state.render_passes[0].clone();
 
-        let color_input = &*_color_input;
-        let normals_input = &*_normals_input;
+        let scene_state: &SceneState = &*_scene_state;
+        let color_input = scene_state.diffuse_buffer();
+        let normals_input = scene_state.normals_buffer();
+        let viewport = scene_state.viewport();
+        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let renderpass = scene_state.render_passes[0].clone();
+
+        let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
+        let layout = &*pipeline.layout().descriptor_set_layouts().get(0).expect("Couldn't get pipeline layout.");
 
         for light_comp in (&light_comps).join(){
 
-            let push_constants = directional_lighting::fs::ty::PushConstants {
+            let push_constants = shaders::directional_lighting::fs::ty::PushConstants {
                 color: [light_comp.color[0], light_comp.color[1], light_comp.color[2], 1.0],
                 direction: light_comp.direction.extend(0.0).into(),
             };
-
-            // let layout = pipeline
-            //     .clone()
-            //     .layout()
-            //     .descriptor_set_layouts()
-            //     .get(0)
-            //     .unwrap();
-
-            let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
-            
 
             let descriptor_set = PersistentDescriptorSet::new(
                 layout.clone(),
@@ -366,7 +351,7 @@ impl <'a> System<'a> for DirectionalLightingSystem {
                 queue.device().clone(),
                 queue.family(),
                 CommandBufferUsage::OneTimeSubmit,
-                Subpass::from(renderpass.clone(), 1).unwrap(),
+                subpass.clone()
             )
             .unwrap();
 
@@ -378,7 +363,6 @@ impl <'a> System<'a> for DirectionalLightingSystem {
                     vertex_buffer.clone(),
                 )
                 .push_constants(
-                    // *pipeline.clone().layout(),
                     pipeline.layout().clone(),
                     0,
                     push_constants
@@ -398,8 +382,8 @@ impl <'a> System<'a> for DirectionalLightingSystem {
                 .unwrap();
 
             // build and push 
-            let command_buffer = builder.build().unwrap();
-            buffer_vec.push(Box::new(command_buffer));
+            let command_buffer = builder.build().expect("Failed to build secondary command buffer.");
+            buffer_vec.buffers.push(Box::new(command_buffer));
         }
     }
 }

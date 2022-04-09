@@ -132,7 +132,7 @@ impl Scene<Initialized> {
             (CameraMoveSystem, "camera_move", &[]),
             (CameraUpdateSystem, "camera_update", &["camera_move"]),
             (RenderableDrawSystem, "renderable_draw", &["camera_update","render_init"]),
-            (DirectionalLightingSystem, "directional_lighting", &["camera_update", "render_init"])
+            (DirectionalLightingSystem, "directional_lighting", &["camera_update","render_init"])
         );
         self.render_dispatch = Some(new_dispatch());
     }
