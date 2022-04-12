@@ -21,7 +21,6 @@ use crate::core::rendering::shaders;
 use crate::core::rendering::shaders::triangle::vs;
 
 use crate::core::rendering::render_manager::{
-    SwapchainImageNum,
     TriangleSecondaryBuffers,
     LightingSecondaryBuffers,
 };
@@ -51,7 +50,7 @@ use vulkano::buffer::CpuBufferPool;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::TypedBufferAccess;
-use vulkano::image::ImageAccess;
+
 use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::command_buffer::CommandBufferUsage;

@@ -16,7 +16,7 @@ use vulkano::image::SwapchainImage;
 use vulkano::image::ImageUsage;
 use vulkano::image::ImageAccess;
 
-use winit::window::Window;
+
 
 use std::sync::{Arc, Mutex};
 use std::any::TypeId;
@@ -214,9 +214,9 @@ impl SceneState{
     fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>, device: Arc<Device>){
         // create buffers
         let (
-            diffuse_buffer,
-            normals_buffer,
-            depth_buffer
+            _diffuse_buffer,
+            _normals_buffer,
+            _depth_buffer
         ) = self.build_buffers(device.clone(), Some(image.clone()));
 
         let dimensions = image.clone().image().dimensions().width_height();
@@ -285,7 +285,7 @@ impl SceneState{
         }
     }
 
-    pub fn get_framebuffer_image(&self, image_num: usize) -> Arc<Framebuffer> {
+    pub fn get_framebuffer_image(&self, _image_num: usize) -> Arc<Framebuffer> {
         self.framebuffers.clone().lock().unwrap().clone().unwrap()
     }
 

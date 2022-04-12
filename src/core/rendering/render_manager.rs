@@ -11,7 +11,7 @@ use crate::core::{
     }
 };
 
-use crate::core::systems::render_systems::RenderableDrawSystem;
+
 
 // ecs
 use specs::prelude::*;
@@ -66,7 +66,6 @@ use vulkano::{
         SubpassContents,
         SecondaryCommandBuffer,
     },
-    format::Format,
     Version,
 };
 
@@ -91,7 +90,7 @@ use egui::CtxRef;
 
 
 // std imports
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 
 // math
 use cgmath::Matrix4;
