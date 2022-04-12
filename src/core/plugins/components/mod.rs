@@ -14,3 +14,4 @@ pub use debug_ui_component::DebugUiComponent;
 pub use egui_component::EguiComponent;
 pub use renderable_component::RenderableComponent;
 pub use light_components::DirectionalLightComponent;
+pub use light_components::AmbientLightingComponent;

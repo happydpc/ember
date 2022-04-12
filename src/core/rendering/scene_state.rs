@@ -1,4 +1,5 @@
 use crate::core::systems::render_systems::DirectionalLightingSystem;
+use crate::core::systems::render_systems::AmbientLightingSystem;
 use crate::core::systems::render_systems::RenderableDrawSystem;
 use crate::core::systems::RequiresGraphicsPipeline;
 
@@ -28,7 +29,7 @@ pub struct SceneState{
     pub normals_buffer: Option<Arc<Mutex<Arc<ImageView<AttachmentImage>>>>>,
     pub depth_buffer: Option<Arc<Mutex<Arc<ImageView<AttachmentImage>>>>>,
     pub viewport: Option<Arc<Mutex<Viewport>>>,
-    pub framebuffers: Arc<Mutex<Vec<Arc<Framebuffer>>>>,
+    pub framebuffers: Arc<Mutex<Option<Arc<Framebuffer>>>>,
 }
 
 impl SceneState{
@@ -40,7 +41,7 @@ impl SceneState{
             normals_buffer: None,
             depth_buffer: None,
             viewport: None,
-            framebuffers: Arc::new(Mutex::new(Vec::new())),
+            framebuffers: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -63,6 +64,7 @@ impl SceneState{
 
         // create pipelines
         let directional_lighting_pipeline = DirectionalLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
+        let ambient_lighting_pipeline = AmbientLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
         let renderable_pipeline = RenderableDrawSystem::create_graphics_pipeline(device.clone(), pass.clone());
         
         // create viewport
@@ -78,6 +80,7 @@ impl SceneState{
         // add pipelines
         self.pipelines.insert(TypeId::of::<DirectionalLightingSystem>(), directional_lighting_pipeline);
         self.pipelines.insert(TypeId::of::<RenderableDrawSystem>(), renderable_pipeline);
+        self.pipelines.insert(TypeId::of::<AmbientLightingSystem>(), ambient_lighting_pipeline);
         
         // add buffers
         self.diffuse_buffer = Some(Arc::new(Mutex::new(diffuse_buffer)));
@@ -89,7 +92,6 @@ impl SceneState{
     }
 
     fn build_render_pass(&self, swapchain_format: Format, device: Arc<Device>) -> Arc<RenderPass> {
-
         let render_pass = vulkano::ordered_passes_renderpass!(device.clone(),
                 attachments: {
                     // The image that will contain the final rendering (in this example the swapchain
@@ -103,22 +105,21 @@ impl SceneState{
                     // Will be bound to `self.diffuse_buffer`.
                     diffuse: {
                         load: Clear,
-                        store: DontCare,
-                        // format: Format::A2R10G10B10_UNORM_PACK32,
+                        store: Store,
                         format: Format::A2B10G10R10_UNORM_PACK32,
                         samples: 1,
                     },
                     // Will be bound to `self.normals_buffer`.
                     normals: {
                         load: Clear,
-                        store: DontCare,
+                        store: Store,
                         format: Format::R16G16B16A16_SFLOAT,
                         samples: 1,
                     },
                     // Will be bound to `self.depth_buffer`.
                     depth: {
                         load: Clear,
-                        store: DontCare,
+                        store: Store,
                         format: Format::D16_UNORM,
                         samples: 1,
                     }
@@ -148,14 +149,14 @@ impl SceneState{
         render_pass
     }
 
-    fn build_buffers(&self, device: Arc<Device>, images: Option<&[Arc<SwapchainImage<Window>>]>)
+    fn build_buffers(&self, device: Arc<Device>, image: Option<Arc<ImageView<SwapchainImage<winit::window::Window>>>>)
     -> (Arc<ImageView<AttachmentImage>>, Arc<ImageView<AttachmentImage>>, Arc<ImageView<AttachmentImage>>){
         // For now we create three temporary images with a dimension of 1 by 1 pixel.
         // These images will be replaced the first time we call `frame()`.
         // TODO: use shortcut provided in vulkano 0.6
         let image_dim = {
-            match images{
-                Some(images) => images[0].dimensions().width_height(),
+            match image{
+                Some(image) => image.image().dimensions().width_height(),
                 None => [1, 1]
             }
         };
@@ -168,7 +169,6 @@ impl SceneState{
             AttachmentImage::with_usage(
                 device.clone(),
                 image_dim,
-                // Format::A2B10G10R10UnormPack32,
                 Format::A2B10G10R10_UNORM_PACK32,
                 atch_usage,
             )
@@ -198,36 +198,32 @@ impl SceneState{
         (diffuse_buffer, normals_buffer, depth_buffer)
     }
 
-    pub fn scale_scene_state_to_images(&self, images: &[Arc<SwapchainImage<Window>>], device: Arc<Device>){
-        self.scale_framebuffers_to_images(&images, device.clone());
-        self.rescale_viewport(&images);
+    pub fn scale_scene_state_to_images(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>, device: Arc<Device>){
+        self.scale_framebuffers_to_images(image.clone(), device.clone());
+        self.rescale_viewport(image.clone());
     }
 
-    fn rescale_viewport(&self, images: &[Arc<SwapchainImage<Window>>]){
-        let dimensions = images[0].dimensions().width_height();
-        // let viewport = self.viewport.take().expect("Couldn't take viewport on scene state").lock().unwrap();
+    fn rescale_viewport(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>){
+        let dimensions = image.image().dimensions().width_height();
         match &self.viewport{
             Some(viewport) => viewport.lock().unwrap().dimensions = [dimensions[0] as f32, dimensions[1] as f32],
             None => ()
         }
-        // [*self.viewport.unlock().unwrap()].dimensions = [dimensions[0] as f32, dimensions[1] as f32];
     }
 
-    fn scale_framebuffers_to_images(&self, images: &[Arc<SwapchainImage<Window>>], device: Arc<Device>){
+    fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>, device: Arc<Device>){
         // create buffers
         let (
             diffuse_buffer,
             normals_buffer,
             depth_buffer
-        ) = self.build_buffers(device.clone(), Some(&images));
+        ) = self.build_buffers(device.clone(), Some(image.clone()));
 
-        let dimensions = images[0].dimensions().width_height();
+        let dimensions = image.clone().image().dimensions().width_height();
 
-        let new_framebuffers = images
-            .iter()
-            .map(|image| {
-                let view = ImageView::new(image.clone()).unwrap();
-
+        // let new_framebuffers = image
+            // .iter()
+            // .map(|image| {
                 let atch_usage = ImageUsage {
                     transient_attachment: true,
                     input_attachment: true,
@@ -261,8 +257,8 @@ impl SceneState{
                     ).unwrap(),
                 ).unwrap();
 
-            Framebuffer::start(self.render_passes[0].clone())
-                .add(view)
+            let framebuffer = Framebuffer::start(self.render_passes[0].clone())
+                .add(image.clone())
                 .unwrap()
                 .add(diffuse_buffer.clone())
                 .unwrap()
@@ -271,10 +267,11 @@ impl SceneState{
                 .add(depth_buffer.clone())
                 .unwrap()
                 .build()
-                .unwrap()
-        }).collect::<Vec<_>>();
-
-        *self.framebuffers.lock().unwrap() = new_framebuffers;
+                .unwrap();
+            // framebuffer
+        // }).collect::<Vec<_>>();
+        
+        *self.framebuffers.clone().lock().unwrap() = Some(framebuffer);
         *self.diffuse_buffer.clone().unwrap().lock().unwrap() = diffuse_buffer;
         *self.normals_buffer.clone().unwrap().lock().unwrap() = normals_buffer;
         *self.depth_buffer.clone().unwrap().lock().unwrap() = depth_buffer;
@@ -289,7 +286,7 @@ impl SceneState{
     }
 
     pub fn get_framebuffer_image(&self, image_num: usize) -> Arc<Framebuffer> {
-        self.framebuffers.lock().unwrap()[image_num].clone()
+        self.framebuffers.clone().lock().unwrap().clone().unwrap()
     }
 
     pub fn viewport(&self) -> Viewport {

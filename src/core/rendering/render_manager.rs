@@ -11,6 +11,8 @@ use crate::core::{
     }
 };
 
+use crate::core::systems::render_systems::RenderableDrawSystem;
+
 // ecs
 use specs::prelude::*;
 
@@ -64,6 +66,7 @@ use vulkano::{
         SubpassContents,
         SecondaryCommandBuffer,
     },
+    format::Format,
     Version,
 };
 
@@ -88,7 +91,7 @@ use egui::CtxRef;
 
 
 // std imports
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 // math
 use cgmath::Matrix4;
@@ -169,19 +172,19 @@ impl RenderManager{
             queue.clone()
         );
 
-        // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
-        let mut scene_state = SceneState::new();
-        scene_state.initialize(swapchain.clone(), device.clone());
-        scene_state.scale_scene_state_to_images(&images, device.clone());
-
-        let _recreate_swapchain = false;
-        let previous_frame_end = Some(sync::now(device.clone()).boxed());
-
         // store swapchain images?
         let images = images
             .into_iter()
             .map(|image| ImageView::new(image.clone()).unwrap())
             .collect::<Vec<_>>();
+
+        // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
+        let mut scene_state = SceneState::new();
+        scene_state.initialize(swapchain.clone(), device.clone());
+        scene_state.scale_scene_state_to_images(images[0].clone(), device.clone());
+
+        let _recreate_swapchain = false;
+        let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
         // clone the surface so we can return this clone
         let return_surface = surface.clone();
@@ -248,17 +251,19 @@ impl RenderManager{
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
         // get swapchain image num and future
-        let (image_num, acquire_future) = self.prep_scene_and_swapchain(scene);
+        let (image_num, acquire_future) = self.prep_swapchain();
 
         // begin main render pass
         log::debug!("Entering main render pass");
         //let clear_values = vec![[0.25, 0.2, 0.2, 1.0].into(), 1f32.into()];
         let clear_values = vec![
-            [0.25, 0.2, 0.2, 1.0].into(),
+            [0.1, 0.2, 0.2, 1.0].into(),
             [0.0, 0.0, 0.0, 0.0].into(),
             [0.0, 0.0, 0.0, 0.0].into(),
             1.0f32.into(),
         ];
+
+        self.scene_state().scale_scene_state_to_images(self.images()[image_num].clone(), self.device());
 
         command_buffer_builder
             .begin_render_pass(
@@ -267,13 +272,6 @@ impl RenderManager{
                 clear_values,
             )
             .unwrap();
-            // .set_viewport(0, [self.viewport.clone().unwrap()])
-            // .bind_pipeline_graphics(
-            //     (*self.scene_state()
-            //         .get_pipeline_for_system::<RenderableDrawSystem>()
-            //         .expect("Couldn't get pipeline.")
-            //     ).clone()
-            // );
 
         // insert stuff into scene that systems will need
         log::debug!("Inserting resources into scene.");
@@ -294,9 +292,7 @@ impl RenderManager{
         }
 
         // run all systems
-        log::debug!("About to run render dispatch...");
         scene.run_render_dispatch();
-        log::debug!("Done with render dispatch...");
 
         // get and submit secondary command buffers
         {
@@ -306,14 +302,13 @@ impl RenderManager{
             for buff in secondary_buffers.buffers.drain(..){
                 command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
             }
-            
+
             command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
-            log::debug!("Stepping to deferred rendering and getting lighting command buffers.");
+
             let mut lighting_secondary_buffers = world.write_resource::<LightingSecondaryBuffers>();
             for buff in lighting_secondary_buffers.buffers.drain(..){
                 command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
             }
-
         }
 
         // get egui shapes from world
@@ -385,9 +380,8 @@ impl RenderManager{
     }
 
     // render steps
-    fn prep_scene_and_swapchain(
+    fn prep_swapchain(
         &mut self,
-        _scene: &mut Scene<Initialized>
     )->(usize, SwapchainAcquireFuture<winit::window::Window>)
     {
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
@@ -519,6 +513,7 @@ impl RenderManager{
             .composite_alpha(composite_alpha)
             .build()
             .unwrap()
+
     }
 
     // if the swapchain needs to be recreated
@@ -537,13 +532,14 @@ impl RenderManager{
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
         };
         self.recreate_swapchain = false;
-        self.scene_state().scale_scene_state_to_images(&new_images, self.device());
 
         // convert images to image views
         let new_images = new_images
             .into_iter()
             .map(|image| ImageView::new(image.clone()).unwrap())
             .collect::<Vec<_>>();
+
+        self.scene_state().scale_scene_state_to_images(new_images[0].clone(), self.device());
 
         self.swapchain = Some(new_swapchain);
         self.images = Some(new_images);

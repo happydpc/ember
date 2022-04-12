@@ -25,3 +25,25 @@ impl Default for DirectionalLightComponent {
         }
     }
 }
+
+#[derive(Component)]
+#[storage(VecStorage)]
+pub struct AmbientLightingComponent{
+    pub color: [f32; 3],
+}
+
+impl AmbientLightingComponent{
+    pub fn new(color: [f32; 3]) -> Self{
+        AmbientLightingComponent{
+            color: color,
+        }
+    }
+}
+
+impl Default for AmbientLightingComponent {
+    fn default() -> Self {
+        AmbientLightingComponent{
+            color: [1.0, 1.0, 1.0],
+        }
+    }
+}

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::convert::TryInto;
 
 use specs::{
     System,
@@ -13,6 +14,7 @@ use crate::core::plugins::components::{
     CameraComponent,
     TransformComponent,
     DirectionalLightComponent,
+    AmbientLightingComponent,
 };
 use crate::core::rendering::geometries::Vertex;
 use crate::core::rendering::shaders;
@@ -49,7 +51,7 @@ use vulkano::buffer::CpuBufferPool;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::TypedBufferAccess;
-
+use vulkano::image::ImageAccess;
 use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::command_buffer::CommandBufferUsage;
@@ -140,7 +142,7 @@ impl RequiresGraphicsPipeline for RenderableDrawSystem{
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 // Now that our builder is filled, we call `build()` to obtain an actual pipeline.
                 .build(device.clone())
-                .unwrap();
+                .expect("Can't build pipeline for renderable draw system.");
             pipeline
     }
 }
@@ -150,9 +152,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
         ReadStorage<'a, TransformComponent>,
         ReadStorage<'a, RenderableComponent>,
         ReadExpect<'a, CameraState>,
-        ReadExpect<'a, Arc<Device>>,
         ReadExpect<'a, Arc<Queue>>,
-        ReadExpect<'a, SwapchainImageNum>,
         WriteExpect<'a, TriangleSecondaryBuffers>,
         ReadExpect<'a, Arc<SceneState>>,
     );
@@ -162,30 +162,25 @@ impl <'a> System<'a> for RenderableDrawSystem{
         let (transforms,
             renderables,
             camera_state,
-            device,
             queue,
-            _image_num,
             mut buffer_vec,
-            _scene_state,
+            scene_state,
         ) = data;
 
-        let scene_state: &SceneState = &*_scene_state;
+        let scene_state: &SceneState = &*scene_state;
         let viewport = scene_state.viewport();
         let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
-        let render_pass = scene_state.render_passes[0].clone();
 
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
-        let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-        
         for (renderable, transform) in (&renderables, &transforms).join() {
             log::debug!("Creating secondary command buffer builder...");
             // create buffer buildres
             // create a command buffer builder
             let mut builder = AutoCommandBufferBuilder::secondary_graphics(
-                device.clone(),
+                queue.device().clone(),
                 queue.family(),
                 CommandBufferUsage::OneTimeSubmit,
-                subpass.clone(),
+                pipeline.subpass().clone(),
             )
             .unwrap();
             
@@ -202,12 +197,12 @@ impl <'a> System<'a> for RenderableDrawSystem{
 
             let g_arc = &renderable.geometry();
             let geometry = g_arc.lock().unwrap();
-            let m = vs::ty::Data{
+            let m = shaders::triangle::vs::ty::Data{
                 mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
             };
 
             let uniform_buffer: CpuBufferPool::<vs::ty::Data> = CpuBufferPool::new(
-                device.clone(),
+                queue.device().clone(),
                 BufferUsage::all()
             );
 
@@ -238,10 +233,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
                     0
                 )
                 .unwrap();
-            // builder.end_render_pass().unwrap();
-            // actually build command buffer now
             let command_buffer = builder.build().unwrap();
-            log::debug!("Pushing secondary command buffer to vec...");
             buffer_vec.buffers.push(Box::new(command_buffer));
         }
     }
@@ -306,10 +298,19 @@ impl <'a> System<'a> for DirectionalLightingSystem {
                         position: [-1.0, -1.0, 0.0],
                     },
                     Vertex {
-                        position: [-1.0, 3.0, 0.0],
+                        position: [1.0, -1.0, 0.0],
                     },
                     Vertex {
-                        position: [3.0, -1.0, 0.0],
+                        position: [1.0, 1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [-1.0, -1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [1.0, 1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [-1.0, 1.0, 0.0],
                     },
                 ]
                 .iter()
@@ -317,7 +318,6 @@ impl <'a> System<'a> for DirectionalLightingSystem {
             )
             .expect("failed to create buffer")
         };
-
         let scene_state: &SceneState = &*_scene_state;
         let color_input = scene_state.diffuse_buffer();
         let normals_input = scene_state.normals_buffer();
@@ -329,7 +329,6 @@ impl <'a> System<'a> for DirectionalLightingSystem {
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).expect("Couldn't get pipeline layout.");
 
         for light_comp in (&light_comps).join(){
-
             let push_constants = shaders::directional_lighting::fs::ty::PushConstants {
                 color: [light_comp.color[0], light_comp.color[1], light_comp.color[2], 1.0],
                 direction: light_comp.direction.extend(0.0).into(),
@@ -354,23 +353,165 @@ impl <'a> System<'a> for DirectionalLightingSystem {
             builder
                 .set_viewport(0, [viewport.clone()])
                 .bind_pipeline_graphics(pipeline.clone())
-                .bind_vertex_buffers(
-                    0,
-                    vertex_buffer.clone(),
-                )
-                .push_constants(
-                    pipeline.layout().clone(),
-                    0,
-                    push_constants
-                )
                 .bind_descriptor_sets(
                     PipelineBindPoint::Graphics,
                     pipeline.clone().layout().clone(),
                     0,
                     descriptor_set.clone(),
                 )
+                .push_constants(
+                    pipeline.layout().clone(),
+                    0,
+                    push_constants
+                )
+                .bind_vertex_buffers(
+                    0,
+                    vertex_buffer.clone(),
+                )
                 .draw(
-                    3,
+                    vertex_buffer.len().try_into().unwrap(),
+                    1,
+                    0,
+                    0
+                )
+                .unwrap();
+
+            // build and push 
+            let command_buffer = builder.build().expect("Failed to build secondary command buffer.");
+            buffer_vec.buffers.push(Box::new(command_buffer));
+        }
+    }
+}
+
+pub struct AmbientLightingSystem;
+
+impl RequiresGraphicsPipeline for AmbientLightingSystem{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+
+        let vs = shaders::ambient_lighting::vs::load(device.clone()).expect("failed to create vertex shader for ambient lighting system.");
+        let fs = shaders::ambient_lighting::fs::load(device.clone()).expect("failed to create fragment shader for ambient lighting system.");
+
+        log::info!("{:?}", Subpass::from(render_pass.clone(), 1).unwrap().subpass_desc());
+
+        GraphicsPipeline::start()
+        .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+        .vertex_shader(vs.entry_point("main").unwrap(), ())
+        .input_assembly_state(InputAssemblyState::new())
+        .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+        .fragment_shader(fs.entry_point("main").unwrap(), ())
+        .color_blend_state(ColorBlendState::new(Subpass::from(render_pass.clone(), 1).unwrap().num_color_attachments()).blend(
+            AttachmentBlend {
+                color_op: BlendOp::Add,
+                color_source: BlendFactor::One,
+                color_destination: BlendFactor::One,
+                alpha_op: BlendOp::Max,
+                alpha_source: BlendFactor::One,
+                alpha_destination: BlendFactor::One,
+            },
+        ))
+        .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
+        .build(device.clone())
+        .unwrap()
+    }
+}
+
+impl <'a> System<'a> for AmbientLightingSystem {
+    type SystemData = (
+        ReadStorage<'a, AmbientLightingComponent>,
+        ReadExpect<'a, Arc<Queue>>,
+        WriteExpect<'a, LightingSecondaryBuffers>,
+        ReadExpect<'a, Arc<SceneState>>,
+    );
+
+    fn run(&mut self, data: Self::SystemData){
+        log::debug!("Running ambient Lighting System...");
+        let (
+            light_comps,
+            queue,
+            mut buffer_vec,
+            _scene_state
+        ) = data;
+
+        // v buffer
+        let vertex_buffer = {
+            CpuAccessibleBuffer::from_iter(
+                queue.device().clone(),
+                BufferUsage::all(),
+                false,
+                [
+                    Vertex {
+                        position: [-1.0, -1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [1.0, -1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [1.0, 1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [-1.0, -1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [1.0, 1.0, 0.0],
+                    },
+                    Vertex {
+                        position: [-1.0, 1.0, 0.0],
+                    },
+                ]
+                .iter()
+                .cloned(),
+            )
+            .expect("failed to create buffer")
+        };
+        let scene_state: &SceneState = &*_scene_state;
+        let color_input = scene_state.diffuse_buffer();
+        let viewport = scene_state.viewport();
+        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let renderpass = scene_state.render_passes[0].clone();
+
+        let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
+        let layout = &*pipeline.layout().descriptor_set_layouts().get(0).expect("Couldn't get pipeline layout.");
+
+        for light_comp in (&light_comps).join(){
+            let push_constants = shaders::ambient_lighting::fs::ty::PushConstants {
+                color: [light_comp.color[0], light_comp.color[1], light_comp.color[2], 1.0],
+            };
+
+            let descriptor_set = PersistentDescriptorSet::new(
+                layout.clone(),
+                [
+                    WriteDescriptorSet::image_view(0, color_input.clone()),
+                ]
+            ).unwrap();
+
+            let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+                queue.device().clone(),
+                queue.family(),
+                CommandBufferUsage::OneTimeSubmit,
+                subpass.clone()
+            )
+            .unwrap();
+
+            builder
+                .set_viewport(0, [viewport.clone()])
+                .bind_pipeline_graphics(pipeline.clone())
+                .bind_descriptor_sets(
+                    PipelineBindPoint::Graphics,
+                    pipeline.clone().layout().clone(),
+                    0,
+                    descriptor_set.clone(),
+                )
+                .push_constants(
+                    pipeline.layout().clone(),
+                    0,
+                    push_constants
+                )
+                .bind_vertex_buffers(
+                    0,
+                    vertex_buffer.clone(),
+                )
+                .draw(
+                    vertex_buffer.len().try_into().unwrap(),
                     1,
                     0,
                     0

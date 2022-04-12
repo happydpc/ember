@@ -17,7 +17,6 @@ pub struct EguiState{
     pub painter: Painter,
 }
 
-
 pub struct DebugUiSystem;
 
 
