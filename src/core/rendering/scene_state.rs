@@ -105,21 +105,21 @@ impl SceneState{
                     // Will be bound to `self.diffuse_buffer`.
                     diffuse: {
                         load: Clear,
-                        store: Store,
+                        store: DontCare,
                         format: Format::A2B10G10R10_UNORM_PACK32,
                         samples: 1,
                     },
                     // Will be bound to `self.normals_buffer`.
                     normals: {
                         load: Clear,
-                        store: Store,
+                        store: DontCare,
                         format: Format::R16G16B16A16_SFLOAT,
                         samples: 1,
                     },
                     // Will be bound to `self.depth_buffer`.
                     depth: {
                         load: Clear,
-                        store: Store,
+                        store: DontCare,
                         format: Format::D16_UNORM,
                         samples: 1,
                     }
@@ -221,55 +221,50 @@ impl SceneState{
 
         let dimensions = image.clone().image().dimensions().width_height();
 
-        // let new_framebuffers = image
-            // .iter()
-            // .map(|image| {
-                let atch_usage = ImageUsage {
-                    transient_attachment: true,
-                    input_attachment: true,
-                    ..ImageUsage::none()
-                };
+        let atch_usage = ImageUsage {
+            transient_attachment: true,
+            input_attachment: true,
+            ..ImageUsage::none()
+        };
 
-                let diffuse_buffer = ImageView::new(
-                    AttachmentImage::with_usage(
-                        device.clone(),
-                        dimensions,
-                        Format::A2B10G10R10_UNORM_PACK32,
-                        atch_usage,
-                    ).unwrap(),
-                ).unwrap();
-                
-                let normals_buffer = ImageView::new(
-                    AttachmentImage::with_usage(
-                        device.clone(),
-                        dimensions,
-                        Format::R16G16B16A16_SFLOAT,
-                        atch_usage,
-                    ).unwrap(),
-                ).unwrap();
-                
-                let depth_buffer = ImageView::new(
-                    AttachmentImage::with_usage(
-                        device.clone(),
-                        dimensions,
-                        Format::D16_UNORM,
-                        atch_usage,
-                    ).unwrap(),
-                ).unwrap();
+        let diffuse_buffer = ImageView::new(
+            AttachmentImage::with_usage(
+                device.clone(),
+                dimensions,
+                Format::A2B10G10R10_UNORM_PACK32,
+                atch_usage,
+            ).unwrap(),
+        ).unwrap();
+        
+        let normals_buffer = ImageView::new(
+            AttachmentImage::with_usage(
+                device.clone(),
+                dimensions,
+                Format::R16G16B16A16_SFLOAT,
+                atch_usage,
+            ).unwrap(),
+        ).unwrap();
+        
+        let depth_buffer = ImageView::new(
+            AttachmentImage::with_usage(
+                device.clone(),
+                dimensions,
+                Format::D16_UNORM,
+                atch_usage,
+            ).unwrap(),
+        ).unwrap();
 
-            let framebuffer = Framebuffer::start(self.render_passes[0].clone())
-                .add(image.clone())
-                .unwrap()
-                .add(diffuse_buffer.clone())
-                .unwrap()
-                .add(normals_buffer.clone())
-                .unwrap()
-                .add(depth_buffer.clone())
-                .unwrap()
-                .build()
-                .unwrap();
-            // framebuffer
-        // }).collect::<Vec<_>>();
+        let framebuffer = Framebuffer::start(self.render_passes[0].clone())
+            .add(image.clone())
+            .unwrap()
+            .add(diffuse_buffer.clone())
+            .unwrap()
+            .add(normals_buffer.clone())
+            .unwrap()
+            .add(depth_buffer.clone())
+            .unwrap()
+            .build()
+            .unwrap();
         
         *self.framebuffers.clone().lock().unwrap() = Some(framebuffer);
         *self.diffuse_buffer.clone().unwrap().lock().unwrap() = diffuse_buffer;

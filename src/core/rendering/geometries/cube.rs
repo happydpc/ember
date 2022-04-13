@@ -19,23 +19,23 @@ impl Geometry for CubeGeometry{
         let dx = 0.5 * scale;
 
         // bottom plane
-        let tl0 = Vertex::new(-dx + x, dx + y, -dx + z);
-        let tr0 = Vertex::new(dx + x, dx + y, -dx + z);
-        let bl0 = Vertex::new(-dx + x, -dx + y, -dx + z);
-        let br0 = Vertex::new(dx + x, -dx + y, -dx + z);
+        let tl0 = Vertex::new(x - dx, y + dx, z - dx);
+        let tr0 = Vertex::new(x + dx, y + dx, z - dx);
+        let bl0 = Vertex::new(x - dx, y - dx, z - dx);
+        let br0 = Vertex::new(x + dx, y - dx, z - dx);
 
         // top plane
-        let tl1 = Vertex::new(-dx + x, dx + y, dx + z);
-        let tr1 = Vertex::new(dx + x, dx + y, dx + z);
-        let bl1 = Vertex::new(-dx + x, -dx + y, dx + z);
-        let br1 = Vertex::new(dx + x, -dx + y, dx + z);
+        let tl1 = Vertex::new(x - dx, y + dx, z + dx);
+        let tr1 = Vertex::new(x + dx, y + dx, z + dx);
+        let bl1 = Vertex::new(x - dx, y - dx, z + dx);
+        let br1 = Vertex::new(x + dx, y - dx, z + dx);
 
         // store verts.       0    1    2    3    4    5    6    7
         let vertices = vec![tl0, tr0, bl0, br0, tl1, tr1, bl1, br1];
 
         // top, front, right, back, left, bottom
         let indices = vec![
-            4, 5, 7, 7, 6, 4, // top
+            4, 5, 7, 4, 7, 6, // top
             6, 7, 3, 3, 2, 6, // front
             7, 5, 1, 1, 3, 7, // right
             5, 4, 0, 0, 1, 5, // back

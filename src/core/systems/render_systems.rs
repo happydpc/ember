@@ -35,11 +35,13 @@ use vulkano::swapchain::Surface;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::PipelineBindPoint;
+use vulkano::pipeline::StateMode;
 
 use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::viewport::ViewportState;
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
+use vulkano::pipeline::graphics::rasterization::{RasterizationState, CullMode, FrontFace};
 use vulkano::pipeline::graphics::color_blend::{
     BlendFactor, BlendOp, AttachmentBlend, ColorBlendState,
 };
@@ -122,6 +124,12 @@ impl RequiresGraphicsPipeline for RenderableDrawSystem{
             let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
             let fs = shaders::triangle::fs::load(device.clone()).expect("Failed to create fragment shader for triangle draw system.");
 
+            let rs = RasterizationState{
+                cull_mode: StateMode::Fixed(CullMode::Back),
+                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+                ..Default::default()
+            };
+
             // create our pipeline. like an opengl program but more specific
             let pipeline = GraphicsPipeline::start()
                 // We need to indicate the layout of the vertices.
@@ -136,6 +144,7 @@ impl RequiresGraphicsPipeline for RenderableDrawSystem{
                 // See `vertex_shader`.
                 .fragment_shader(fs.entry_point("main").unwrap(), ())
                 .depth_stencil_state(DepthStencilState::simple_depth_test())
+                .rasterization_state(rs)
                 // We have to indicate which subpass of which render pass this pipeline is going to be used
                 // in. The pipeline will only be usable from this particular subpass.
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
