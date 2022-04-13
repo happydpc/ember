@@ -12,7 +12,7 @@ use log;
 pub type KeyInputQueue = VecDeque<VirtualKeyCode>;
 
 pub struct InputManager{
-    modifier_state: Option<ModifiersState>,
+    modifier_state: ModifiersState,
     current_key_pressed: Option<VirtualKeyCode>,
     key_input_queue: VecDeque<VirtualKeyCode>,
 }
@@ -30,6 +30,7 @@ impl Manager for InputManager{
         log::debug!("Updating input manager.");
         self.current_key_pressed = None;
         scene.insert_resource(self.key_input_queue.clone());
+        scene.insert_resource(self.modifier_state);
         self.key_input_queue.clear();
     }
 }
@@ -40,14 +41,14 @@ impl InputManager {
     pub fn create_new() -> Self {
         log::info!("Creating input manager...");
         InputManager{
-            modifier_state: None,
+            modifier_state: ModifiersState::empty(),
             current_key_pressed: None,
             key_input_queue: VecDeque::new(),
         }
     }
 
     // handle a change in modifiers
-    pub fn handle_modifier_change(&mut self, new_state: Option<ModifiersState>) {
+    pub fn handle_modifier_change(&mut self, new_state: ModifiersState) {
         log::debug!("Modifier changed: {:?}", new_state);
         self.modifier_state = new_state;
     }

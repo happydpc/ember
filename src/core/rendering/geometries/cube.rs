@@ -35,12 +35,12 @@ impl Geometry for CubeGeometry{
 
         // top, front, right, back, left, bottom
         let indices = vec![
-            4, 5, 7, 4, 7, 6, // top
-            6, 7, 3, 3, 2, 6, // front
-            7, 5, 1, 1, 3, 7, // right
-            5, 4, 0, 0, 1, 5, // back
-            4, 6, 2, 2, 0, 4, // left
-            2, 3, 0, 0, 1, 2, // bottom
+            4, 5, 7, 6, 4, 7, // top
+            3, 2, 7, 2, 6, 7, // front
+            7, 5, 1, 3, 7, 1, // right
+            5, 4, 0, 1, 5, 0, // back
+            4, 6, 2, 0, 4, 2, // left
+            2, 3, 0, 1, 2, 0, // bottom
         ];
 
         CubeGeometry{

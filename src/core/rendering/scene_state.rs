@@ -23,7 +23,7 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 pub struct SceneState{
-    pub pipelines: HashMap<TypeId, Arc<GraphicsPipeline>>,
+    pub pipelines: Mutex<HashMap<TypeId, Arc<GraphicsPipeline>>>,
     pub render_passes: Vec<Arc<RenderPass>>,
     pub diffuse_buffer: Option<Arc<Mutex<Arc<ImageView<AttachmentImage>>>>>,
     pub normals_buffer: Option<Arc<Mutex<Arc<ImageView<AttachmentImage>>>>>,
@@ -35,7 +35,7 @@ pub struct SceneState{
 impl SceneState{
     pub fn new() -> Self {
         SceneState{
-            pipelines: HashMap::new(),
+            pipelines: Mutex::new(HashMap::new()),
             render_passes: Vec::new(),
             diffuse_buffer: None,
             normals_buffer: None,
@@ -78,9 +78,10 @@ impl SceneState{
         self.render_passes.push(pass);
         
         // add pipelines
-        self.pipelines.insert(TypeId::of::<DirectionalLightingSystem>(), directional_lighting_pipeline);
-        self.pipelines.insert(TypeId::of::<RenderableDrawSystem>(), renderable_pipeline);
-        self.pipelines.insert(TypeId::of::<AmbientLightingSystem>(), ambient_lighting_pipeline);
+        let pipelines = &mut *self.pipelines.lock().unwrap();
+        pipelines.insert(TypeId::of::<DirectionalLightingSystem>(), directional_lighting_pipeline);
+        pipelines.insert(TypeId::of::<RenderableDrawSystem>(), renderable_pipeline);
+        pipelines.insert(TypeId::of::<AmbientLightingSystem>(), ambient_lighting_pipeline);
         
         // add buffers
         self.diffuse_buffer = Some(Arc::new(Mutex::new(diffuse_buffer)));
@@ -273,11 +274,15 @@ impl SceneState{
         
     }
 
-    pub fn get_pipeline_for_system<S: 'static>(&self) -> Option<&Arc<GraphicsPipeline>>{
-        match self.pipelines.get(&TypeId::of::<S>()) {
-            Some(pipeline) => Some(pipeline),
+    pub fn get_pipeline_for_system<S: 'static>(&self) -> Option<Arc<GraphicsPipeline>>{
+        match self.pipelines.lock().unwrap().get(&TypeId::of::<S>()) {
+            Some(pipeline) => Some(pipeline.clone()),
             None => None
         }
+    }
+
+    pub fn set_pipeline_for_system<S: 'static>(&self, pipeline: Arc<GraphicsPipeline>){
+        self.pipelines.lock().unwrap().insert(TypeId::of::<S>(), pipeline);
     }
 
     pub fn get_framebuffer_image(&self, _image_num: usize) -> Arc<Framebuffer> {

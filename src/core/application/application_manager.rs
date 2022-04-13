@@ -265,7 +265,7 @@ impl Application{
                         // key modifiers, alt, shift, etc
                         WindowEvent::ModifiersChanged(state) => {
                             match &self.input_manager{
-                                Some(manager) => manager.borrow_mut().handle_modifier_change(Some(state.clone())),
+                                Some(manager) => manager.borrow_mut().handle_modifier_change(state.clone()),
                                 None => log::error!("Key modifier change detected, but no input manager is loaded..."),
                             };
                         }

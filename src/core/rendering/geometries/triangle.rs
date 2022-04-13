@@ -23,7 +23,7 @@ impl Geometry for TriangleGeometry{
                     Vertex{position: [0.0 + x, corner_offset + y, 0.0 + z]},
                     Vertex{position: [corner_offset + x, -corner_offset + y, 0.0 + z]},
                 ],
-                indices: vec![0, 1, 2],
+                indices: vec![0, 1, 2, 0],
                 vertex_buffer: None,
                 index_buffer: None,
                 initialized: false,

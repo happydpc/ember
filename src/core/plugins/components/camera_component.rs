@@ -21,6 +21,7 @@ pub struct CameraComponent{
     pub up: Vector3<f32>,
     pub perspective: Matrix4<f32>,
     pub view: Matrix4<f32>,
+    correction_matrix: Matrix4<f32>,
 }
 
 impl CameraComponent {
@@ -42,6 +43,7 @@ impl CameraComponent {
             up: up,
             perspective: Matrix4::from_scale(1.0),
             view: Matrix4::from_scale(1.0),
+            correction_matrix: Matrix4::from_angle_y(Deg(180.0)),
         };
         cam.calculate_perspective();
         cam.calculate_view();
@@ -57,7 +59,7 @@ impl CameraComponent {
             Point3::new(self.eye.x, self.eye.y, self.eye.z),
             Point3::new(self.look_at.x, self.look_at.y, self.look_at.z),
             self.up
-        ) * Matrix4::from_angle_x(Deg(180.0));
+        ) * self.correction_matrix;
     }
 
     pub fn get_view(&self) -> Matrix4<f32> {

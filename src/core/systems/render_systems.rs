@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use std::convert::TryInto;
+use std::any::TypeId;
 
 use specs::{
+    Read,
     System,
     ReadExpect,
     WriteStorage,
@@ -24,7 +26,7 @@ use crate::core::rendering::render_manager::{
     TriangleSecondaryBuffers,
     LightingSecondaryBuffers,
 };
-
+use crate::core::input::input_manager::KeyInputQueue;
 use crate::core::rendering::SceneState;
 
 use cgmath::Matrix4;
@@ -37,8 +39,9 @@ use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::PipelineBindPoint;
 use vulkano::pipeline::StateMode;
 
+use vulkano::pipeline::PartialStateMode;
 use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
-use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
+use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::viewport::ViewportState;
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::graphics::rasterization::{RasterizationState, CullMode, FrontFace};
@@ -60,6 +63,8 @@ use vulkano::command_buffer::AutoCommandBufferBuilder;
 
 
 use winit::window::Window;
+use winit::event::ModifiersState;
+use winit::event::VirtualKeyCode;
 
 use log;
 
@@ -130,6 +135,8 @@ impl RequiresGraphicsPipeline for RenderableDrawSystem{
                 ..Default::default()
             };
 
+            let input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::TriangleList);
+
             // create our pipeline. like an opengl program but more specific
             let pipeline = GraphicsPipeline::start()
                 // We need to indicate the layout of the vertices.
@@ -138,7 +145,7 @@ impl RequiresGraphicsPipeline for RenderableDrawSystem{
                 // which one.
                 .vertex_shader(vs.entry_point("main").unwrap(), ())
                 // The content of the vertex buffer describes a list of triangles.
-                .input_assembly_state(InputAssemblyState::new())
+                .input_assembly_state(input_assembly_state)
                 // Use a resizable viewport set to draw over the entire window
                 .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
                 // See `vertex_shader`.
@@ -177,7 +184,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
 
         let scene_state: &SceneState = &*scene_state;
         let viewport = scene_state.viewport();
-        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
 
         let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
         for (renderable, transform) in (&renderables, &transforms).join() {
@@ -330,7 +337,7 @@ impl <'a> System<'a> for DirectionalLightingSystem {
         let color_input = scene_state.diffuse_buffer();
         let normals_input = scene_state.normals_buffer();
         let viewport = scene_state.viewport();
-        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
         let renderpass = scene_state.render_passes[0].clone();
 
         let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
@@ -474,7 +481,7 @@ impl <'a> System<'a> for AmbientLightingSystem {
         let scene_state: &SceneState = &*_scene_state;
         let color_input = scene_state.diffuse_buffer();
         let viewport = scene_state.viewport();
-        let pipeline: &Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
+        let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
         let renderpass = scene_state.render_passes[0].clone();
 
         let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
@@ -530,5 +537,76 @@ impl <'a> System<'a> for AmbientLightingSystem {
             let command_buffer = builder.build().expect("Failed to build secondary command buffer.");
             buffer_vec.buffers.push(Box::new(command_buffer));
         }
+    }
+}
+
+pub struct RenderableAssemblyStateModifierSystem;
+
+impl <'a> System<'a> for RenderableAssemblyStateModifierSystem {
+    type SystemData = (
+        ReadExpect<'a, Arc<SceneState>>,
+        Read<'a, KeyInputQueue>,
+        Read<'a, ModifiersState>,
+        ReadExpect<'a, Arc<Device>>
+    );
+
+    fn run(&mut self, data: Self::SystemData){
+        let (mut scene_state, read_input, read_modifiers, device) = data;
+        let input = read_input.clone();
+        let modifiers = read_modifiers.clone();
+        if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
+            let topology = match scene_state
+                .get_pipeline_for_system::<RenderableDrawSystem>()
+                .expect("Couldn't get pipeline for renderable draw in wireframe system.")
+                .input_assembly_state()
+                .topology
+            {
+                PartialStateMode::Fixed(PrimitiveTopology::TriangleList) => PrimitiveTopology::LineStrip,
+                PartialStateMode::Fixed(PrimitiveTopology::LineStrip) => PrimitiveTopology::TriangleList,
+                _ => unreachable!(),
+            };
+            let subpass = Subpass::from(scene_state.render_passes[0].clone(), 0).unwrap();
+            let pipeline = self.CreateRenderablePipeline(device.clone(), subpass, topology);
+            scene_state.set_pipeline_for_system::<RenderableDrawSystem>(pipeline);
+        }
+    }
+}
+
+impl RenderableAssemblyStateModifierSystem {
+    pub fn CreateRenderablePipeline(&self, device: Arc<Device>, subpass: Subpass, topology: PrimitiveTopology) -> Arc<GraphicsPipeline> {
+        // compile our shaders
+        let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
+        let fs = shaders::triangle::fs::load(device.clone()).expect("Failed to create fragment shader for triangle draw system.");
+
+        let rs = RasterizationState{
+            cull_mode: StateMode::Fixed(CullMode::Back),
+            front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+            ..Default::default()
+        };
+
+        let input_assembly_state = InputAssemblyState::new().topology(topology);
+
+        // create our pipeline. like an opengl program but more specific
+        let pipeline = GraphicsPipeline::start()
+            // We need to indicate the layout of the vertices.
+            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+            // A Vulkan shader can in theory contain multiple entry points, so we have to specify
+            // which one.
+            .vertex_shader(vs.entry_point("main").unwrap(), ())
+            // The content of the vertex buffer describes a list of triangles.
+            .input_assembly_state(input_assembly_state)
+            // Use a resizable viewport set to draw over the entire window
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            // See `vertex_shader`.
+            .fragment_shader(fs.entry_point("main").unwrap(), ())
+            .depth_stencil_state(DepthStencilState::simple_depth_test())
+            .rasterization_state(rs)
+            // We have to indicate which subpass of which render pass this pipeline is going to be used
+            // in. The pipeline will only be usable from this particular subpass.
+            .render_pass(subpass)
+            // Now that our builder is filled, we call `build()` to obtain an actual pipeline.
+            .build(device.clone())
+            .expect("Can't build pipeline for renderable draw system.");
+        pipeline
     }
 }

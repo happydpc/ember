@@ -27,6 +27,7 @@ use crate::core::systems::{
         CameraUpdateSystem,
         DirectionalLightingSystem,
         AmbientLightingSystem,
+        RenderableAssemblyStateModifierSystem,
     }
 };
 use crate::construct_dispatcher;
@@ -134,7 +135,8 @@ impl Scene<Initialized> {
             (CameraUpdateSystem, "camera_update", &["camera_move"]),
             (RenderableDrawSystem, "renderable_draw", &["camera_update","render_init"]),
             (DirectionalLightingSystem, "directional_lighting", &[]),
-            (AmbientLightingSystem, "ambient_lighting", &[])
+            (AmbientLightingSystem, "ambient_lighting", &[]),
+            (RenderableAssemblyStateModifierSystem, "wireframe_system", &[])
         );
         self.render_dispatch = Some(new_dispatch());
     }

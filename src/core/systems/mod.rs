@@ -5,3 +5,4 @@ pub mod ui_systems;
 
 pub use render_systems::DirectionalLightingSystem;
 pub use render_systems::RequiresGraphicsPipeline;
+pub use render_systems::RenderableAssemblyStateModifierSystem;
