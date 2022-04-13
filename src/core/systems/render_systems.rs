@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::convert::TryInto;
-use std::any::TypeId;
+
 
 use specs::{
     Read,
@@ -551,7 +551,7 @@ impl <'a> System<'a> for RenderableAssemblyStateModifierSystem {
     );
 
     fn run(&mut self, data: Self::SystemData){
-        let (mut scene_state, read_input, read_modifiers, device) = data;
+        let (scene_state, read_input, read_modifiers, device) = data;
         let input = read_input.clone();
         let modifiers = read_modifiers.clone();
         if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){

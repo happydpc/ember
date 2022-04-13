@@ -3,7 +3,6 @@ use cgmath::{
     Matrix4,
     Vector3,
     Rad,
-    InnerSpace,
     Point3,
     Deg
 };
