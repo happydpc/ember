@@ -3,8 +3,8 @@ use crate::core::plugins::components::{DebugUiComponent};
 use egui_winit::State;
 use egui_vulkano::Painter;
 use egui::Context;
-use egui::Rect;
-use egui::Pos2;
+
+
 
 use log;
 

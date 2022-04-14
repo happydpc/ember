@@ -67,7 +67,6 @@ use vulkano::{
         SubpassContents,
         SecondaryCommandBuffer,
     },
-    Version,
 };
 
 // vulkano_win imports
@@ -292,7 +291,7 @@ impl RenderManager{
         // start egui frame
         {
             let world = scene.get_world().unwrap();
-            let mut state = world.write_resource::<EguiState>();
+            let state = world.write_resource::<EguiState>();
             let mut egui_winit = world.write_resource::<egui_winit::State>();
             state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
         }
@@ -321,7 +320,7 @@ impl RenderManager{
         log::debug!("Getting egui shapes");
         let egui_output = {
             let world = scene.get_world().unwrap();
-            let mut state = world.write_resource::<EguiState>();
+            let state = world.write_resource::<EguiState>();
             let mut egui_winit = world.write_resource::<egui_winit::State>();
             // state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
             let egui_output = state.ctx.end_frame();
@@ -501,7 +500,7 @@ impl RenderManager{
         physical_device: PhysicalDevice,
         surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>,
         device: Arc<Device>,
-        queue: Arc<Queue>
+        _queue: Arc<Queue>
     ) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>) {
         let surface_capabilities = physical_device.surface_capabilities(&surface, Default::default()).unwrap();
         
@@ -511,7 +510,7 @@ impl RenderManager{
                 .unwrap()[0]
                 .0,
         );
-        let dimensions: [u32; 2] = surface.window().inner_size().into();
+        let _dimensions: [u32; 2] = surface.window().inner_size().into();
 
         Swapchain::new(
             device.clone(),
@@ -534,7 +533,7 @@ impl RenderManager{
     // if the swapchain needs to be recreated
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
-        let dimensions: [u32; 2] = self.surface().window().inner_size().into();
+        let _dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let (new_swapchain, new_images) =
         match self.swapchain()
             .recreate(SwapchainCreateInfo {
