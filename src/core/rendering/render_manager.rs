@@ -270,14 +270,6 @@ impl RenderManager{
 
         self.scene_state().scale_scene_state_to_images(self.images()[image_num].clone(), self.device());
 
-        command_buffer_builder
-            .begin_render_pass(
-                self.scene_state().get_framebuffer_image(image_num),
-                SubpassContents::SecondaryCommandBuffers,
-                clear_values,
-            )
-            .unwrap();
-
         // insert stuff into scene that systems will need
         log::debug!("Inserting resources into scene.");
         scene.insert_resource(image_num);
@@ -299,6 +291,28 @@ impl RenderManager{
         // run all systems
         scene.run_render_dispatch();
 
+        // get egui shapes from world
+        log::debug!("Getting egui shapes");
+        let egui_output = {
+            let world = scene.get_world().unwrap();
+            let mut state = world.write_resource::<EguiState>();
+            let mut egui_winit = world.write_resource::<egui_winit::State>();
+            let egui_output = state.ctx.end_frame();
+            let platform_output = egui_output.platform_output.clone();
+            egui_winit.handle_platform_output(self.surface().window(), &state.ctx, platform_output);
+            let textures_delta = egui_output.textures_delta.clone();
+            let result = state.painter.update_textures(textures_delta, &mut command_buffer_builder).expect("egui texture error");
+            egui_output
+        };
+
+        command_buffer_builder
+            .begin_render_pass(
+                self.scene_state().get_framebuffer_image(image_num),
+                SubpassContents::SecondaryCommandBuffers,
+                clear_values,
+            )
+            .unwrap();
+
         // get and submit secondary command buffers
         {
             let world = scene.get_world().unwrap();
@@ -315,18 +329,6 @@ impl RenderManager{
                 command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
             }
         }
-
-        // get egui shapes from world
-        log::debug!("Getting egui shapes");
-        let egui_output = {
-            let world = scene.get_world().unwrap();
-            let state = world.write_resource::<EguiState>();
-            let mut egui_winit = world.write_resource::<egui_winit::State>();
-            // state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
-            let egui_output = state.ctx.end_frame();
-            egui_winit.handle_platform_output(self.surface().window(), &state.ctx, egui_output.platform_output.clone());
-            egui_output
-        };
 
         // send to egui
         // Automatically start the next render subpass and draw the gui
