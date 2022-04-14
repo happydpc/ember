@@ -2,7 +2,7 @@ use specs::{System, ReadStorage, ReadExpect, Join};
 use crate::core::plugins::components::{DebugUiComponent};
 use egui_winit::State;
 use egui_vulkano::Painter;
-use egui::CtxRef;
+use egui::Context;
 use egui::Rect;
 use egui::Pos2;
 
@@ -10,7 +10,7 @@ use log;
 
 
 pub struct EguiState{
-    pub ctx: CtxRef,
+    pub ctx: Context,
     pub painter: Painter,
 }
 

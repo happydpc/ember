@@ -1,5 +1,10 @@
 vulkano_shaders::shader! {
     ty: "vertex",
+    types_meta: {
+        use bytemuck::{Pod, Zeroable};
+
+        #[derive(Clone, Copy, Zeroable, Pod)]
+    },
     src: "
         #version 450
         layout(location = 0) in vec3 position;

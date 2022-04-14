@@ -186,7 +186,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
         let viewport = scene_state.viewport();
         let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
 
-        let layout = &*pipeline.layout().descriptor_set_layouts().get(0).unwrap();
+        let layout = &*pipeline.layout().set_layouts().get(0).unwrap();
         for (renderable, transform) in (&renderables, &transforms).join() {
             log::debug!("Creating secondary command buffer builder...");
             // create buffer buildres
@@ -205,24 +205,24 @@ impl <'a> System<'a> for RenderableDrawSystem{
                 .set_viewport(0, [viewport.clone()])
                 .bind_pipeline_graphics(pipeline.clone());
 
-            // create matrix
-            let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
-            let rotation_matrix: Matrix4<f32> = transform.rotation;
-            let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix;
-
-            let g_arc = &renderable.geometry();
-            let geometry = g_arc.lock().unwrap();
-            let m = shaders::triangle::vs::ty::Data{
-                mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
-            };
-
-            let uniform_buffer: CpuBufferPool::<vs::ty::Data> = CpuBufferPool::new(
+            let uniform_buffer: CpuBufferPool::<shaders::triangle::vs::ty::Data> = CpuBufferPool::new(
                 queue.device().clone(),
                 BufferUsage::all()
             );
 
+            let g_arc = &renderable.geometry();
+            let geometry = g_arc.lock().unwrap();
             let uniform_buffer_subbuffer = {
-                uniform_buffer.next(m).unwrap()
+                // create matrix
+                let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
+                let rotation_matrix: Matrix4<f32> = transform.rotation;
+                let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix;
+
+                
+                let uniform_buffer_data = shaders::triangle::vs::ty::Data{
+                    mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
+                };
+                uniform_buffer.next(uniform_buffer_data).unwrap()
             };
     
             let set = PersistentDescriptorSet::new(
@@ -341,7 +341,7 @@ impl <'a> System<'a> for DirectionalLightingSystem {
         let renderpass = scene_state.render_passes[0].clone();
 
         let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
-        let layout = &*pipeline.layout().descriptor_set_layouts().get(0).expect("Couldn't get pipeline layout.");
+        let layout = &*pipeline.layout().set_layouts().get(0).expect("Couldn't get pipeline layout.");
 
         for light_comp in (&light_comps).join(){
             let push_constants = shaders::directional_lighting::fs::ty::PushConstants {
@@ -405,8 +405,6 @@ impl RequiresGraphicsPipeline for AmbientLightingSystem{
 
         let vs = shaders::ambient_lighting::vs::load(device.clone()).expect("failed to create vertex shader for ambient lighting system.");
         let fs = shaders::ambient_lighting::fs::load(device.clone()).expect("failed to create fragment shader for ambient lighting system.");
-
-        log::info!("{:?}", Subpass::from(render_pass.clone(), 1).unwrap().subpass_desc());
 
         GraphicsPipeline::start()
         .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
@@ -485,7 +483,7 @@ impl <'a> System<'a> for AmbientLightingSystem {
         let renderpass = scene_state.render_passes[0].clone();
 
         let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
-        let layout = &*pipeline.layout().descriptor_set_layouts().get(0).expect("Couldn't get pipeline layout.");
+        let layout = &*pipeline.layout().set_layouts().get(0).expect("Couldn't get pipeline layout.");
 
         for light_comp in (&light_comps).join(){
             let push_constants = shaders::ambient_lighting::fs::ty::PushConstants {

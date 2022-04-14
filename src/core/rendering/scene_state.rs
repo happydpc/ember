@@ -12,6 +12,7 @@ use vulkano::image::view::ImageView;
 use vulkano::image::AttachmentImage;
 use vulkano::pipeline::graphics::viewport::Viewport;
 use vulkano::render_pass::Framebuffer;
+use vulkano::render_pass::FramebufferCreateInfo;
 use vulkano::image::SwapchainImage;
 use vulkano::image::ImageUsage;
 use vulkano::image::ImageAccess;
@@ -21,6 +22,7 @@ use vulkano::image::ImageAccess;
 use std::sync::{Arc, Mutex};
 use std::any::TypeId;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub struct SceneState{
     pub pipelines: Mutex<HashMap<TypeId, Arc<GraphicsPipeline>>>,
@@ -60,7 +62,7 @@ impl SceneState{
         ) = self.build_buffers(device.clone(), None);
     
         // create pass
-        let pass = self.build_render_pass(swapchain.format(), device.clone());
+        let pass = self.build_render_pass(swapchain.image_format(), device.clone());
 
         // create pipelines
         let directional_lighting_pipeline = DirectionalLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
@@ -166,7 +168,7 @@ impl SceneState{
             input_attachment: true,
             ..ImageUsage::none()
         };
-        let diffuse_buffer = ImageView::new(
+        let diffuse_buffer = ImageView::new_default(
             AttachmentImage::with_usage(
                 device.clone(),
                 image_dim,
@@ -176,7 +178,7 @@ impl SceneState{
             .unwrap(),
         )
         .unwrap();
-        let normals_buffer = ImageView::new(
+        let normals_buffer = ImageView::new_default(
             AttachmentImage::with_usage(
                 device.clone(),
                 image_dim,
@@ -186,7 +188,7 @@ impl SceneState{
             .unwrap(),
         )
         .unwrap();
-        let depth_buffer = ImageView::new(
+        let depth_buffer = ImageView::new_default(
             AttachmentImage::with_usage(
                 device.clone(),
                 image_dim,
@@ -228,7 +230,7 @@ impl SceneState{
             ..ImageUsage::none()
         };
 
-        let diffuse_buffer = ImageView::new(
+        let diffuse_buffer = ImageView::new_default(
             AttachmentImage::with_usage(
                 device.clone(),
                 dimensions,
@@ -237,7 +239,7 @@ impl SceneState{
             ).unwrap(),
         ).unwrap();
         
-        let normals_buffer = ImageView::new(
+        let normals_buffer = ImageView::new_default(
             AttachmentImage::with_usage(
                 device.clone(),
                 dimensions,
@@ -246,7 +248,7 @@ impl SceneState{
             ).unwrap(),
         ).unwrap();
         
-        let depth_buffer = ImageView::new(
+        let depth_buffer = ImageView::new_default(
             AttachmentImage::with_usage(
                 device.clone(),
                 dimensions,
@@ -255,17 +257,18 @@ impl SceneState{
             ).unwrap(),
         ).unwrap();
 
-        let framebuffer = Framebuffer::start(self.render_passes[0].clone())
-            .add(image.clone())
-            .unwrap()
-            .add(diffuse_buffer.clone())
-            .unwrap()
-            .add(normals_buffer.clone())
-            .unwrap()
-            .add(depth_buffer.clone())
-            .unwrap()
-            .build()
-            .unwrap();
+        let framebuffer = Framebuffer::new(
+            self.render_passes[0].clone(),
+            FramebufferCreateInfo {
+                attachments: vec![
+                    image.clone(),
+                    diffuse_buffer.clone(),
+                    normals_buffer.clone(),
+                    depth_buffer.clone(),
+                ],
+                ..Default::default()
+            },
+        ).expect("Couldn't create framebuffer");
         
         *self.framebuffers.clone().lock().unwrap() = Some(framebuffer);
         *self.diffuse_buffer.clone().unwrap().lock().unwrap() = diffuse_buffer;

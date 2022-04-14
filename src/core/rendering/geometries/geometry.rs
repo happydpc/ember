@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use std::sync::Arc;
 use vulkano::{
     buffer::CpuAccessibleBuffer,
@@ -19,7 +20,8 @@ pub struct Initialized{
     pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
 }
 
-#[derive(Default, Debug, Clone)]
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod)]
 pub struct Vertex {
     pub position: [f32; 3],
 }

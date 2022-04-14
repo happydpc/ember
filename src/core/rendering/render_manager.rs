@@ -11,8 +11,6 @@ use crate::core::{
     }
 };
 
-
-
 // ecs
 use specs::prelude::*;
 
@@ -21,6 +19,7 @@ use vulkano::{
     instance::{
         Instance,
         InstanceExtensions,
+        InstanceCreateInfo,
     },
     device::{
         physical::{
@@ -31,13 +30,15 @@ use vulkano::{
         Device,
         DeviceExtensions,
         Queue,
-        QueuesIter
+        DeviceCreateInfo,
+        QueueCreateInfo
     },
     swapchain::{
         AcquireError,
         Swapchain,
         SwapchainCreationError,
         SwapchainAcquireFuture,
+        SwapchainCreateInfo,
     },
     swapchain,
     image::{
@@ -86,7 +87,7 @@ use winit::{
 // egui
 use egui;
 
-use egui::CtxRef;
+use egui::Context;
 
 
 // std imports
@@ -134,7 +135,13 @@ impl RenderManager{
         let (required_extensions, device_extensions) = RenderManager::get_required_extensions();
 
         // create an instance of vulkan with the required extensions
-        let instance = Instance::new(None, Version::V1_1, &required_extensions, None).unwrap();
+        let instance = Instance::new(
+            // None, Version::V1_1, &required_extensions, None
+            InstanceCreateInfo{
+                enabled_extensions: required_extensions,
+                ..Default::default()
+            }
+        ).unwrap();
 
         // create event_loop and surface
         let (event_loop, surface) = RenderManager::create_event_loop_and_surface(instance.clone());
@@ -174,7 +181,7 @@ impl RenderManager{
         // store swapchain images?
         let images = images
             .into_iter()
-            .map(|image| ImageView::new(image.clone()).unwrap())
+            .map(|image| ImageView::new_default(image.clone()).unwrap())
             .collect::<Vec<_>>();
 
         // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
@@ -312,14 +319,14 @@ impl RenderManager{
 
         // get egui shapes from world
         log::debug!("Getting egui shapes");
-        let clipped_shapes = {
+        let egui_output = {
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let mut egui_winit = world.write_resource::<egui_winit::State>();
             // state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
-            let (egui_output, clipped_shapes) = state.ctx.end_frame();
-            egui_winit.handle_output(self.surface().window(), &state.ctx, egui_output);
-            clipped_shapes
+            let egui_output = state.ctx.end_frame();
+            egui_winit.handle_platform_output(self.surface().window(), &state.ctx, egui_output.platform_output.clone());
+            egui_output
         };
 
         // send to egui
@@ -338,7 +345,7 @@ impl RenderManager{
                     &mut command_buffer_builder,
                     [(size.width as f32) / sf, (size.height as f32) / sf],
                     &ctx,
-                    clipped_shapes,
+                    egui_output.shapes,
                 )
                 .unwrap();
         }
@@ -452,7 +459,7 @@ impl RenderManager{
             .filter_map(|p| { // filter queue families to ones that support graphics
                 p.queue_families() // TODO : pick beter queue families since this is one single queue
                     .find(|&q| {
-                        q.supports_graphics() && surface.is_supported(q).unwrap_or(false)
+                        q.supports_graphics() && q.supports_surface(&surface).unwrap_or(false)
                     })
                     .map(|q| (p, q))
             })
@@ -476,17 +483,16 @@ impl RenderManager{
         physical_device: PhysicalDevice,
         device_extensions: &DeviceExtensions,
         queue_family: QueueFamily,
-    ) -> (Arc<Device>, QueuesIter){
+    ) -> (Arc<Device>, impl ExactSizeIterator<Item = Arc<Queue>>){
         // now create logical device and queues
         let (device, queues) = Device::new(
             physical_device,
-            physical_device.supported_features(),
-            &physical_device
-                .required_extensions()
-                .union(&device_extensions),
-            [(queue_family, 0.5)].iter().cloned(),
+            DeviceCreateInfo{
+                enabled_extensions: physical_device.required_extensions().union(&device_extensions),
+                queue_create_infos: vec![QueueCreateInfo::family(queue_family)], 
+                ..Default::default()
+            },
         ).unwrap();
-
         (device, queues)
     }
 
@@ -497,21 +503,32 @@ impl RenderManager{
         device: Arc<Device>,
         queue: Arc<Queue>
     ) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>) {
-        let caps = surface.capabilities(physical_device).unwrap();
-        let composite_alpha = caps.supported_composite_alpha.iter().next().unwrap();
-        let format = caps.supported_formats[0].0;
+        let surface_capabilities = physical_device.surface_capabilities(&surface, Default::default()).unwrap();
+        
+        let image_format = Some(
+            physical_device
+                .surface_formats(&surface, Default::default())
+                .unwrap()[0]
+                .0,
+        );
         let dimensions: [u32; 2] = surface.window().inner_size().into();
 
-        Swapchain::start(device.clone(), surface.clone())
-            .num_images(caps.min_image_count)
-            .format(format)
-            .dimensions(dimensions)
-            .usage(ImageUsage::color_attachment())
-            .sharing_mode(&queue)
-            .composite_alpha(composite_alpha)
-            .build()
-            .unwrap()
-
+        Swapchain::new(
+            device.clone(),
+            surface.clone(),
+            SwapchainCreateInfo{
+                min_image_count: surface_capabilities.min_image_count,
+                image_format,
+                image_extent: surface.window().inner_size().into(),
+                image_usage: ImageUsage::color_attachment(),
+                composite_alpha: surface_capabilities
+                    .supported_composite_alpha
+                    .iter()
+                    .next()
+                    .unwrap(),
+                ..Default::default()
+            }
+        ).expect("Couldn't create swapchain.")
     }
 
     // if the swapchain needs to be recreated
@@ -520,13 +537,14 @@ impl RenderManager{
         let dimensions: [u32; 2] = self.surface().window().inner_size().into();
         let (new_swapchain, new_images) =
         match self.swapchain()
-            .recreate()
-            .dimensions(dimensions)
-            .build() {
+            .recreate(SwapchainCreateInfo {
+                image_extent: self.surface().window().inner_size().into(),
+                ..self.swapchain().create_info()
+            }) {
                 Ok(r) => r,
                 // This error tends to happen when the user is manually resizing the window.
                 // Simply restarting the loop is the easiest way to fix this issue.
-                Err(SwapchainCreationError::UnsupportedDimensions) => return,
+                Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => return,
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
         };
         self.recreate_swapchain = false;
@@ -534,7 +552,7 @@ impl RenderManager{
         // convert images to image views
         let new_images = new_images
             .into_iter()
-            .map(|image| ImageView::new(image.clone()).unwrap())
+            .map(|image| ImageView::new_default(image.clone()).unwrap())
             .collect::<Vec<_>>();
 
         self.scene_state().scale_scene_state_to_images(new_images[0].clone(), self.device());
@@ -556,8 +574,8 @@ impl RenderManager{
     }
 
     // create an egui painter
-    pub fn initialize_egui(&self) -> (CtxRef, egui_vulkano::Painter){
-        let egui_ctx = egui::CtxRef::default();
+    pub fn initialize_egui(&self) -> (Context, egui_vulkano::Painter){
+        let egui_ctx = egui::Context::default();
         let egui_painter = egui_vulkano::Painter::new(
             self.device(),
             self.queue(),
@@ -571,7 +589,7 @@ impl RenderManager{
     pub fn create_egui_winit_state(&self) -> egui_winit::State{
         let surface = self.surface();
         let window = surface.window();
-        egui_winit::State::new(window)
+        egui_winit::State::new(4096, window)
     }
 
     // getters
