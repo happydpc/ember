@@ -21,7 +21,7 @@ use crate::core::{
     plugins::components::EguiComponent,
     scene::{
         Scene,
-        Initialized,
+        Active,
         scene_manager::{
             SceneManager,
         },
@@ -123,7 +123,7 @@ impl Manager for Application{
     }
 
     // update process
-    fn update(&mut self, scene: &mut Scene<Initialized>){
+    fn update(&mut self, scene: &mut Scene<Active>){
         match &self.input_manager {
             Some(manager) => manager.borrow_mut().update(scene),
             None => log::error!("No input manager to update."),
@@ -349,5 +349,9 @@ impl Application{
                 log::error!("Scene manager does not exist on application manager.");
             },
         }
+    }
+
+    pub fn set_active_scene(&self){
+
     }
 } // end of class

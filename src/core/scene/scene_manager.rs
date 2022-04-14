@@ -7,15 +7,15 @@ use super::{
     super::managers::manager::Manager,
     scene::{
         Scene,
-        Initialized,
-        Uninitialized
+        Active,
+        Inactive
     },
 };
 
 pub struct SceneManager{
-    active_scene: Option<RefCell<Scene<Initialized>>>,
+    active_scene: Option<RefCell<Scene<Active>>>,
     active_scene_id: Option<i16>,
-    scenes: HashMap<i16, Scene<Uninitialized>>, // Scene ids and scenes
+    scenes: HashMap<i16, Scene<Inactive>>, // Scene ids and scenes
     scene_counter: i16,
 }
 
@@ -26,7 +26,7 @@ impl Manager for SceneManager{
     fn shutdown(&mut self){
         self.scenes.clear();
     }
-    fn update(&mut self, _scene: &mut Scene<Initialized>){
+    fn update(&mut self, _scene: &mut Scene<Active>){
     }
 }
 
@@ -50,7 +50,7 @@ impl SceneManager{
     pub fn generate_and_register_scene(&mut self) -> i16 {
         self.scene_counter+=1;
         let key = self.scene_counter;
-        self.scenes.insert(key, Scene::<Uninitialized>::new());
+        self.scenes.insert(key, Scene::<Inactive>::new());
         log::info!("Registering scene {}.", key);
         key
     }
@@ -65,14 +65,14 @@ impl SceneManager{
         self.active_scene_id.clone()
     }
 
-    pub fn get_active_scene(&self) -> Option<RefMut<Scene<Initialized>>> {
+    pub fn get_active_scene(&self) -> Option<RefMut<Scene<Active>>> {
         match &self.active_scene {
             Some(scene) => Some(scene.borrow_mut()),
             None => None,
         }
     }
 
-    pub fn borrow_mut_scene(&mut self, id: i16) -> Option<&mut Scene<Uninitialized>>{
+    pub fn borrow_mut_scene(&mut self, id: i16) -> Option<&mut Scene<Inactive>>{
         self.scenes.get_mut(&id)
     }
 
@@ -81,7 +81,7 @@ impl SceneManager{
         // if there is an active scene id, deactivate that scene and restore it in the hash map
         match self.active_scene_id{
             Some(_id) => {
-                let deinit_scene = Scene::<Uninitialized>::from(
+                let deinit_scene = Scene::<Inactive>::from(
                     self.active_scene
                     .take()
                     .unwrap()
@@ -96,8 +96,8 @@ impl SceneManager{
         let scene = self.scenes.remove(&scene_id);
         match scene{
             Some(s) => {
-                let initialized_scene = Scene::<Initialized>::from(s);
-                self.active_scene = Some(RefCell::new(initialized_scene));
+                let Active_scene = Scene::<Active>::from(s);
+                self.active_scene = Some(RefCell::new(Active_scene));
                 self.active_scene_id = Some(scene_id);
                 log::info!("Activated scene {}", scene_id);
             },

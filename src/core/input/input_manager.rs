@@ -3,7 +3,7 @@ use winit::event::VirtualKeyCode;
 use super::super::managers::manager::Manager;
 use std::collections::VecDeque;
 
-use crate::core::scene::{Scene, Initialized};
+use crate::core::scene::{Scene, Active};
 
 
 
@@ -26,7 +26,7 @@ impl Manager for InputManager{
         log::info!("Shutting down input manager.");
     }
 
-    fn update(&mut self, scene: &mut Scene<Initialized>){
+    fn update(&mut self, scene: &mut Scene<Active>){
         log::debug!("Updating input manager.");
         self.current_key_pressed = None;
         scene.insert_resource(self.key_input_queue.clone());

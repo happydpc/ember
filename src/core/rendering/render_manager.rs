@@ -4,7 +4,7 @@ use crate::core::{
         SceneState,
     },
     scene::{
-        scene::{Scene, Initialized},
+        scene::{Scene, Active},
     },
     systems::{
         ui_systems::EguiState,
@@ -183,7 +183,7 @@ impl RenderManager{
             .map(|image| ImageView::new_default(image.clone()).unwrap())
             .collect::<Vec<_>>();
 
-        // TODO : Somehow make this aware of when scenes are initialized and do this there instead.
+        // TODO : Somehow make this aware of when scenes are Active and do this there instead.
         let mut scene_state = SceneState::new();
         scene_state.initialize(swapchain.clone(), device.clone());
         scene_state.scale_scene_state_to_images(images[0].clone(), device.clone());
@@ -217,10 +217,10 @@ impl RenderManager{
     }
 
     // update render manager
-    pub fn update(&mut self, _scene: &mut Scene<Initialized>){
+    pub fn update(&mut self, _scene: &mut Scene<Active>){
     }
 
-    // create a new render manager with uninitialized values
+    // create a new render manager with Inactive values
     pub fn create_new() -> Self {
         log::info!("Creating RenderManager...");
 
@@ -249,9 +249,9 @@ impl RenderManager{
 
     pub fn draw(
         &mut self,
-        scene: &mut Scene<Initialized>
+        scene: &mut Scene<Active>
     ){
-        log::debug!("Entering render manager draw");
+        log::debug!("Entering draw");
         // create primary command buffer builder
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
@@ -260,7 +260,6 @@ impl RenderManager{
 
         // begin main render pass
         log::debug!("Entering main render pass");
-        //let clear_values = vec![[0.25, 0.2, 0.2, 1.0].into(), 1f32.into()];
         let clear_values = vec![
             [0.1, 0.2, 0.2, 1.0].into(),
             [0.0, 0.0, 0.0, 0.0].into(),
@@ -268,17 +267,16 @@ impl RenderManager{
             1.0f32.into(),
         ];
 
+        // scales framebuffer and attachments to swapchain image view of swapchain image
         self.scene_state().scale_scene_state_to_images(self.images()[image_num].clone(), self.device());
 
         // insert stuff into scene that systems will need
-        log::debug!("Inserting resources into scene.");
-        scene.insert_resource(image_num);
-        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
         let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
-        scene.insert_resource(secondary_buffer_vec);
         let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
+        scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
         scene.insert_resource(lighting_buffer_vec);
-        log::debug!("Done inserting resources");
+        scene.insert_resource(image_num); // insert image
+        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
 
         // start egui frame
         {
@@ -288,7 +286,7 @@ impl RenderManager{
             state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
         }
 
-        // run all systems
+        // run all systems. This will build secondary command buffers
         scene.run_render_dispatch();
 
         // get egui shapes from world
@@ -297,14 +295,17 @@ impl RenderManager{
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let mut egui_winit = world.write_resource::<egui_winit::State>();
+
             let egui_output = state.ctx.end_frame();
             let platform_output = egui_output.platform_output.clone();
-            egui_winit.handle_platform_output(self.surface().window(), &state.ctx, platform_output);
             let textures_delta = egui_output.textures_delta.clone();
-            let result = state.painter.update_textures(textures_delta, &mut command_buffer_builder).expect("egui texture error");
+
+            egui_winit.handle_platform_output(self.surface().window(), &state.ctx, platform_output);
+            state.painter.update_textures(textures_delta, &mut command_buffer_builder).expect("egui texture error");
             egui_output
         };
 
+        // tell builder to begin render pass
         command_buffer_builder
             .begin_render_pass(
                 self.scene_state().get_framebuffer_image(image_num),
@@ -313,7 +314,7 @@ impl RenderManager{
             )
             .unwrap();
 
-        // get and submit secondary command buffers
+        // get and submit secondary command buffers to render pass
         {
             let world = scene.get_world().unwrap();
             let mut secondary_buffers = world.write_resource::<TriangleSecondaryBuffers>();
@@ -330,16 +331,16 @@ impl RenderManager{
             }
         }
 
-        // send to egui
-        // Automatically start the next render subpass and draw the gui
-        log::debug!("submitting egui shapes to painter");
+        // add egui draws to command buffer
         {
             let surface = self.surface();
             let size = surface.window().inner_size();
             let sf: f32 = surface.window().scale_factor() as f32;
+            let sf = 2.0;
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
+            // ctx.set_pixels_per_point(1.0);
             command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
             state.painter
                 .draw(
@@ -412,7 +413,7 @@ impl RenderManager{
     }
 
     // insert required render data into scene so systems can run
-    pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Initialized>) {
+    pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Active>) {
         let camera_state: [Matrix4<f32>; 2] = [Matrix4::from_scale(1.0), Matrix4::from_scale(1.0)];
         // insert resources. some of these should eventually be submitted more often than othrs
         scene.insert_resource(self.device());

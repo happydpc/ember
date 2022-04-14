@@ -39,17 +39,17 @@ pub struct Scene<S>{
     pub render_dispatch: Option<Box<dyn SystemDispatch + 'static>>,
 }
 
-pub struct Uninitialized;
-pub struct Initialized{
+pub struct Inactive;
+pub struct Active{
     pub device_loaded: bool,
 }
 
-impl Scene<Uninitialized> {
+impl Scene<Inactive> {
     pub fn new() -> Self {
         Scene{
             // world: None,
             world: Some(RefCell::new(World::new())),
-            state: Uninitialized,
+            state: Inactive,
             update_dispatch: None,
             render_dispatch: None,
         }
@@ -91,7 +91,7 @@ impl Scene<Uninitialized> {
     }
 }
 
-impl Scene<Initialized> {
+impl Scene<Active> {
 
     // pass through for world register function
     pub fn register<T: Component>(&mut self)
@@ -164,12 +164,12 @@ impl Scene<Initialized> {
     }
 }
 
-impl From<Scene<Uninitialized>> for Scene<Initialized> {
-    fn from(val: Scene<Uninitialized>) -> Scene<Initialized> {
+impl From<Scene<Inactive>> for Scene<Active> {
+    fn from(val: Scene<Inactive>) -> Scene<Active> {
         let mut scene = Scene{
             // world: Some(RefCell::new(World::new())),
             world: val.world,
-            state: Initialized{
+            state: Active{
                 device_loaded: false,
             },
             update_dispatch: None,
@@ -182,11 +182,11 @@ impl From<Scene<Uninitialized>> for Scene<Initialized> {
     }
 }
 
-impl From<Scene<Initialized>> for Scene<Uninitialized> {
-    fn from(_val: Scene<Initialized>) -> Scene<Uninitialized> {
+impl From<Scene<Active>> for Scene<Inactive> {
+    fn from(_val: Scene<Active>) -> Scene<Inactive> {
         Scene{
             world: None,
-            state: Uninitialized,
+            state: Inactive,
             update_dispatch: None,
             render_dispatch: None,
         }
