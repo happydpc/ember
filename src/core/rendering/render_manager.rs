@@ -335,7 +335,7 @@ impl RenderManager{
         {
             let surface = self.surface();
             let size = surface.window().inner_size();
-            let sf: f32 = surface.window().scale_factor() as f32;
+            let _sf: f32 = surface.window().scale_factor() as f32;
             let sf = 2.0;
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();

@@ -212,7 +212,7 @@ impl From<Scene<Staged>> for Scene<Active> {
 }
 
 impl From<Scene<Active>> for Scene<Inactive> {
-    fn from(mut active_scene: Scene<Active>) -> Scene<Inactive> {
+    fn from(_active_scene: Scene<Active>) -> Scene<Inactive> {
         Scene{
             world: None,
             state: Inactive,
@@ -221,7 +221,7 @@ impl From<Scene<Active>> for Scene<Inactive> {
 }
 
 impl From<Scene<Inactive>> for Scene<Staged> {
-    fn from(mut inactive_scene: Scene<Inactive>) -> Scene<Staged> {
+    fn from(_inactive_scene: Scene<Inactive>) -> Scene<Staged> {
         let mut scene = Scene{
             world: Some(RefCell::new(World::new())),
             state: Staged{

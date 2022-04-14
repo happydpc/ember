@@ -299,7 +299,7 @@ impl Application{
         scene_manager.stage_scene(scene_id);
 
         let mut _scene = scene_manager.get_staged_scene().unwrap();
-        let mut scene = _scene.deref_mut();
+        let scene = _scene.deref_mut();
         scene.register::<EguiComponent>();
 
         // get required egui data
