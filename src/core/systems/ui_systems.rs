@@ -43,24 +43,3 @@ impl<'a> System<'a> for DebugUiSystem{
     }
 
 }
-
-//
-//impl<'a> System<'a> for RenderableInitializerSystem{
-//    type SystemData = (
-//        ReadExpect<'a, Arc<Device>>,
-//       WriteStorage<'a, RenderableComponent>,
-//    );
-//
-//    fn run(&mut self, data: Self::SystemData) {
-//
-//        let (device, mut renderable) = data;
-//        let device = &*device;
-//        for renderable in (&mut renderable).join() {
-//            if renderable.initialized() == false{
-//                renderable.initialize(device.clone());
-//            }
-//        }
-//    }
-//
-//}
-//

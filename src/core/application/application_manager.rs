@@ -12,6 +12,7 @@ use std::{
     cmp::Ordering,
     ops::AddAssign,
 };
+use std::ops::DerefMut;
 
 use crate::core::{
     managers::manager::Manager,
@@ -288,9 +289,17 @@ impl Application{
         // get scene manager
         let mut scene_manager = self.get_scene_manager().unwrap();
         let id = scene_manager.generate_and_register_scene();
+        id // return id
+    }
+
+    pub fn stage_scene(&mut self, scene_id: i16) {
+        let mut scene_manager = self.get_scene_manager().unwrap();
 
         // create scene and register egui component
-        let scene = scene_manager.borrow_mut_scene(id).unwrap();
+        scene_manager.stage_scene(scene_id);
+
+        let mut _scene = scene_manager.get_staged_scene().unwrap();
+        let mut scene = _scene.deref_mut();
         scene.register::<EguiComponent>();
 
         // get required egui data
@@ -300,8 +309,11 @@ impl Application{
         let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
         scene.insert_resource(egui_state);
         scene.insert_resource(egui_winit);
+    }
 
-        id // return id
+    pub fn activate_staged_scene(&self){
+        let mut scene_manager = self.get_scene_manager().unwrap();
+        scene_manager.activate_staged_scene();
     }
 
     pub fn get_scene_manager(&self) -> Option<RefMut<SceneManager>> {
@@ -351,7 +363,4 @@ impl Application{
         }
     }
 
-    pub fn set_active_scene(&self){
-
-    }
 } // end of class

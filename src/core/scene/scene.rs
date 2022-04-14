@@ -35,23 +35,60 @@ use crate::construct_dispatcher;
 pub struct Scene<S>{
     pub world: Option<RefCell<World>>,
     pub state: S,
+}
+
+pub struct Active{
+    pub device_loaded: bool,
     pub update_dispatch: Option<Box<dyn SystemDispatch + 'static>>,
     pub render_dispatch: Option<Box<dyn SystemDispatch + 'static>>,
 }
-
 pub struct Inactive;
-pub struct Active{
-    pub device_loaded: bool,
+pub struct Staged{
+    pub setup_dispatch: Option<Box<dyn SystemDispatch + 'static>>,
+    pub teardown_dispatch: Option<Box<dyn SystemDispatch + 'static>>,
 }
 
 impl Scene<Inactive> {
     pub fn new() -> Self {
         Scene{
-            // world: None,
-            world: Some(RefCell::new(World::new())),
+            world: None,
             state: Inactive,
-            update_dispatch: None,
-            render_dispatch: None,
+        }
+    }
+}
+
+
+impl Scene<Staged> {
+    fn create_setup_dispatch(&mut self){
+        construct_dispatcher!(
+        );
+        self.state.setup_dispatch = Some(new_dispatch());
+    }
+    
+    fn create_teardown_dispatch(&mut self){
+        construct_dispatcher!(
+        );
+        self.state.teardown_dispatch = Some(new_dispatch());
+    }
+
+    pub fn run_setup_dispatch(&mut self){
+        log::info!("Running setup dispatch...");
+        let mut dispatch = self.state.setup_dispatch.take().expect("No setup dispatch");
+        dispatch.run_now(&mut *self.get_world().unwrap());
+        self.state.setup_dispatch = Some(dispatch);
+    }
+
+    pub fn run_teardown_dispatch(&mut self){
+        log::info!("Running teardown dispatch...");
+        let mut dispatch = self.state.teardown_dispatch.take().expect("no teardown dispatch");
+        dispatch.run_now(&mut *self.get_world().unwrap());
+        self.state.teardown_dispatch = Some(dispatch);
+    }
+
+    pub fn get_world(&mut self) -> Option<RefMut<World>>{
+        match &self.world {
+            Some(world) => Some(world.borrow_mut()),
+            None => None,
         }
     }
 
@@ -79,14 +116,6 @@ impl Scene<Inactive> {
                 log::debug!("New resources insterted into scene.");
             },
             None=> (),
-        }
-    }
-
-    // TODO : put this in a trait
-    pub fn get_world(&mut self) -> Option<RefMut<World>>{
-        match &self.world {
-            Some(world) => Some(world.borrow_mut()),
-            None => None,
         }
     }
 }
@@ -138,25 +167,25 @@ impl Scene<Active> {
             (AmbientLightingSystem, "ambient_lighting", &[]),
             (RenderableAssemblyStateModifierSystem, "wireframe_system", &[])
         );
-        self.render_dispatch = Some(new_dispatch());
+        self.state.render_dispatch = Some(new_dispatch());
     }
 
     pub fn create_update_dispatch(&mut self){
         construct_dispatcher!(
         );
-        self.update_dispatch = Some(new_dispatch());
+        self.state.update_dispatch = Some(new_dispatch());
     }
 
     pub fn run_render_dispatch(&mut self){
-        let mut dispatch = self.render_dispatch.take().unwrap();
+        let mut dispatch = self.state.render_dispatch.take().unwrap();
         dispatch.run_now(&mut *self.get_world().unwrap());
-        self.render_dispatch = Some(dispatch);
+        self.state.render_dispatch = Some(dispatch);
     }
 
     pub fn run_update_dispatch(&mut self){
-        let mut dispatch = self.update_dispatch.take().unwrap();
+        let mut dispatch = self.state.update_dispatch.take().unwrap();
         dispatch.run_now(&mut *self.get_world().unwrap());
-        self.update_dispatch = Some(dispatch);
+        self.state.update_dispatch = Some(dispatch);
     }
 
     pub fn insert_required_resources(&mut self){
@@ -164,16 +193,16 @@ impl Scene<Active> {
     }
 }
 
-impl From<Scene<Inactive>> for Scene<Active> {
-    fn from(val: Scene<Inactive>) -> Scene<Active> {
+impl From<Scene<Staged>> for Scene<Active> {
+    fn from(mut staged_scene: Scene<Staged>) -> Scene<Active> {
+        staged_scene.run_setup_dispatch();
         let mut scene = Scene{
-            // world: Some(RefCell::new(World::new())),
-            world: val.world,
+            world: staged_scene.world,
             state: Active{
                 device_loaded: false,
-            },
-            update_dispatch: None,
-            render_dispatch: None,
+                update_dispatch: None,
+                render_dispatch: None,
+            }
         };
         scene.create_render_dispatch();
         scene.create_update_dispatch();
@@ -183,12 +212,25 @@ impl From<Scene<Inactive>> for Scene<Active> {
 }
 
 impl From<Scene<Active>> for Scene<Inactive> {
-    fn from(_val: Scene<Active>) -> Scene<Inactive> {
+    fn from(mut active_scene: Scene<Active>) -> Scene<Inactive> {
         Scene{
             world: None,
             state: Inactive,
-            update_dispatch: None,
-            render_dispatch: None,
         }
+    }
+}
+
+impl From<Scene<Inactive>> for Scene<Staged> {
+    fn from(mut inactive_scene: Scene<Inactive>) -> Scene<Staged> {
+        let mut scene = Scene{
+            world: Some(RefCell::new(World::new())),
+            state: Staged{
+                setup_dispatch: None,
+                teardown_dispatch: None,
+            },
+        };
+        scene.create_setup_dispatch();
+        scene.create_teardown_dispatch();
+        scene
     }
 }

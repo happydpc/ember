@@ -14,7 +14,7 @@ pub struct GeometryData{
     pub initialized: bool,
 }
 
-pub struct Inactive;
+pub struct Uninitialized;
 pub struct Initialized{
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
     pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
