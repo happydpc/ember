@@ -566,14 +566,14 @@ impl <'a> System<'a> for RenderableAssemblyStateModifierSystem {
                 _ => unreachable!(),
             };
             let subpass = Subpass::from(scene_state.render_passes[0].clone(), 0).unwrap();
-            let pipeline = self.CreateRenderablePipeline(device.clone(), subpass, topology);
+            let pipeline = self.create_renderable_pipeline(device.clone(), subpass, topology);
             scene_state.set_pipeline_for_system::<RenderableDrawSystem>(pipeline);
         }
     }
 }
 
 impl RenderableAssemblyStateModifierSystem {
-    pub fn CreateRenderablePipeline(&self, device: Arc<Device>, subpass: Subpass, topology: PrimitiveTopology) -> Arc<GraphicsPipeline> {
+    pub fn create_renderable_pipeline(&self, device: Arc<Device>, subpass: Subpass, topology: PrimitiveTopology) -> Arc<GraphicsPipeline> {
         // compile our shaders
         let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
         let fs = shaders::triangle::fs::load(device.clone()).expect("Failed to create fragment shader for triangle draw system.");

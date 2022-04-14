@@ -316,7 +316,7 @@ impl RenderManager{
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let mut egui_winit = world.write_resource::<egui_winit::State>();
-            state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
+            // state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
             let (egui_output, clipped_shapes) = state.ctx.end_frame();
             egui_winit.handle_output(self.surface().window(), &state.ctx, egui_output);
             clipped_shapes
@@ -332,7 +332,6 @@ impl RenderManager{
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
-            // ctx.set_pixels_per_point(1.0);
             command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
             state.painter
                 .draw(
