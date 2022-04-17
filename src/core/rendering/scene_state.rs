@@ -1,6 +1,7 @@
 use crate::core::systems::render_systems::DirectionalLightingSystem;
 use crate::core::systems::render_systems::AmbientLightingSystem;
 use crate::core::systems::render_systems::RenderableDrawSystem;
+use crate::core::systems::terrain_systems::TerrainDrawSystem;
 use crate::core::systems::RequiresGraphicsPipeline;
 
 use vulkano::pipeline::GraphicsPipeline;
@@ -68,6 +69,7 @@ impl SceneState{
         let directional_lighting_pipeline = DirectionalLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
         let ambient_lighting_pipeline = AmbientLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
         let renderable_pipeline = RenderableDrawSystem::create_graphics_pipeline(device.clone(), pass.clone());
+        let terrain_draw_pipeline = TerrainDrawSystem::create_graphics_pipeline(device.clone(), pass.clone());
         
         // create viewport
         let viewport = Viewport {
@@ -84,6 +86,7 @@ impl SceneState{
         pipelines.insert(TypeId::of::<DirectionalLightingSystem>(), directional_lighting_pipeline);
         pipelines.insert(TypeId::of::<RenderableDrawSystem>(), renderable_pipeline);
         pipelines.insert(TypeId::of::<AmbientLightingSystem>(), ambient_lighting_pipeline);
+        pipelines.insert(TypeId::of::<TerrainDrawSystem>(), terrain_draw_pipeline);
         
         // add buffers
         self.diffuse_buffer = Some(Arc::new(Mutex::new(diffuse_buffer)));

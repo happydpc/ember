@@ -79,6 +79,7 @@ impl Manager for Application{
     // startup process
     fn startup(&mut self){
         SimpleLogger::new().with_level(self.log_level).init().unwrap();
+        puffin::set_scopes_on(true);
         log::info!("Starting application ...");
         // create other managers
         let mut render_manager = RenderManager::create_new();
@@ -212,6 +213,7 @@ impl Application{
             // if it's a draw, draw
             match event{
                 Event::MainEventsCleared => {
+                    puffin::GlobalProfiler::lock().new_frame();
                     self.render_scene();
                 },
                 _ => (),

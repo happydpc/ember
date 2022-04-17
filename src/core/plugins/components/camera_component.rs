@@ -25,7 +25,7 @@ pub struct CameraComponent{
 
 impl CameraComponent {
     pub fn create_default() -> Self {
-        let fov = 3.1415 / 2.0;
+        let fov = 3.1415 / 1.75;
         let near = 0.001;
         let far = 1e6;
         let aspect = 0.5;

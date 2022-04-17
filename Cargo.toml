@@ -14,8 +14,12 @@ vulkano-shaders = "0.29"
 vulkano-win = "0.29"
 egui = "0.17"
 egui-winit = "0.17"
-egui_vulkano = "0.7"
+# egui_vulkano = "0.7"
+egui_vulkano = {path="../egui_vulkano"}
+puffin = "0.13.1"
+puffin_egui = "0.14"
 winit = "0.26.1"
+noise = "0.7"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
 # euler = "*"

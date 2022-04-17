@@ -6,6 +6,7 @@ pub mod input_component;
 pub mod debug_ui_component;
 pub mod egui_component;
 pub mod light_components;
+pub mod terrain_component;
 
 pub use input_component::InputComponent;
 pub use camera_component::CameraComponent;
@@ -15,3 +16,4 @@ pub use egui_component::EguiComponent;
 pub use renderable_component::RenderableComponent;
 pub use light_components::DirectionalLightComponent;
 pub use light_components::AmbientLightingComponent;
+pub use terrain_component::TerrainComponent;

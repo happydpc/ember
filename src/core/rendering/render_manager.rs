@@ -11,6 +11,8 @@ use crate::core::{
     }
 };
 
+use puffin;
+
 // ecs
 use specs::prelude::*;
 
@@ -251,6 +253,7 @@ impl RenderManager{
         &mut self,
         scene: &mut Scene<Active>
     ){
+        puffin::profile_function!();
         log::debug!("Entering draw");
         // create primary command buffer builder
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
@@ -335,8 +338,8 @@ impl RenderManager{
         {
             let surface = self.surface();
             let size = surface.window().inner_size();
-            let _sf: f32 = surface.window().scale_factor() as f32;
-            let sf = 2.0;
+            let sf: f32 = surface.window().scale_factor() as f32;
+            // let sf = 1.0;
             let world = scene.get_world().unwrap();
             let mut state = world.write_resource::<EguiState>();
             let ctx = state.ctx.clone();
@@ -592,6 +595,7 @@ impl RenderManager{
         let surface = self.surface();
         let window = surface.window();
         egui_winit::State::new(4096, window)
+        // egui_winit::State::from_pixels_per_point(4096, 1.0)
     }
 
     // getters

@@ -28,7 +28,13 @@ use crate::core::systems::{
         DirectionalLightingSystem,
         AmbientLightingSystem,
         RenderableAssemblyStateModifierSystem,
-    }
+    },
+    ui_systems::{
+        CameraUiSystem,
+    },
+    CameraInitSystem,
+    TerrainInitSystem,
+    TerrainDrawSystem,
 };
 use crate::construct_dispatcher;
 
@@ -61,6 +67,8 @@ impl Scene<Inactive> {
 impl Scene<Staged> {
     fn create_setup_dispatch(&mut self){
         construct_dispatcher!(
+            (CameraInitSystem, "camear_init", &[])
+            // (TerrainInitSystem, "terrain_init", &[])
         );
         self.state.setup_dispatch = Some(new_dispatch());
     }
@@ -159,13 +167,16 @@ impl Scene<Active> {
     pub fn create_render_dispatch(&mut self){
         construct_dispatcher!(
             (RenderableInitializerSystem, "render_init", &[]),
+            (TerrainInitSystem, "terrain_init", &[]),
             (DebugUiSystem, "debug_ui", &[]),
             (CameraMoveSystem, "camera_move", &[]),
             (CameraUpdateSystem, "camera_update", &["camera_move"]),
             (RenderableDrawSystem, "renderable_draw", &["camera_update","render_init"]),
             (DirectionalLightingSystem, "directional_lighting", &[]),
             (AmbientLightingSystem, "ambient_lighting", &[]),
-            (RenderableAssemblyStateModifierSystem, "wireframe_system", &[])
+            (RenderableAssemblyStateModifierSystem, "wireframe_system", &[]),
+            (CameraUiSystem, "camera_ui", &[]),
+            (TerrainDrawSystem, "terrain_draw", &["terrain_init"])
         );
         self.state.render_dispatch = Some(new_dispatch());
     }

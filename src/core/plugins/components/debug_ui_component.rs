@@ -7,13 +7,13 @@ use egui::containers::{SidePanel};
 #[derive(Component)]
 #[storage(HashMapStorage)]
 pub struct DebugUiComponent{
-    pub panel: SidePanel
+    pub show_profiler: bool
 }
 
 impl DebugUiComponent{
     pub fn create() -> Self {
         DebugUiComponent{
-            panel: SidePanel::left("debug_ui_panel"),
+            show_profiler: false,
         }
     }
 }
