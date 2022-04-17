@@ -67,7 +67,7 @@ impl RequiresGraphicsPipeline for TerrainDrawSystem{
                 ..Default::default()
             };
 
-            let input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::LineStrip);
+            let input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::LineList);
 
             // create our pipeline. like an opengl program but more specific
             let pipeline = GraphicsPipeline::start()

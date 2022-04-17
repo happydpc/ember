@@ -14,21 +14,21 @@ pub struct CubeGeometry{
 }
 
 impl Geometry for CubeGeometry{
-    fn create(x: f32, y: f32, z: f32, scale: f32) -> Self{
+    fn create() -> Self{
         // dx here is just delta, not associated with x axis
-        let dx = 0.5 * scale;
+        let dx = 0.5;
 
         // bottom plane
-        let tl0 = Vertex::new(x - dx, y + dx, z - dx);
-        let tr0 = Vertex::new(x + dx, y + dx, z - dx);
-        let bl0 = Vertex::new(x - dx, y - dx, z - dx);
-        let br0 = Vertex::new(x + dx, y - dx, z - dx);
+        let tl0 = Vertex::new(0.0 - dx, 0.0 + dx, 0.0 - dx);
+        let tr0 = Vertex::new(0.0 + dx, 0.0 + dx, 0.0 - dx);
+        let bl0 = Vertex::new(0.0 - dx, 0.0 - dx, 0.0 - dx);
+        let br0 = Vertex::new(0.0 + dx, 0.0 - dx, 0.0 - dx);
 
         // top plane
-        let tl1 = Vertex::new(x - dx, y + dx, z + dx);
-        let tr1 = Vertex::new(x + dx, y + dx, z + dx);
-        let bl1 = Vertex::new(x - dx, y - dx, z + dx);
-        let br1 = Vertex::new(x + dx, y - dx, z + dx);
+        let tl1 = Vertex::new(0.0 - dx, 0.0 + dx, 0.0 + dx);
+        let tr1 = Vertex::new(0.0 + dx, 0.0 + dx, 0.0 + dx);
+        let bl1 = Vertex::new(0.0 - dx, 0.0 - dx, 0.0 + dx);
+        let br1 = Vertex::new(0.0 + dx, 0.0 - dx, 0.0 + dx);
 
         // store verts.       0    1    2    3    4    5    6    7
         let vertices = vec![tl0, tr0, bl0, br0, tl1, tr1, bl1, br1];

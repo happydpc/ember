@@ -5,7 +5,7 @@ use vulkano::{
     device::Device,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GeometryData{
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
@@ -37,7 +37,7 @@ impl Vertex{
 vulkano::impl_vertex!(Vertex, position);
 
 pub trait Geometry{
-    fn create(x: f32, y: f32, z: f32, size: f32) -> Self where Self: Sized;
+    fn create() -> Self where Self: Sized;
     fn initialize(&mut self, device: Arc<Device>);
     fn vertex_buffer(&self) -> Arc<CpuAccessibleBuffer<[Vertex]>>;
     fn index_buffer(&self) -> Arc<CpuAccessibleBuffer<[u16]>>;

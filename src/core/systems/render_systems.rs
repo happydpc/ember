@@ -216,7 +216,8 @@ impl <'a> System<'a> for RenderableDrawSystem{
                 // create matrix
                 let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
                 let rotation_matrix: Matrix4<f32> = transform.rotation;
-                let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix;
+                let scale_matrix: Matrix4<f32> = Matrix4::from_scale(transform.scale);
+                let model_to_world: Matrix4<f32> = translation_matrix * rotation_matrix * scale_matrix;
 
                 
                 let uniform_buffer_data = shaders::triangle::vs::ty::Data{

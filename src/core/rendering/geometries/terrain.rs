@@ -50,7 +50,7 @@ impl TerrainGeometry{
 
     pub fn generate_terrain(&mut self){
         self.height_map.clear();
-        let size = self.size;
+        let size = 4;//self.size;
         self.vertices.clear();//resize(size*size, Vertex::new(0.0, 0.0, 1.0));
 
         let noise_fn: &(dyn NoiseFn<[f64; 2]> + Send + Sync) = self.noise_fn.borrow();
@@ -59,7 +59,7 @@ impl TerrainGeometry{
             for y in 0..size {
                 let noise = noise_fn.get([x as f64 * 10.0 as f64, y as f64 * 10.0 as f64]);
                 let z = (noise * 20.0) as f32;
-                log::info!("x {:?}, y: {:?} z: {:?}", x, y, z);
+                log::info!("x {:?}, y: {:?} z: {:?}", x, y, x + y);
                 // self.height_map[x].push(self.noise_fn.get([x as f64, y as f64])*self.amplitude);
                 self.vertices.push(Vertex::new(x as f32, y as f32, z));
                 i = i + 1;

@@ -8,20 +8,20 @@ use vulkano::device::Device;
 use std::sync::Arc;
 
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PlaneGeometry{
     pub data: GeometryData,
 }
 
 impl Geometry for PlaneGeometry{
-    fn create(x: f32, y: f32, z: f32, scale: f32) -> Self{
-        let corner_offset = 0.5 * scale;
+    fn create() -> Self{
+        let corner_offset = 0.5;
 
         // top left, top right, bottom left, bottom right
-        let tl = Vertex{position: [-corner_offset + x, corner_offset + y, 0.0 + z]};
-        let tr = Vertex{position: [corner_offset + x, corner_offset + y, 0.0 + z]};
-        let bl = Vertex{position: [-corner_offset + x, -corner_offset + y, 0.0 + z]};
-        let br = Vertex{position: [corner_offset + x, -corner_offset + y, 0.0 + z]};
+        let tl = Vertex{position: [-corner_offset, corner_offset, 0.0]};
+        let tr = Vertex{position: [corner_offset, corner_offset, 0.0]};
+        let bl = Vertex{position: [-corner_offset, -corner_offset, 0.0]};
+        let br = Vertex{position: [corner_offset, -corner_offset, 0.0]};
 
         PlaneGeometry{
             data: GeometryData{

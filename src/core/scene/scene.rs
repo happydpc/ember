@@ -176,7 +176,7 @@ impl Scene<Active> {
             (AmbientLightingSystem, "ambient_lighting", &[]),
             (RenderableAssemblyStateModifierSystem, "wireframe_system", &[]),
             (CameraUiSystem, "camera_ui", &[]),
-            (TerrainDrawSystem, "terrain_draw", &["terrain_init"])
+            (TerrainDrawSystem, "terrain_draw", &["camera_update", "terrain_init"])
         );
         self.state.render_dispatch = Some(new_dispatch());
     }

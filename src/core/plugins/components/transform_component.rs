@@ -31,3 +31,13 @@ impl TransformComponent{
         }
     }
 }
+
+impl Default for TransformComponent{
+    fn default() -> Self{
+        TransformComponent{
+            global_position: Vector3::new(0.0, 0.0, 0.0),
+            rotation: Matrix4::from_scale(1.0),
+            scale: 1.0
+        }
+    }
+}

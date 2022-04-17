@@ -1,0 +1,11 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\core",
+    "\\src\\core\\application",
+    "\\src\\core\\rendering"
+  ],
+  "SelectedNode": "\\src\\core\\application\\application_manager.rs",
+  "PreviewInSolutionExplorer": false
+}

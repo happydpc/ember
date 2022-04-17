@@ -8,20 +8,20 @@ use vulkano::device::Device;
 use std::sync::Arc;
 
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TriangleGeometry{
     pub data: GeometryData,
 }
 
 impl Geometry for TriangleGeometry{
-    fn create(x: f32, y: f32, z: f32, scale: f32) -> Self{
-        let corner_offset = 0.5 * scale;
+    fn create() -> Self{
+        let corner_offset = 0.5;
         TriangleGeometry{
             data: GeometryData{
                 vertices: vec![
-                    Vertex{position: [-corner_offset + x, -corner_offset + y, 0.0 + z]},
-                    Vertex{position: [0.0 + x, corner_offset + y, 0.0 + z]},
-                    Vertex{position: [corner_offset + x, -corner_offset + y, 0.0 + z]},
+                    Vertex{position: [-corner_offset, -corner_offset, 0.0]},
+                    Vertex{position: [0.0, corner_offset, 0.0]},
+                    Vertex{position: [corner_offset, -corner_offset, 0.0]},
                 ],
                 indices: vec![0, 1, 2, 0],
                 vertex_buffer: None,

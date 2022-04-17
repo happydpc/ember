@@ -34,10 +34,10 @@ impl<'a> System<'a> for DebugUiSystem{
                         ui.checkbox(&mut show_profiler, "Show Profiler");
                     });
                 });
-            comp.show_profiler = show_profiler;
-            // if comp.show_profiler{
+            if show_profiler{
                 puffin_egui::profiler_window(&ctx);
-            // }
+            }
+            comp.show_profiler = show_profiler;
         }
     }
 }
