@@ -37,6 +37,7 @@ use crate::core::systems::{
     TerrainDrawSystem,
     TerrainAssemblyStateModifierSystem,
     TerrainUiSystem,
+    TransformUiSystem,
 };
 use crate::construct_dispatcher;
 
@@ -169,7 +170,9 @@ impl Scene<Active> {
     pub fn create_render_dispatch(&mut self){
         construct_dispatcher!(
             (RenderableInitializerSystem, "render_init", &[]),
+            // (TransformUiSystem, "transform_ui", &[]),
             (TerrainInitSystem, "terrain_init", &[]),
+            (TerrainUiSystem, "terrain_ui", &["terrain_init"]),
             (DebugUiSystem, "debug_ui", &[]),
             (CameraMoveSystem, "camera_move", &[]),
             (CameraUpdateSystem, "camera_update", &["camera_move"]),
@@ -178,9 +181,8 @@ impl Scene<Active> {
             (AmbientLightingSystem, "ambient_lighting", &[]),
             (RenderableAssemblyStateModifierSystem, "wireframe_system", &[]),
             (CameraUiSystem, "camera_ui", &[]),
-            (TerrainDrawSystem, "terrain_draw", &["camera_update", "terrain_init"]),
-            (TerrainAssemblyStateModifierSystem, "terrain_wireframe", &[]),
-            (TerrainUiSystem, "terrain_ui", &[])
+            (TerrainAssemblyStateModifierSystem, "terrain_wireframe", &["wireframe_system"]),
+            (TerrainDrawSystem, "terrain_draw", &["camera_update", "terrain_init"])
         );
         self.state.render_dispatch = Some(new_dispatch());
     }

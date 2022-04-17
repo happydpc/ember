@@ -49,6 +49,7 @@ impl<'a> System<'a> for TerrainInitSystem{
     );
 
     fn run(&mut self, mut data: Self::SystemData) {
+        log::debug!("Terrain init system...");
         let (mut terrains, device) = data;
         for mut terrain in (&mut terrains).join() {
             {
@@ -111,7 +112,7 @@ impl <'a> System<'a> for TerrainDrawSystem{
     );
 
     fn run(&mut self, data: Self::SystemData){
-        log::debug!("Running RenderableDrawSystem...");
+        log::debug!("Running Terrain Draw System...");
         let (transforms,
             terrains,
             camera_state,
@@ -152,9 +153,10 @@ impl <'a> System<'a> for TerrainDrawSystem{
             let geometry = g_arc.lock().unwrap();
             let uniform_buffer_subbuffer = {
                 // create matrix
-                let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
-                let rotation_matrix: Matrix4<f32> = transform.rotation;
-                let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix;
+                let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position());
+                let rotation_matrix: Matrix4<f32> = transform.rotation();
+                let scale_matrix: Matrix4<f32> = Matrix4::from_scale(transform.scale());
+                let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix * scale_matrix;
 
                 
                 let uniform_buffer_data = shaders::triangle::vs::ty::Data{
@@ -210,6 +212,7 @@ impl <'a> System<'a> for TerrainAssemblyStateModifierSystem {
     );
 
     fn run(&mut self, data: Self::SystemData){
+        log::debug!("Terrain wireframe system...");
         let (scene_state, read_input, read_modifiers, device) = data;
         let input = read_input.clone();
         let modifiers = read_modifiers.clone();
@@ -280,22 +283,32 @@ impl<'a> System<'a> for TerrainUiSystem{
     );
 
     fn run(&mut self, data: Self::SystemData) {
+        log::debug!("Terrain ui system...");
         let (egui_state, terrain_uis, mut terrain_comps) = data;
 
         let ctx = egui_state.ctx.clone();
         for mut terrain in terrain_comps.join(){
             let mut size = terrain.get_size();
+            let mut amplitude = {
+                terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude.clone()
+            };
 
             egui::Window::new("Terrain Settings")
                 .show(&ctx, |ui| {
-                    ui.label("Size");
-                    ui.add(egui::Slider::new(&mut size, 2..=100).step_by(1.0));
+                    ui.horizontal(|ui|{
+                        ui.label("Size");
+                        ui.add(egui::Slider::new(&mut size, 2..=100).step_by(1.0));
+                    });
+                    ui.horizontal(|ui|{
+                        ui.label("Amplidutde");
+                        ui.add(egui::Slider::new(&mut amplitude, 0.1..=50.0).step_by(0.1));
+                    });
                 });
             if size < 1 {
                 size = 1;
             }
             terrain.set_size(size as usize);
-
+            terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude = amplitude;
         }
     }
 }

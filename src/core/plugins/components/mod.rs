@@ -11,6 +11,8 @@ pub mod terrain_component;
 pub use input_component::InputComponent;
 pub use camera_component::CameraComponent;
 pub use transform_component::TransformComponent;
+pub use transform_component::TransformUiComponent;
+pub use transform_component::TransformBuilder;
 pub use debug_ui_component::DebugUiComponent;
 pub use egui_component::EguiComponent;
 pub use renderable_component::RenderableComponent;

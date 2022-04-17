@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::convert::TryInto;
 
 
@@ -214,9 +215,9 @@ impl <'a> System<'a> for RenderableDrawSystem{
             let geometry = g_arc.lock().unwrap();
             let uniform_buffer_subbuffer = {
                 // create matrix
-                let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position);
-                let rotation_matrix: Matrix4<f32> = transform.rotation;
-                let scale_matrix: Matrix4<f32> = Matrix4::from_scale(transform.scale);
+                let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position());
+                let rotation_matrix: Matrix4<f32> = transform.rotation();
+                let scale_matrix: Matrix4<f32> = Matrix4::from_scale(transform.scale());
                 let model_to_world: Matrix4<f32> = translation_matrix * rotation_matrix * scale_matrix;
 
                 
@@ -550,6 +551,7 @@ impl <'a> System<'a> for RenderableAssemblyStateModifierSystem {
     );
 
     fn run(&mut self, data: Self::SystemData){
+        log::debug!("Renderable wireframe sysetm...");
         let (scene_state, read_input, read_modifiers, device) = data;
         let input = read_input.clone();
         let modifiers = read_modifiers.clone();

@@ -290,6 +290,7 @@ impl RenderManager{
         }
 
         // run all systems. This will build secondary command buffers
+        log::debug!("----Render Dispatch-----");
         scene.run_render_dispatch();
 
         // get egui shapes from world

@@ -10,7 +10,7 @@ use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::BufferUsage;
 use vulkano::device::Device;
 
-use noise::{Perlin, NoiseFn};
+use noise::{Perlin, NoiseFn, OpenSimplex};
 
 // #[derive(Debug, Clone)]
 pub struct TerrainGeometry{
@@ -35,7 +35,7 @@ impl TerrainGeometry{
             size: size,
             amplitude: 1.0,
             seed: 1,
-            noise_fn: Box::new(Perlin::new()),
+            noise_fn: Box::new(OpenSimplex::new()),
             vertex_buffer: None,
             index_buffer: None,
             initialized: false
@@ -51,19 +51,17 @@ impl TerrainGeometry{
     pub fn generate_terrain(&mut self){
         self.height_map.clear();
         let size = self.size as u16;
-        self.vertices.clear();//resize(size*size, Vertex::new(0.0, 0.0, 1.0));
+        self.vertices.clear();
         self.indices.clear();
         let noise_fn: &(dyn NoiseFn<[f64; 2]> + Send + Sync) = self.noise_fn.borrow();
         let mut i = 0;
         for x in 0..size {
             for y in 0..size {
-                let noise = noise_fn.get([x as f64 * 10.0 as f64, y as f64 * 10.0 as f64]);
-                let z = (noise * 20.0) as f32;
-                log::info!("x {:?}, y: {:?} z: {:?}", x, y, x + y);
-                // self.height_map[x].push(self.noise_fn.get([x as f64, y as f64])*self.amplitude);
+                let noise = noise_fn.get([x as f64, y as f64]);
+                let z = (noise * self.amplitude) as f32;
                 self.vertices.push(
                     Vertex{
-                        position: [x as f32, y as f32, z]
+                        position: [x as f32, y as f32, z as f32]
                     }
                 );
                 i = i + 1;
@@ -83,7 +81,6 @@ impl TerrainGeometry{
 
             }
         }
-        log::info!("Terrain size: {:?}", self.vertices.len());
     }
 
     pub fn set_noise_fn(&mut self, noise_fn: Box<dyn NoiseFn<[f64;2 ]> + Send + Sync>) {
@@ -91,7 +88,6 @@ impl TerrainGeometry{
     }
 
     pub fn initialize(&mut self, device: Arc<Device>){
-        log::info!("Terrain init...");
         // Vertex buffer init
         let vertex_buffer = {
             CpuAccessibleBuffer::from_iter(

@@ -42,11 +42,21 @@ impl<'a> System<'a> for CameraMoveSystem{
                         cam.eye = cam.eye - (right * delta);
                         cam.look_at = cam.look_at - (right * delta);
                     },
-                    VirtualKeyCode::Q => {
+                    VirtualKeyCode::E => {
                         cam.eye = cam.eye + (right * delta);
                     },
-                    VirtualKeyCode::E => {
+                    VirtualKeyCode::Q => {
                         cam.eye = cam.eye - (right * delta);
+                    },
+                    VirtualKeyCode::F => {
+                        let dx = cam.up * delta;
+                        cam.eye = cam.eye + dx;
+                        cam.look_at = cam.look_at + dx;
+                    },
+                    VirtualKeyCode::R => {
+                        let dx = cam.up * delta;
+                        cam.eye = cam.eye - dx;
+                        cam.look_at = cam.look_at - dx;
                     },
                     _ => (),
                 }
