@@ -1,4 +1,4 @@
-use specs::{Join, System, WriteStorage, ReadStorage, ReadExpect, WriteExpect};
+use specs::{Join, System, WriteStorage, ReadStorage, ReadExpect, WriteExpect, Read};
 
 use cgmath::Matrix4;
 
@@ -10,6 +10,9 @@ use crate::core::rendering::geometries::Vertex;
 use crate::core::rendering::render_manager::TriangleSecondaryBuffers;
 use crate::core::rendering::SceneState;
 use crate::core::systems::render_systems::CameraState;
+use crate::core::input::input_manager::KeyInputQueue;
+use crate::core::systems::ui_systems::EguiState;
+use crate::core::plugins::components::TerrainUiComponent;
 
 use vulkano::buffer::CpuBufferPool;
 use vulkano::buffer::BufferUsage;
@@ -22,6 +25,7 @@ use vulkano::descriptor_set::PersistentDescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::render_pass::RenderPass;
 use vulkano::render_pass::Subpass;
+use vulkano::pipeline::PartialStateMode;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::pipeline::graphics::rasterization::{RasterizationState, CullMode, FrontFace};
 use vulkano::pipeline::StateMode;
@@ -32,6 +36,8 @@ use vulkano::pipeline::graphics::viewport::ViewportState;
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::PipelineBindPoint;
 
+use winit::event::VirtualKeyCode;
+use winit::event::ModifiersState;
 
 use std::sync::{Arc, Mutex};
 
@@ -67,7 +73,7 @@ impl RequiresGraphicsPipeline for TerrainDrawSystem{
                 ..Default::default()
             };
 
-            let input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::LineList);
+            let input_assembly_state = InputAssemblyState::new().topology(PrimitiveTopology::TriangleList);
 
             // create our pipeline. like an opengl program but more specific
             let pipeline = GraphicsPipeline::start()
@@ -171,23 +177,125 @@ impl <'a> System<'a> for TerrainDrawSystem{
                     set.clone(),
                 )
                 .bind_vertex_buffers(0, geometry.vertex_buffer.clone().unwrap().clone())
-                // .bind_index_buffer(geometry.index_buffer().clone().unwrap().clone())
-                // .draw_indexed(
-                //     (*geometry.index_buffer()).len() as u32,
-                //     1,
-                //     0,
-                //     0,
-                //     0
-                // )
-                .draw(
-                    geometry.vertex_buffer.clone().unwrap().clone().len() as u32,
+                .bind_index_buffer(geometry.index_buffer.clone().unwrap().clone())
+                .draw_indexed(
+                    (*geometry.index_buffer.clone().unwrap()).len() as u32,
                     1,
+                    0,
                     0,
                     0
                 )
+                // .draw(
+                //     geometry.vertex_buffer.clone().unwrap().clone().len() as u32,
+                //     1,
+                //     0,
+                //     0
+                // )
                 .unwrap();
             let command_buffer = builder.build().unwrap();
             buffer_vec.buffers.push(Box::new(command_buffer));
+        }
+    }
+}
+
+
+pub struct TerrainAssemblyStateModifierSystem;
+
+impl <'a> System<'a> for TerrainAssemblyStateModifierSystem {
+    type SystemData = (
+        ReadExpect<'a, Arc<SceneState>>,
+        Read<'a, KeyInputQueue>,
+        Read<'a, ModifiersState>,
+        ReadExpect<'a, Arc<Device>>
+    );
+
+    fn run(&mut self, data: Self::SystemData){
+        let (scene_state, read_input, read_modifiers, device) = data;
+        let input = read_input.clone();
+        let modifiers = read_modifiers.clone();
+        if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
+            let topology = match scene_state
+                .get_pipeline_for_system::<TerrainDrawSystem>()
+                .expect("Couldn't get pipeline for renderable draw in wireframe system.")
+                .input_assembly_state()
+                .topology
+            {
+                PartialStateMode::Fixed(PrimitiveTopology::TriangleList) => PrimitiveTopology::LineStrip,
+                PartialStateMode::Fixed(PrimitiveTopology::LineStrip) => PrimitiveTopology::TriangleList,
+                _ => unreachable!(),
+            };
+            let subpass = Subpass::from(scene_state.render_passes[0].clone(), 0).unwrap();
+            let pipeline = self.create_pipeline(device.clone(), subpass, topology);
+            scene_state.set_pipeline_for_system::<TerrainDrawSystem>(pipeline);
+        }
+    }
+}
+
+impl TerrainAssemblyStateModifierSystem {
+    pub fn create_pipeline(&self, device: Arc<Device>, subpass: Subpass, topology: PrimitiveTopology) -> Arc<GraphicsPipeline> {
+        // compile our shaders
+        let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
+        let fs = shaders::triangle::fs::load(device.clone()).expect("Failed to create fragment shader for triangle draw system.");
+
+        let rs = RasterizationState{
+            cull_mode: StateMode::Fixed(CullMode::Back),
+            front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+            ..Default::default()
+        };
+
+        let input_assembly_state = InputAssemblyState::new().topology(topology);
+
+        // create our pipeline. like an opengl program but more specific
+        let pipeline = GraphicsPipeline::start()
+            // We need to indicate the layout of the vertices.
+            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+            // A Vulkan shader can in theory contain multiple entry points, so we have to specify
+            // which one.
+            .vertex_shader(vs.entry_point("main").unwrap(), ())
+            // The content of the vertex buffer describes a list of triangles.
+            .input_assembly_state(input_assembly_state)
+            // Use a resizable viewport set to draw over the entire window
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            // See `vertex_shader`.
+            .fragment_shader(fs.entry_point("main").unwrap(), ())
+            .depth_stencil_state(DepthStencilState::simple_depth_test())
+            .rasterization_state(rs)
+            // We have to indicate which subpass of which render pass this pipeline is going to be used
+            // in. The pipeline will only be usable from this particular subpass.
+            .render_pass(subpass)
+            // Now that our builder is filled, we call `build()` to obtain an actual pipeline.
+            .build(device.clone())
+            .expect("Can't build pipeline for renderable draw system.");
+        pipeline
+    }
+}
+
+pub struct TerrainUiSystem;
+
+impl<'a> System<'a> for TerrainUiSystem{
+    type SystemData = (
+        ReadExpect<'a, EguiState>,
+        ReadStorage<'a, TerrainUiComponent>,
+        WriteStorage<'a, TerrainComponent>,
+    );
+
+    fn run(&mut self, data: Self::SystemData) {
+        let (egui_state, terrain_uis, mut terrain_comps) = data;
+
+        let ctx = egui_state.ctx.clone();
+        for mut terrain in terrain_comps.join(){
+            let mut size = terrain.get_size();
+
+            egui::Window::new("Terrain Settings")
+                .show(&ctx, |ui| {
+                    ui.label("Size");
+                    ui.add(egui::Slider::new(&mut size, 2..=100).step_by(1.0));
+                });
+            if size < 1 {
+                size = 1;
+            }
+            terrain.set_size(size as usize);
+
         }
     }
 }

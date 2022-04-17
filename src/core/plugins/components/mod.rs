@@ -17,3 +17,4 @@ pub use renderable_component::RenderableComponent;
 pub use light_components::DirectionalLightComponent;
 pub use light_components::AmbientLightingComponent;
 pub use terrain_component::TerrainComponent;
+pub use terrain_component::TerrainUiComponent;

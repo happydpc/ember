@@ -13,3 +13,5 @@ pub use ui_systems::CameraUiSystem;
 pub use camera_init_system::CameraInitSystem;
 pub use terrain_systems::TerrainInitSystem;
 pub use terrain_systems::TerrainDrawSystem;
+pub use terrain_systems::TerrainAssemblyStateModifierSystem;
+pub use terrain_systems::TerrainUiSystem;

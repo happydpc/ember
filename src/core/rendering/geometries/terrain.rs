@@ -15,12 +15,12 @@ use noise::{Perlin, NoiseFn};
 // #[derive(Debug, Clone)]
 pub struct TerrainGeometry{
     pub vertices: Vec<Vertex>,
+    pub indices: Vec<u16>,
     pub height_map: Vec<Vec<f64>>,
     pub size: usize,
     pub amplitude: f64,
     pub seed: u32,
     pub noise_fn: Box<dyn NoiseFn<[f64; 2]> + Send + Sync>,
-    // pub indices: Vec<u16>,
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
     pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
     pub initialized: bool,
@@ -30,12 +30,12 @@ impl TerrainGeometry{
     pub fn new(size: usize) -> Self{
         TerrainGeometry{
             vertices: Vec::new(),
+            indices: Vec::new(),
             height_map: Vec::new(),
             size: size,
             amplitude: 1.0,
             seed: 1,
             noise_fn: Box::new(Perlin::new()),
-            // indices: None,
             vertex_buffer: None,
             index_buffer: None,
             initialized: false
@@ -50,9 +50,9 @@ impl TerrainGeometry{
 
     pub fn generate_terrain(&mut self){
         self.height_map.clear();
-        let size = 4;//self.size;
+        let size = self.size as u16;
         self.vertices.clear();//resize(size*size, Vertex::new(0.0, 0.0, 1.0));
-
+        self.indices.clear();
         let noise_fn: &(dyn NoiseFn<[f64; 2]> + Send + Sync) = self.noise_fn.borrow();
         let mut i = 0;
         for x in 0..size {
@@ -61,8 +61,26 @@ impl TerrainGeometry{
                 let z = (noise * 20.0) as f32;
                 log::info!("x {:?}, y: {:?} z: {:?}", x, y, x + y);
                 // self.height_map[x].push(self.noise_fn.get([x as f64, y as f64])*self.amplitude);
-                self.vertices.push(Vertex::new(x as f32, y as f32, z));
+                self.vertices.push(
+                    Vertex{
+                        position: [x as f32, y as f32, z]
+                    }
+                );
                 i = i + 1;
+            }
+        }
+
+        for y in 0..(size-1) {
+            for x in 0..(size-1) {
+                let ix = (y * size + x) as u16;
+                self.indices.push(ix);
+                self.indices.push(ix + 1);
+                self.indices.push(ix + size + 1);
+
+                self.indices.push(ix + size);
+                self.indices.push(ix);
+                self.indices.push(ix + size + 1);
+
             }
         }
         log::info!("Terrain size: {:?}", self.vertices.len());
@@ -88,17 +106,17 @@ impl TerrainGeometry{
         };
 
         // index buffer init
-        // let index_buffer = CpuAccessibleBuffer::from_iter(
-        //     device.clone(),
-        //     BufferUsage::all(),
-        //     false,
-        //     self.indices.clone()
-        //     .iter()
-        //     .cloned(),
-        // ).unwrap();
+        let index_buffer = CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            false,
+            self.indices.clone()
+            .iter()
+            .cloned(),
+        ).unwrap();
 
         self.vertex_buffer = Some(vertex_buffer);
-        // self.index_buffer = Some(index_buffer);
+        self.index_buffer = Some(index_buffer);
         self.initialized = true;
     }
 }

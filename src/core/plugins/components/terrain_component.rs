@@ -7,6 +7,11 @@ use vulkano::device::Device;
 
 use std::sync::{Arc, Mutex};
 
+
+#[derive(Component)]
+#[storage(HashMapStorage)]
+pub struct TerrainUiComponent;
+
 #[derive(Component)]
 #[storage(HashMapStorage)]
 pub struct TerrainComponent{
@@ -31,4 +36,11 @@ impl TerrainComponent{
         self.geometry.lock().unwrap().initialized
     }
 
+    pub fn set_size(&self, size: usize){
+        self.geometry.clone().lock().unwrap().size = size;
+    }
+
+    pub fn get_size(&self) -> usize {
+        self.geometry.clone().lock().unwrap().size
+    }
 }

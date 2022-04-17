@@ -17,27 +17,42 @@ pub struct EguiState{
 pub struct DebugUiSystem;
 impl<'a> System<'a> for DebugUiSystem{
     type SystemData = (
-        ReadExpect<'a, State>,
         ReadExpect<'a, EguiState>,
         WriteStorage<'a, DebugUiComponent>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (_winit_state, egui_state, mut egui_comps) = data;
+        let (egui_state, mut egui_comps) = data;
         let ctx = egui_state.ctx.clone();
         for mut comp in (&mut egui_comps).join() {
-            log::debug!("drawing a window");
+            // get variables
             let mut show_profiler = comp.show_profiler;
+            // let mut terrain_wireframe = comp.terrain_wireframe;
+
+            // draw ui
             egui::TopBottomPanel::top("Debug")
                 .show(&ctx, |ui| {
                     ui.menu_button("Debug Menu", |ui|{
                         ui.checkbox(&mut show_profiler, "Show Profiler");
+
+                        // ui.menu_button("Terrain", |ui| {
+                        //     ui.checkbox(&mut terrain_wireframe, "Wireframe Terrain");
+                        // });
+
+                        // ui.menu_button("Close Menu", |ui| {
+                        //     ui.close_menu();
+                        // });
                     });
                 });
+
+            // do actions
             if show_profiler{
                 puffin_egui::profiler_window(&ctx);
             }
+
+            // store variables
             comp.show_profiler = show_profiler;
+            // comp.terrain_wireframe = terrain_wireframe;
         }
     }
 }
