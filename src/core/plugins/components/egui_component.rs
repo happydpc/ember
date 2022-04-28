@@ -2,8 +2,6 @@
 use egui;
 
 use egui::Context;
-
-
 use specs::{Component, HashMapStorage};
 
 

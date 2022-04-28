@@ -7,6 +7,8 @@ pub mod debug_ui_component;
 pub mod egui_component;
 pub mod light_components;
 pub mod terrain_component;
+pub mod serializer_component;
+pub mod geometry_component;
 
 pub use input_component::InputComponent;
 pub use camera_component::CameraComponent;
@@ -20,3 +22,5 @@ pub use light_components::DirectionalLightComponent;
 pub use light_components::AmbientLightingComponent;
 pub use terrain_component::TerrainComponent;
 pub use terrain_component::TerrainUiComponent;
+pub use serializer_component::SerializerFlag;
+pub use geometry_component::GeometryComponent;

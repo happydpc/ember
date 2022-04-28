@@ -14,7 +14,11 @@ vulkano_shaders::shader! {
         }
         
         void main() {
-            f_color = vec4(0.5, 0.2, 0.2, 1.0);
+            if (in_pos.z > 1.0) {
+                f_color = vec4(0.8, 0.4, 0.4, 1.0);
+            }else{
+                f_color = vec4(0.5, 0.2, 0.2, 1.0);
+            }
             // f_normal = vec3(1.0, 1.0, 1.0);
             f_normal = calculateScreenSpaceNormal(in_pos);
         }

@@ -14,6 +14,9 @@ use std::{
 };
 use std::ops::DerefMut;
 
+use crate::construct_dispatcher;
+use crate::core::scene::SystemDispatch;
+use crate::core::scene::system_dispatch::MultiThreadedDispatcher;
 use crate::core::{
     managers::manager::Manager,
     physics::physics_manager::PhysicsManager,
@@ -70,6 +73,7 @@ pub struct Application{
     input_manager: Option<RefCell<InputManager>>,
     event_loop: Option<EventLoop<()>>,
     surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
+    app_dispatcher: Option<Box<dyn SystemDispatch + 'static>>,
 
     log_level: LevelFilter,
     start_instant: Instant,
@@ -92,6 +96,9 @@ impl Manager for Application{
         physics_manager.startup();
         scene_manager.startup();
         input_manager.startup();
+
+        // create application dispatch. probably move this later
+        let dispatcher = self.create_dispatcher();
 
         self.render_manager = Some(RefCell::new(render_manager));
         self.physics_manager = Some(RefCell::new(physics_manager));
@@ -155,9 +162,17 @@ impl Application{
             input_manager: None,
             event_loop: None,
             surface: None,
+            app_dispatcher: None,
             log_level: log_level.unwrap_or(LevelFilter::Info),
             start_instant: Instant::now(),
         }
+    }
+
+    fn create_dispatcher(&self) -> Box<dyn SystemDispatch + 'static>{
+        construct_dispatcher!(
+
+        );
+        new_dispatch()
     }
 
     // main game loop
@@ -302,7 +317,7 @@ impl Application{
 
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
-        scene.register::<EguiComponent>();
+        // scene.register::<EguiComponent>();
 
         // get required egui data
         let render_manager = self.get_render_manager().unwrap();

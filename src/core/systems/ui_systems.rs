@@ -1,10 +1,10 @@
 use specs::{System, ReadStorage, ReadExpect, Join, WriteStorage};
 use crate::core::plugins::components::{DebugUiComponent, CameraComponent, TransformComponent, TransformUiComponent};
-use egui_winit::State;
+// use egui_winit::State;
 use egui_vulkano::Painter;
 use egui::Context;
 
-use puffin_egui;
+// use puffin_egui;
 
 use log;
 
@@ -26,13 +26,10 @@ impl<'a> System<'a> for DebugUiSystem{
         let (egui_state, mut egui_comps) = data;
         let ctx = egui_state.ctx.clone();
         for mut comp in (&mut egui_comps).join() {
-            // get variables
-            let mut show_profiler = comp.show_profiler;
-            // let mut terrain_wireframe = comp.terrain_wireframe;
 
             // draw ui
             egui::TopBottomPanel::top("Debug")
-                .show(&ctx, |ui| {
+                .show(&ctx.clone(), |ui| {
                     egui::menu::bar(ui, |ui| {
                         ui.menu_button("File", |ui| {
                             if ui.button("New").clicked() {
@@ -51,22 +48,15 @@ impl<'a> System<'a> for DebugUiSystem{
                         ui.menu_button("Debug Options", |ui| {
                             if ui.button("Toggle Profiling").clicked() {
                                 log::info!("I still don't know why this breaks.");
+                                comp.show_profiler = !comp.show_profiler;
                             }
                             if ui.button("Toggle wireframe").clicked() {
                                 log::info!("Toggling wireframe");
+                                comp.terrain_wireframe = !comp.terrain_wireframe;
                             }
                         });
                     });
-                });
-
-            // do actions
-            if comp.show_profiler{
-                puffin_egui::profiler_window(&ctx.clone());
-            }
-
-            // store variables
-            // comp.show_profiler = show_profiler;
-            // comp.terrain_wireframe = terrain_wireframe;
+                }); // end of panel
         }
     }
 }

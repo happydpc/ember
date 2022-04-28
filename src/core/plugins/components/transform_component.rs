@@ -4,16 +4,18 @@ use cgmath::{
     Matrix4,
     Vector3,
 };
-use std::sync::RwLock;
 use std::sync::Arc;
 use std::sync::Mutex;
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
-
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct TransformUiComponent;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct TransformComponent{
     pub global_position: Arc<Mutex<Vector3<f32>>>,

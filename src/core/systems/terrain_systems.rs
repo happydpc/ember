@@ -39,7 +39,7 @@ use vulkano::pipeline::PipelineBindPoint;
 use winit::event::VirtualKeyCode;
 use winit::event::ModifiersState;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 
 pub struct TerrainInitSystem;
 impl<'a> System<'a> for TerrainInitSystem{

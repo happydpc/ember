@@ -78,10 +78,6 @@ impl SceneManager{
         }
     }
 
-    // pub fn borrow_mut_scene(&mut self, id: i16) -> Option<&mut Scene<Inactive>>{
-    //     self.scenes.lock().unwrap().get_mut(&id)
-    // }
-
     pub fn activate_staged_scene(&mut self){
         let staged_scene_id = self.staged_scene_id.take().expect("Staged scene id not set.");
         let staged_scene = self.staged_scene.take().expect("Staged scene not set.");

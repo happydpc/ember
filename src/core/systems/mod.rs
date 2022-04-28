@@ -4,10 +4,13 @@ pub mod render_systems;
 pub mod ui_systems;
 pub mod camera_init_system;
 pub mod terrain_systems;
+pub mod geometry_init;
 
 pub use render_systems::DirectionalLightingSystem;
 pub use render_systems::RequiresGraphicsPipeline;
 pub use render_systems::RenderableAssemblyStateModifierSystem;
+
+pub use geometry_init::GeometryInitializerSystem;
 
 pub use ui_systems::CameraUiSystem;
 pub use ui_systems::TransformUiSystem;

@@ -7,8 +7,13 @@ use cgmath::{
     Deg
 };
 use cgmath;
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
-#[derive(Component, Debug)]
+
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 #[storage(HashMapStorage)]
 pub struct CameraComponent{
     pub fov: f32,

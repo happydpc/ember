@@ -1,10 +1,14 @@
-use specs::{Component, HashMapStorage};
+use specs::{
+    Component,
+    HashMapStorage,
+};
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
 
-use egui::containers::{SidePanel};
-
-
-#[derive(Component)]
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
 #[storage(HashMapStorage)]
 pub struct DebugUiComponent{
     pub show_profiler: bool,

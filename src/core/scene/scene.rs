@@ -2,14 +2,22 @@ use specs::{
     prelude::Resource,
     WorldExt,
     Component,
-    World
+    World,
+    saveload::{
+        SerializeComponents,
+        SimpleMarker,
+    },
 };
+use ron;
+use ron::ser::PrettyConfig;
 
 use std::{
     cell::{
         RefCell,
         RefMut,
     },
+    fs::File,
+    convert::Infallible,
 };
 
 use super::system_dispatch::{MultiThreadedDispatcher, SystemDispatch};
@@ -37,9 +45,24 @@ use crate::core::systems::{
     TerrainDrawSystem,
     TerrainAssemblyStateModifierSystem,
     TerrainUiSystem,
-    TransformUiSystem,
+    GeometryInitializerSystem,
 };
+use crate::core::plugins::components::{
+    InputComponent,
+    CameraComponent,
+    TransformComponent,
+    TransformUiComponent,
+    DebugUiComponent,
+    RenderableComponent,
+    DirectionalLightComponent,
+    AmbientLightingComponent,
+    TerrainComponent,
+    TerrainUiComponent,
+    SerializerFlag,
+};
+
 use crate::construct_dispatcher;
+use crate::serialize_individually;
 
 pub struct Scene<S>{
     pub world: Option<RefCell<World>>,
@@ -169,7 +192,8 @@ impl Scene<Active> {
 
     pub fn create_render_dispatch(&mut self){
         construct_dispatcher!(
-            (RenderableInitializerSystem, "render_init", &[]),
+            (GeometryInitializerSystem, "geom_init", &[]),
+            (RenderableInitializerSystem, "render_init", &["geom_init"]),
             // (TransformUiSystem, "transform_ui", &[]),
             (TerrainInitSystem, "terrain_init", &[]),
             (TerrainUiSystem, "terrain_ui", &["terrain_init"]),
@@ -207,6 +231,44 @@ impl Scene<Active> {
 
     pub fn insert_required_resources(&mut self){
         self.insert_resource(KeyInputQueue::new());
+    }
+}
+
+impl <Active> Scene<Active>{
+    pub fn serialize(&mut self){
+        let mut worldref = self.world.take().unwrap();
+        let mut world = worldref.get_mut();
+        
+        // Actually serialize
+        {
+            let data = ( world.entities(), world.read_storage::<SimpleMarker<SerializerFlag>>() );
+
+            let pretty = PrettyConfig::new()
+                .depth_limit(2)
+                .separate_tuple_members(true)
+                .enumerate_arrays(true);
+
+            let writer = File::create("./savegame.ron").unwrap();
+            let mut serializer = ron::ser::Serializer::new(writer, Some(pretty), true).expect("Couldn't create ron serializer.");
+            serialize_individually!(
+                world,
+                serializer,
+                data,
+                InputComponent,
+                CameraComponent,
+                TransformComponent,
+                TransformUiComponent,
+                DebugUiComponent,
+                RenderableComponent,
+                DirectionalLightComponent,
+                AmbientLightingComponent,
+                TerrainComponent,
+                TerrainUiComponent
+            );
+        }
+
+        self.world = Some(worldref);
+
     }
 }
 

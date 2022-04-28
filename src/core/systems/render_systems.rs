@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::RwLock;
 use std::convert::TryInto;
 
 
@@ -18,8 +17,11 @@ use crate::core::plugins::components::{
     TransformComponent,
     DirectionalLightComponent,
     AmbientLightingComponent,
+    GeometryComponent,
 };
-use crate::core::rendering::geometries::Vertex;
+use crate::core::rendering::geometries::geometry_primitives::{
+    Vertex,
+};
 use crate::core::rendering::shaders;
 
 
@@ -86,7 +88,7 @@ impl<'a> System<'a> for RenderableInitializerSystem{
         let (device, mut renderable) = data;
         let device = &*device;
         for renderable in (&mut renderable).join() {
-            if renderable.initialized() == false{
+            if renderable.initialized == false{
                 log::debug!("Init renderable.");
                 renderable.initialize(device.clone());
             }
@@ -167,6 +169,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
     type SystemData = (
         ReadStorage<'a, TransformComponent>,
         ReadStorage<'a, RenderableComponent>,
+        ReadStorage<'a, GeometryComponent>,
         ReadExpect<'a, CameraState>,
         ReadExpect<'a, Arc<Queue>>,
         WriteExpect<'a, TriangleSecondaryBuffers>,
@@ -177,6 +180,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
         log::debug!("Running RenderableDrawSystem...");
         let (transforms,
             renderables,
+            geometries,
             camera_state,
             queue,
             mut buffer_vec,
@@ -188,7 +192,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
         let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<Self>().expect("Could not get pipeline from scene_state.");
 
         let layout = &*pipeline.layout().set_layouts().get(0).unwrap();
-        for (renderable, transform) in (&renderables, &transforms).join() {
+        for (geometry, transform) in (&geometries, &transforms).join() {
             log::debug!("Creating secondary command buffer builder...");
             // create buffer buildres
             // create a command buffer builder
@@ -211,8 +215,8 @@ impl <'a> System<'a> for RenderableDrawSystem{
                 BufferUsage::all()
             );
 
-            let g_arc = &renderable.geometry();
-            let geometry = g_arc.lock().unwrap();
+            // let g_arc = &renderable.geometry();
+            // let geometry = g_arc.lock().unwrap();
             let uniform_buffer_subbuffer = {
                 // create matrix
                 let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position());

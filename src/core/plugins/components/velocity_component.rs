@@ -1,8 +1,12 @@
 use specs::{Component, VecStorage};
-use crate::math::structures::vector::Vector3;
+use cgmath::Vector3;
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct VelocityComponent{
-    pub velocity: Vector3,
+    pub velocity: Vector3<f32>,
 }

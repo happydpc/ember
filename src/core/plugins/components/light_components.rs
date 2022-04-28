@@ -1,7 +1,11 @@
 use specs::{Component, VecStorage};
 use cgmath::Vector3;
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
-#[derive(Component)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct DirectionalLightComponent{
     pub direction: Vector3<f32>,
@@ -26,7 +30,7 @@ impl Default for DirectionalLightComponent {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct AmbientLightingComponent{
     pub color: [f32; 3],

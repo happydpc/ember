@@ -1,18 +1,17 @@
 use specs::{Component, HashMapStorage};
-
-use crate::core::rendering::geometries::geometry::Geometry;
 use crate::core::rendering::geometries::TerrainGeometry;
-
 use vulkano::device::Device;
-
 use std::sync::{Arc, Mutex};
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
-
-#[derive(Component)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 #[storage(HashMapStorage)]
 pub struct TerrainUiComponent;
 
-#[derive(Component)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 #[storage(HashMapStorage)]
 pub struct TerrainComponent{
     pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,

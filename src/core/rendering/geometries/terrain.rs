@@ -1,18 +1,19 @@
 use std::sync::{
     Arc,
-    Mutex,
 };
 use std::borrow::Borrow;
 
 use crate::core::rendering::geometries::Vertex;
+use crate::core::plugins::components::GeometryComponent;
 
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::BufferUsage;
 use vulkano::device::Device;
 
-use noise::{Perlin, NoiseFn, OpenSimplex};
+use noise::{NoiseFn, OpenSimplex};
+use serde::{Serialize, Deserialize};
 
-// #[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct TerrainGeometry{
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
@@ -20,8 +21,11 @@ pub struct TerrainGeometry{
     pub size: usize,
     pub amplitude: f64,
     pub seed: u32,
+    #[serde(skip, default="TerrainGeometry::default_noise_fn")]
     pub noise_fn: Box<dyn NoiseFn<[f64; 2]> + Send + Sync>,
+    #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
+    #[serde(skip, default="GeometryComponent::default_index_buffer")]
     pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
     pub initialized: bool,
 }
@@ -114,5 +118,9 @@ impl TerrainGeometry{
         self.vertex_buffer = Some(vertex_buffer);
         self.index_buffer = Some(index_buffer);
         self.initialized = true;
+    }
+
+    fn default_noise_fn() -> Box<dyn NoiseFn<[f64; 2]> + Send + Sync>{
+        Box::new(OpenSimplex::new())
     }
 }

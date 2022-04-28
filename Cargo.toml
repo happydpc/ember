@@ -7,7 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-specs = {version = "*", features = ["specs-derive"] }
+serde = {version = "1", features=["derive"]}
+ron = "0.7"
+specs = {version = "*", features = ["specs-derive", "serde"] }
 bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
 vulkano = "0.29"
 vulkano-shaders = "0.29"
@@ -23,4 +25,4 @@ noise = "0.7"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
 # euler = "*"
-cgmath = "0.18"
+cgmath = {version = "0.18", features = ["serde"]}

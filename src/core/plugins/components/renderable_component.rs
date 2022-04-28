@@ -1,4 +1,4 @@
-use crate::core::rendering::geometries::geometry::Geometry;
+use crate::core::plugins::components::GeometryComponent;
 use vulkano::{
     device::{
         Device
@@ -6,37 +6,29 @@ use vulkano::{
 };
 use specs::{Component, VecStorage};
 use std::sync::{Arc, Mutex};
+use serde::{
+    Serialize,
+    Deserialize,
+};
 
-#[derive(Component)]
+
+#[derive(Component, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct RenderableComponent{
-    pub geometry: Option<Arc<Mutex<Box<dyn Geometry + Sync + Send>>>>,
+    pub initialized: bool,
 }
 
 impl RenderableComponent{
 
-    pub fn create(geometry: Box<dyn Geometry + Sync + Send>) -> Self{
+    pub fn create() -> Self {
         RenderableComponent{
-            geometry: Some(Arc::new(Mutex::new(geometry)))
+            initialized: false,
         }
     }
 
     pub fn initialize(&mut self, device: Arc<Device>){
         log::debug!("Initializing renderable component...");
-        let geometry = self.geometry.take().unwrap();//.as_ref();//unwrap();
-        geometry.lock().unwrap().initialize(device);
-        self.geometry = Some(geometry);
-    }
-
-    pub fn geometry(&self) -> Arc<Mutex<Box<dyn Geometry + Sync + Send>>>{
-        self.geometry.clone().unwrap().clone()
-    }
-
-    pub fn initialized(&self) -> bool {
-        match &self.geometry{
-            Some(g) => g.lock().unwrap().is_initialized(),
-            None => false
-        }
+        self.initialized = true;
     }
 
 }
