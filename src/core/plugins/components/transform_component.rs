@@ -1,5 +1,4 @@
 use specs::{Component, VecStorage};
-// use crate::math::structures::vector::Vector3;
 use cgmath::{
     Matrix4,
     Vector3,
