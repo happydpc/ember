@@ -4,7 +4,7 @@ use specs::prelude::*;
 use winit::event::VirtualKeyCode;
 use cgmath::InnerSpace;
 
-use crate::core::input::input_manager::KeyInputQueue;
+use crate::core::managers::input_manager::KeyInputQueue;
 
 pub struct CameraMoveSystem;
 

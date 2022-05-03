@@ -21,7 +21,7 @@ use std::{
 };
 
 use super::system_dispatch::{MultiThreadedDispatcher, SystemDispatch};
-use crate::core::input::input_manager::KeyInputQueue;
+use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::systems::{
     ui_systems::{
         DebugUiSystem,

@@ -20,9 +20,9 @@ use crate::core::scene::SystemDispatch;
 use crate::core::scene::system_dispatch::MultiThreadedDispatcher;
 use crate::core::{
     managers::manager::Manager,
-    physics::physics_manager::PhysicsManager,
-    rendering::render_manager::RenderManager,
-    input::input_manager::InputManager,
+    managers::physics_manager::PhysicsManager,
+    managers::render_manager::RenderManager,
+    managers::input_manager::InputManager,
     plugins::components::EguiComponent,
     scene::{
         Scene,
@@ -90,6 +90,7 @@ impl Manager for Application{
     fn startup(&mut self){
         SimpleLogger::new().with_level(self.log_level).init().unwrap();
         puffin::set_scopes_on(true);
+
         log::info!("Starting application ...");
         // create other managers
         let mut render_manager = RenderManager::create_new();
@@ -98,12 +99,14 @@ impl Manager for Application{
         let mut input_manager = InputManager::create_new();
 
         // initialize other managers
+        log::info!("Running manager startup functions ...");
         let (event_loop, surface) = render_manager.startup();
         physics_manager.startup();
         scene_manager.startup();
         input_manager.startup();
 
         // set to idle state
+        log::info!("Setting application idle state ...");
         let state: &(dyn ApplicationState) = self.state.borrow();
         scene_manager.load_scene_interface(state.scene_interface_path());
         
@@ -116,6 +119,7 @@ impl Manager for Application{
         self.surface = Some(surface);
 
         // prep staged scene
+        log::info!("Prepping and activating idle scene ...");
         self.prep_staged_scene();
         self.activate_staged_scene();
 

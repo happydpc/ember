@@ -25,11 +25,11 @@ use crate::core::rendering::geometries::geometry_primitives::{
 use crate::core::rendering::shaders;
 
 
-use crate::core::rendering::render_manager::{
+use crate::core::managers::render_manager::{
     TriangleSecondaryBuffers,
     LightingSecondaryBuffers,
 };
-use crate::core::input::input_manager::KeyInputQueue;
+use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::rendering::SceneState;
 
 use cgmath::Matrix4;

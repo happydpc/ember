@@ -7,10 +7,10 @@ use crate::core::plugins::components::TransformComponent;
 use crate::core::systems::RequiresGraphicsPipeline;
 use crate::core::rendering::shaders;
 use crate::core::rendering::geometries::Vertex;
-use crate::core::rendering::render_manager::TriangleSecondaryBuffers;
+use crate::core::managers::render_manager::TriangleSecondaryBuffers;
 use crate::core::rendering::SceneState;
 use crate::core::systems::render_systems::CameraState;
-use crate::core::input::input_manager::KeyInputQueue;
+use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::systems::ui_systems::EguiState;
 use crate::core::plugins::components::TerrainUiComponent;
 
