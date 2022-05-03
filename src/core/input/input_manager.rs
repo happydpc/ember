@@ -3,7 +3,7 @@ use winit::event::VirtualKeyCode;
 use super::super::managers::manager::Manager;
 use std::collections::VecDeque;
 
-use crate::core::scene::{Scene, Active};
+use crate::core::scene::{Scene, Active, Staged};
 
 
 
@@ -61,5 +61,10 @@ impl InputManager {
             _ => (),
         }
         self.current_key_pressed = key_pressed;
+    }
+
+    pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
+        scene.insert_resource(self.key_input_queue.clone());
+        scene.insert_resource(self.modifier_state);
     }
 }

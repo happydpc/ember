@@ -4,12 +4,13 @@ use crate::core::{
         SceneState,
     },
     scene::{
-        scene::{Scene, Active},
+        scene::{Scene, Active, Staged},
     },
     systems::{
         ui_systems::EguiState,
     }
 };
+use crate::core::plugins::components::EguiComponent;
 
 use puffin;
 
@@ -194,9 +195,7 @@ impl RenderManager{
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
         // clone the surface so we can return this clone
-        let return_surface = surface.clone();
-
-        
+        let return_surface = surface.clone();        
 
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
@@ -220,6 +219,29 @@ impl RenderManager{
 
     // update render manager
     pub fn update(&mut self, _scene: &mut Scene<Active>){
+    }
+
+    pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
+        scene.register::<EguiComponent>();
+
+        // get required egui data
+        let (egui_ctx, egui_painter) = self.initialize_egui();
+        let egui_winit = self.create_egui_winit_state();
+        let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
+        let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
+        let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
+        let camera_state: [Matrix4<f32>; 2] = [Matrix4::from_scale(1.0), Matrix4::from_scale(1.0)];
+        let save: bool = false;
+        scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
+        scene.insert_resource(lighting_buffer_vec);
+        scene.insert_resource(save);
+        scene.insert_resource(egui_state);
+        scene.insert_resource(egui_winit);
+        scene.insert_resource(self.device());
+        scene.insert_resource(self.surface());
+        scene.insert_resource(self.queue());
+        scene.insert_resource(camera_state);
+        scene.insert_resource(self.scene_state());
     }
 
     // create a new render manager with Inactive values
@@ -278,6 +300,8 @@ impl RenderManager{
         let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
         scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
         scene.insert_resource(lighting_buffer_vec);
+        let save: bool = false;
+        scene.insert_resource(save);
         scene.insert_resource(image_num); // insert image
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
 
@@ -292,6 +316,13 @@ impl RenderManager{
         // run all systems. This will build secondary command buffers
         log::debug!("----Render Dispatch-----");
         scene.run_render_dispatch();
+
+        let save = {
+            *scene.get_world().unwrap().read_resource::<bool>()
+        };
+        if save {
+            scene.serialize();
+        }
 
         // get egui shapes from world
         log::debug!("Getting egui shapes");

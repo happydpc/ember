@@ -1,4 +1,4 @@
-use specs::{System, ReadStorage, ReadExpect, Join, WriteStorage};
+use specs::{System, ReadStorage, ReadExpect, Join, WriteStorage, WriteExpect};
 use crate::core::plugins::components::{DebugUiComponent, CameraComponent, TransformComponent, TransformUiComponent};
 // use egui_winit::State;
 use egui_vulkano::Painter;
@@ -19,11 +19,12 @@ impl<'a> System<'a> for DebugUiSystem{
     type SystemData = (
         ReadExpect<'a, EguiState>,
         WriteStorage<'a, DebugUiComponent>,
+        WriteExpect<'a, bool>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
         log::debug!("Debug ui...");
-        let (egui_state, mut egui_comps) = data;
+        let (egui_state, mut egui_comps, mut should_save) = data;
         let ctx = egui_state.ctx.clone();
         for mut comp in (&mut egui_comps).join() {
 
@@ -40,6 +41,7 @@ impl<'a> System<'a> for DebugUiSystem{
                             }
                             if ui.button("Save").clicked() {
                                 log::info!("Saving a file...");
+                                *should_save = true;
                             }
                             if ui.button("Close").clicked() {
                                 log::info!("Close scene...");

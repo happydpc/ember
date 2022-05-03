@@ -5,4 +5,6 @@ pub mod scene_macros;
 
 pub use scene::Scene;
 pub use scene::Active;
+pub use scene::Staged;
+pub use scene::Inactive;
 pub use system_dispatch::SystemDispatch;

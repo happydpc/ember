@@ -59,6 +59,7 @@ use crate::core::plugins::components::{
     TerrainComponent,
     TerrainUiComponent,
     SerializerFlag,
+    GeometryComponent,
 };
 
 use crate::construct_dispatcher;
@@ -93,8 +94,10 @@ impl Scene<Inactive> {
 impl Scene<Staged> {
     fn create_setup_dispatch(&mut self){
         construct_dispatcher!(
-            (CameraInitSystem, "camear_init", &[])
-            // (TerrainInitSystem, "terrain_init", &[])
+            (CameraInitSystem, "camear_init", &[]),
+            (TerrainInitSystem, "terrain_init", &[]),
+            (GeometryInitializerSystem, "geom_init", &[]),
+            (RenderableInitializerSystem, "render_init", &["geom_init"])
         );
         self.state.setup_dispatch = Some(new_dispatch());
     }
@@ -192,21 +195,19 @@ impl Scene<Active> {
 
     pub fn create_render_dispatch(&mut self){
         construct_dispatcher!(
-            (GeometryInitializerSystem, "geom_init", &[]),
-            (RenderableInitializerSystem, "render_init", &["geom_init"]),
             // (TransformUiSystem, "transform_ui", &[]),
             (TerrainInitSystem, "terrain_init", &[]),
-            (TerrainUiSystem, "terrain_ui", &["terrain_init"]),
+            (TerrainUiSystem, "terrain_ui", &[]),
             (DebugUiSystem, "debug_ui", &[]),
             (CameraMoveSystem, "camera_move", &[]),
             (CameraUpdateSystem, "camera_update", &["camera_move"]),
-            (RenderableDrawSystem, "renderable_draw", &["camera_update","render_init"]),
+            (RenderableDrawSystem, "renderable_draw", &["camera_update"]),
             (DirectionalLightingSystem, "directional_lighting", &[]),
             (AmbientLightingSystem, "ambient_lighting", &[]),
             (RenderableAssemblyStateModifierSystem, "wireframe_system", &[]),
             (CameraUiSystem, "camera_ui", &[]),
             (TerrainAssemblyStateModifierSystem, "terrain_wireframe", &["wireframe_system"]),
-            (TerrainDrawSystem, "terrain_draw", &["camera_update", "terrain_init"])
+            (TerrainDrawSystem, "terrain_draw", &["camera_update"])
         );
         self.state.render_dispatch = Some(new_dispatch());
     }
@@ -263,7 +264,8 @@ impl <Active> Scene<Active>{
                 DirectionalLightComponent,
                 AmbientLightingComponent,
                 TerrainComponent,
-                TerrainUiComponent
+                TerrainUiComponent,
+                GeometryComponent
             );
         }
 

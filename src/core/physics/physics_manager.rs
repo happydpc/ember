@@ -1,5 +1,5 @@
 use crate::core::managers::manager::Manager;
-use crate::core::scene::{Scene, Active};
+use crate::core::scene::{Scene, Active, Staged};
 
 pub struct PhysicsManager{}
 
@@ -19,5 +19,7 @@ impl PhysicsManager{
         log::info!("Creating PhysicsManager...");
         let phys_sys = PhysicsManager{};
         phys_sys
+    }
+    pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
     }
 }

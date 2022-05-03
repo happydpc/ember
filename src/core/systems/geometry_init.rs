@@ -16,7 +16,7 @@ use crate::core::plugins::components::geometry_component::{GeometryComponent, Ge
 pub struct GeometryInitializerSystem;
 
 impl GeometryInitializerSystem{
-    fn initialize_geometry(&self, mut geom: &mut GeometryComponent, device: Arc<Device>){
+    fn create_geometry(&self, mut geom: &mut GeometryComponent, device: Arc<Device>){
         match geom.geometry_type{
             GeometryType::Box => self.init_cube(&mut geom),
             GeometryType::Triangle => self.init_triangle(&mut geom),
@@ -56,7 +56,7 @@ impl GeometryInitializerSystem{
 
         geom.vertices = vertices;
         geom.indices = indices;
-        geom.initialized = true;
+        // geom.initialized = true;
     }
 
     fn init_plane(&self, mut geom: &mut GeometryComponent){
@@ -70,7 +70,7 @@ impl GeometryInitializerSystem{
 
         geom.vertices = vec![tl, tr, bl, br];
         geom.indices = vec![0, 1, 3, 2, 0, 3];
-        geom.initialized = true;
+        // geom.initialized = true;
     }
 
     fn init_triangle(&self, mut geom: &mut GeometryComponent){
@@ -82,7 +82,7 @@ impl GeometryInitializerSystem{
         ];
         geom.vertices = vertices;
         geom.indices = vec![0, 1, 2, 0];
-        geom.initialized = true;
+        // geom.initialized = true;
     }
 }
 
@@ -97,11 +97,8 @@ impl<'a> System<'a> for GeometryInitializerSystem{
         let (device, mut geometries) = data;
         let device = &*device;
         for mut geometry in (&mut geometries).join() {
-            if geometry.initialized == false{
-                // geometry.initialize(device.clone());
-                self.initialize_geometry(&mut geometry, device.clone());
-            }
+            self.create_geometry(&mut geometry, device.clone());
+            geometry.initialize(device.clone());
         }
-        log::debug!("done with geom");
     }
 }

@@ -88,10 +88,10 @@ impl<'a> System<'a> for RenderableInitializerSystem{
         let (device, mut renderable) = data;
         let device = &*device;
         for renderable in (&mut renderable).join() {
-            if renderable.initialized == false{
+            // if renderable.initialized == false{
                 log::debug!("Init renderable.");
                 renderable.initialize(device.clone());
-            }
+            // }
         }
     }
 }

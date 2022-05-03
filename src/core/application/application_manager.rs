@@ -13,6 +13,7 @@ use std::{
     ops::AddAssign,
 };
 use std::ops::DerefMut;
+use std::borrow::Borrow;
 
 use crate::construct_dispatcher;
 use crate::core::scene::SystemDispatch;
@@ -26,11 +27,16 @@ use crate::core::{
     scene::{
         Scene,
         Active,
+        Staged,
         scene_manager::{
             SceneManager,
         },
     },
     systems::ui_systems::EguiState,
+};
+use crate::core::application::{
+    ApplicationState,
+    ApplicationIdleState,
 };
 
 
@@ -73,7 +79,7 @@ pub struct Application{
     input_manager: Option<RefCell<InputManager>>,
     event_loop: Option<EventLoop<()>>,
     surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
-    app_dispatcher: Option<Box<dyn SystemDispatch + 'static>>,
+    state: Box<dyn ApplicationState>,
 
     log_level: LevelFilter,
     start_instant: Instant,
@@ -97,15 +103,21 @@ impl Manager for Application{
         scene_manager.startup();
         input_manager.startup();
 
-        // create application dispatch. probably move this later
-        let dispatcher = self.create_dispatcher();
-
+        // set to idle state
+        let state: &(dyn ApplicationState) = self.state.borrow();
+        scene_manager.load_scene_interface(state.scene_interface_path());
+        
+        // store managers and other created things
         self.render_manager = Some(RefCell::new(render_manager));
         self.physics_manager = Some(RefCell::new(physics_manager));
         self.scene_manager = Some(RefCell::new(scene_manager));
         self.input_manager = Some(RefCell::new(input_manager));
         self.event_loop = Some(event_loop);
         self.surface = Some(surface);
+
+        // prep staged scene
+        self.prep_staged_scene();
+        self.activate_staged_scene();
 
         log::info!("Startup complete...");
     }
@@ -162,17 +174,27 @@ impl Application{
             input_manager: None,
             event_loop: None,
             surface: None,
-            app_dispatcher: None,
             log_level: log_level.unwrap_or(LevelFilter::Info),
             start_instant: Instant::now(),
+            state: Box::new(ApplicationIdleState::create()),
         }
     }
 
-    fn create_dispatcher(&self) -> Box<dyn SystemDispatch + 'static>{
-        construct_dispatcher!(
+    // preps a staged scene
+    fn prep_staged_scene(&mut self){
 
-        );
-        new_dispatch()
+        let mut scene_manager = self.get_scene_manager().unwrap();
+        let mut _scene = scene_manager.get_staged_scene().unwrap();
+        let scene = _scene.deref_mut();
+
+        match &self.input_manager {
+            Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
+            None => log::error!("No input manager to prep scene."),
+        }
+        match &self.render_manager {
+            Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
+            None => log::error!("No render manager to prep scene."),
+        }
     }
 
     // main game loop
@@ -309,15 +331,16 @@ impl Application{
         id // return id
     }
 
-    pub fn stage_scene(&mut self, scene_id: i16) {
+    // pub fn stage_scene(&mut self, scene_id: i16) {
+    pub fn initialize_egui_state_on_staged_scene(&mut self){// scene: &mut Scene<Active>){
         let mut scene_manager = self.get_scene_manager().unwrap();
 
         // create scene and register egui component
-        scene_manager.stage_scene(scene_id);
+        // scene_manager.stage_scene(scene_id);
 
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
-        // scene.register::<EguiComponent>();
+        scene.register::<EguiComponent>();
 
         // get required egui data
         let render_manager = self.get_render_manager().unwrap();

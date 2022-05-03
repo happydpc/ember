@@ -10,14 +10,14 @@ use specs::{Component, VecStorage};
 use crate::core::rendering::geometries::Vertex;
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum GeometryType{
     Triangle,
     Box,
     Plane,
 }
 
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 #[storage(VecStorage)]
 pub struct GeometryComponent{
     pub vertices: Vec<Vertex>,
@@ -72,6 +72,8 @@ impl GeometryComponent{
             .iter()
             .cloned(),
         ).unwrap();
+
+        log::debug!("Setting vbuffer right here.");
 
         self.vertex_buffer = Some(vertex_buffer);
         self.index_buffer = Some(index_buffer);

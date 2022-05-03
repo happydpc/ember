@@ -4,6 +4,40 @@ use std::cell::{
     RefMut
 };
 use std::sync::Mutex;
+use std::path::Path;
+use std::fs;
+use std::convert::Infallible;
+
+use ron;
+
+use specs::{
+    WorldExt,
+    Join,
+    saveload::{
+        SimpleMarker,
+        SimpleMarkerAllocator,
+        DeserializeComponents,
+    },
+    error::{
+        NoError,
+    }
+};
+
+use crate::deserialize_individually;
+use crate::core::plugins::components::{
+    InputComponent,
+    CameraComponent,
+    TransformComponent,
+    TransformUiComponent,
+    DebugUiComponent,
+    RenderableComponent,
+    DirectionalLightComponent,
+    AmbientLightingComponent,
+    TerrainComponent,
+    TerrainUiComponent,
+    SerializerFlag,
+    GeometryComponent,
+};
 use super::{
     super::managers::manager::Manager,
     scene::{
@@ -50,6 +84,13 @@ impl SceneManager{
             scenes: Mutex::new(HashMap::new()),
             scene_counter: 0,
         }
+    }
+
+    pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
+    }
+
+    pub fn does_save_exist(&self, save_name: &'static str) -> bool {
+        Path::new(save_name).exists()
     }
 
     // adds a scene and returns its scene id
@@ -106,5 +147,94 @@ impl SceneManager{
 
     pub fn stage_active_scene(&mut self){
         todo!();
+    }
+
+    pub fn does_scene_exist(&self, id: &i16) -> bool {
+        self.scenes.lock().unwrap().contains_key(id)
+    }
+
+    pub fn load_scene_interface(&mut self, interface_path: &'static str) {
+        
+        let scene_id = self.generate_and_register_scene();  // create scene
+        self.stage_scene(scene_id);  // stage it
+        {
+            let mut scene = self.get_staged_scene().expect("should probably just not wrap this?. but anyways couldn't get scene during load.");
+
+            {
+                scene.register::<TransformComponent>();
+                scene.register::<TransformUiComponent>();
+                scene.register::<RenderableComponent>();
+                scene.register::<CameraComponent>();
+                scene.register::<InputComponent>();
+                scene.register::<DebugUiComponent>();
+                scene.register::<DirectionalLightComponent>();
+                scene.register::<AmbientLightingComponent>();
+                scene.register::<TerrainComponent>();
+                scene.register::<TerrainUiComponent>();
+                scene.register::<GeometryComponent>();
+                scene.register::<SimpleMarker<SerializerFlag>>();
+                scene.insert_resource(SimpleMarkerAllocator::<SerializerFlag>::new());
+            }
+
+            let mut world = scene.get_world().expect("couldn't get world out of scene in load from ron.");
+
+
+            {
+                // Ensure world is empty. Can probably remove this since I literally just made it?
+                let mut to_delete = Vec::new();
+                for e in world.entities().join() {
+                    to_delete.push(e);
+                }
+                for del in to_delete.iter() {
+                    world.delete_entity(*del).expect("Deletion failed");
+                }
+            }
+        
+            let data = fs::read_to_string(interface_path).unwrap();
+            let mut de = ron::de::Deserializer::from_str(&data).expect("Couldn't create deserializer.");
+        
+            {
+                let mut d = (&mut world.entities(), &mut world.write_storage::<SimpleMarker<SerializerFlag>>(), &mut world.write_resource::<SimpleMarkerAllocator<SerializerFlag>>());
+        
+                deserialize_individually!(
+                    world, de, d,
+                    InputComponent,
+                    CameraComponent,
+                    TransformComponent,
+                    TransformUiComponent,
+                    DebugUiComponent,
+                    RenderableComponent,
+                    DirectionalLightComponent,
+                    AmbientLightingComponent,
+                    TerrainComponent,
+                    TerrainUiComponent,
+                    GeometryComponent
+                );
+            }
+        }
+
+        // finally, set that scene as active
+        // self.activate_staged_scene();
+    
+        // let mut deleteme : Option<Entity> = None;
+        // {
+        //     let entities = ecs.entities();
+        //     let helper = ecs.read_storage::<SerializationHelper>();
+        //     let player = ecs.read_storage::<Player>();
+        //     let position = ecs.read_storage::<Position>();
+        //     for (e,h) in (&entities, &helper).join() {
+        //         let mut worldmap = ecs.write_resource::<super::map::Map>();
+        //         *worldmap = h.map.clone();
+        //         worldmap.tile_content = vec![Vec::new(); super::map::MAPCOUNT];
+        //         deleteme = Some(e);
+        //     }
+        //     for (e,_p,pos) in (&entities, &player, &position).join() {
+        //         let mut ppos = ecs.write_resource::<rltk::Point>();
+        //         *ppos = rltk::Point::new(pos.x, pos.y);
+        //         let mut player_resource = ecs.write_resource::<Entity>();
+        //         *player_resource = e;
+        //     }
+        // }
+        // ecs.delete_entity(deleteme.unwrap()).expect("Unable to delete helper");
     }
 }
