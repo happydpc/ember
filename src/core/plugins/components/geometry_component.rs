@@ -1,6 +1,6 @@
-use bytemuck::{Pod, Zeroable};
+
 use std::sync::Arc;
-use serde::{Serialize, Deserialize, Serializer};
+use serde::{Serialize, Deserialize};
 use vulkano::{
     buffer::CpuAccessibleBuffer,
     device::Device,

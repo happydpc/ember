@@ -20,6 +20,6 @@ impl PhysicsManager{
         let phys_sys = PhysicsManager{};
         phys_sys
     }
-    pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
+    pub fn prep_staged_scene(&mut self, _scene: &mut Scene<Staged>){
     }
 }

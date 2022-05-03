@@ -1,6 +1,5 @@
 use specs::{
     System,
-    SystemData,
     Join,
     WriteStorage,
     ReadExpect,

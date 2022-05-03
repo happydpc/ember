@@ -1,11 +1,11 @@
-use crate::core::plugins::components::GeometryComponent;
+
 use vulkano::{
     device::{
         Device
     }
 };
 use specs::{Component, VecStorage};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use serde::{
     Serialize,
     Deserialize,
@@ -26,7 +26,7 @@ impl RenderableComponent{
         }
     }
 
-    pub fn initialize(&mut self, device: Arc<Device>){
+    pub fn initialize(&mut self, _device: Arc<Device>){
         log::debug!("Initializing renderable component...");
         self.initialized = true;
     }

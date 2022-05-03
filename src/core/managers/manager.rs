@@ -1,4 +1,4 @@
-use crate::core::scene::{Scene, Active, Staged};
+use crate::core::scene::{Scene, Active};
 
 pub trait Manager{
     fn startup(&mut self);

@@ -86,7 +86,7 @@ impl TransformBuilder{
         }
     }
 
-    pub fn build(mut self) -> TransformComponent{
+    pub fn build(self) -> TransformComponent{
         TransformComponent{
             global_position: match self.global_position {
                 Some(gp) => Arc::new(Mutex::new(gp)),

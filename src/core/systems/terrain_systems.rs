@@ -48,10 +48,10 @@ impl<'a> System<'a> for TerrainInitSystem{
         ReadExpect<'a, Arc<Device>>
     );
 
-    fn run(&mut self, mut data: Self::SystemData) {
+    fn run(&mut self, data: Self::SystemData) {
         log::debug!("Terrain init system...");
         let (mut terrains, device) = data;
-        for mut terrain in (&mut terrains).join() {
+        for terrain in (&mut terrains).join() {
             {
                 terrain.geometry.lock().unwrap().generate_terrain();
             }
@@ -284,10 +284,10 @@ impl<'a> System<'a> for TerrainUiSystem{
 
     fn run(&mut self, data: Self::SystemData) {
         log::debug!("Terrain ui system...");
-        let (egui_state, terrain_uis, mut terrain_comps) = data;
+        let (egui_state, _terrain_uis, terrain_comps) = data;
 
         let ctx = egui_state.ctx.clone();
-        for mut terrain in terrain_comps.join(){
+        for terrain in terrain_comps.join(){
             let mut size = terrain.get_size();
             let mut amplitude = {
                 terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude.clone()

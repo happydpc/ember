@@ -238,7 +238,7 @@ impl Scene<Active> {
 impl <Active> Scene<Active>{
     pub fn serialize(&mut self){
         let mut worldref = self.world.take().unwrap();
-        let mut world = worldref.get_mut();
+        let world = worldref.get_mut();
         
         // Actually serialize
         {

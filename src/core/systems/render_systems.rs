@@ -179,7 +179,7 @@ impl <'a> System<'a> for RenderableDrawSystem{
     fn run(&mut self, data: Self::SystemData){
         log::debug!("Running RenderableDrawSystem...");
         let (transforms,
-            renderables,
+            _renderables,
             geometries,
             camera_state,
             queue,

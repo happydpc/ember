@@ -26,7 +26,7 @@ impl<'a> System<'a> for DebugUiSystem{
         log::debug!("Debug ui...");
         let (egui_state, mut egui_comps, mut should_save) = data;
         let ctx = egui_state.ctx.clone();
-        for mut comp in (&mut egui_comps).join() {
+        for comp in (&mut egui_comps).join() {
 
             // draw ui
             egui::TopBottomPanel::top("Debug")
@@ -99,10 +99,10 @@ impl<'a> System<'a> for TransformUiSystem{
 
     fn run(&mut self, data: Self::SystemData){
         log::debug!("Transform ui....");
-        let (egui_state, mut transform_comps, transfom_ui_comp) = data;
+        let (egui_state, mut transform_comps, _transfom_ui_comp) = data;
         // let (egui_state, mut transform_ui_comps) = data;
         let ctx = egui_state.ctx.clone();
-        for mut transform in (&mut transform_comps).join(){
+        for _transform in (&mut transform_comps).join(){
             // let mut pos = transform.global_position();
             // let mut posx = pos[0];
             // let mut posy = pos[1];

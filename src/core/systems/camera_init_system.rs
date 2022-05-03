@@ -6,7 +6,7 @@ impl<'a> System<'a> for CameraInitSystem{
     type SystemData = WriteStorage<'a, CameraComponent>;
 
     fn run(&mut self, mut comps: Self::SystemData) {
-        for mut cam in (&mut comps).join() {
+        for cam in (&mut comps).join() {
             cam.calculate_perspective();
         }
     }

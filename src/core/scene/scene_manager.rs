@@ -17,9 +17,6 @@ use specs::{
         SimpleMarker,
         SimpleMarkerAllocator,
         DeserializeComponents,
-    },
-    error::{
-        NoError,
     }
 };
 
@@ -86,7 +83,7 @@ impl SceneManager{
         }
     }
 
-    pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
+    pub fn prep_staged_scene(&mut self, _scene: &mut Scene<Staged>){
     }
 
     pub fn does_save_exist(&self, save_name: &'static str) -> bool {
