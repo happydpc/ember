@@ -55,8 +55,11 @@ use winit::{
 
 // egui
 
-
-
+use crate::core::plugins::components::AppInterfaceFlag;
+use crate::core::plugins::components::SerializerFlag;
+use specs::saveload::SimpleMarker;
+use specs::saveload::MarkedBuilder;
+use specs::Builder;
 
 // specs
 use specs::{WorldExt};
@@ -120,6 +123,7 @@ impl Manager for Application{
         // prep staged scene
         log::info!("Prepping and activating idle scene ...");
         self.prep_staged_scene();
+        self.temp_prep();
         self.activate_staged_scene();
 
         log::info!("Startup complete...");
@@ -198,6 +202,21 @@ impl Application{
             Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
             None => log::error!("No render manager to prep scene."),
         }
+    }
+
+    fn temp_prep(&mut self){
+        let mut scene_manager = self.get_scene_manager().unwrap();
+        let mut _scene = scene_manager.get_staged_scene().unwrap();
+        let scene = _scene.deref_mut();
+
+        scene.register::<AppInterfaceFlag>();
+
+        scene.get_world()
+            .unwrap()
+            .create_entity()
+            .with(AppInterfaceFlag{})
+            .marked::<SimpleMarker<SerializerFlag>>()
+            .build();
     }
 
     // main game loop

@@ -3,6 +3,7 @@ use crate::core::plugins::components::{DebugUiComponent, CameraComponent, Transf
 // use egui_winit::State;
 use egui_vulkano::Painter;
 use egui::Context;
+use egui::Ui;
 
 // use puffin_egui;
 
@@ -47,6 +48,10 @@ impl<'a> System<'a> for DebugUiSystem{
                                 log::info!("Close scene...");
                             }
                         });
+
+                        self.test(ui);
+                        self.test(ui);
+
                         ui.menu_button("Debug Options", |ui| {
                             if ui.button("Toggle Profiling").clicked() {
                                 log::info!("I still don't know why this breaks.");
@@ -60,6 +65,16 @@ impl<'a> System<'a> for DebugUiSystem{
                     });
                 }); // end of panel
         }
+    }
+}
+
+impl DebugUiSystem{
+    pub fn test(&self, ui: &mut Ui){
+        ui.menu_button("test", |ui|{
+            if ui.button("Close").clicked() {
+                log::info!("test");
+            }
+        });
     }
 }
 
