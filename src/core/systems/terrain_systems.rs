@@ -102,7 +102,7 @@ impl RequiresGraphicsPipeline for TerrainDrawSystemPipeline{
 
 
 pub fn TerrainDrawSystem(
-    mut query: Query<(&TransformComponent, &TerrainComponent)>,
+    query: Query<(&TransformComponent, &TerrainComponent)>,
     camera_state: Res<CameraState>,
     queue: Res<Arc<Queue>>,
     scene_state: Res<Arc<SceneState>>,
@@ -256,7 +256,7 @@ pub fn TerrainUiSystem(
     log::debug!("Terrain ui system...");
 
     let ctx = egui_state.ctx.clone();
-    for mut terrain in query.iter_mut(){
+    for terrain in query.iter_mut(){
         let mut size = terrain.get_size();
         let mut amplitude = {
             terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude.clone()

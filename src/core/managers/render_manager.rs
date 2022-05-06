@@ -10,7 +10,7 @@ use crate::core::{
         ui_systems::EguiState,
     }
 };
-use crate::core::plugins::components::EguiComponent;
+
 
 use puffin;
 
@@ -324,7 +324,7 @@ impl RenderManager{
         log::debug!("Getting egui shapes");
         let egui_output = {
             // let world = scene.get_world().unwrap();
-            let mut ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
+            let ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
             let egui_output = ctx.end_frame();
             let platform_output = egui_output.platform_output.clone();
             let textures_delta = egui_output.textures_delta.clone();
@@ -385,7 +385,7 @@ impl RenderManager{
             let sf: f32 = surface.window().scale_factor() as f32;
             // let sf = 1.0;
             let mut world = scene.get_world().unwrap();
-            let mut ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
+            let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
             // ctx.set_pixels_per_point(1.0);
             command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
             world

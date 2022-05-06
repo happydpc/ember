@@ -67,7 +67,7 @@ use winit::window::Window;
 use winit::event::ModifiersState;
 use winit::event::VirtualKeyCode;
 
-use std::any::TypeId;
+
 
 use log;
 
@@ -163,7 +163,7 @@ pub fn RenderableDrawSystem(
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<RenderableDrawSystemPipeline>().expect("Could not get pipeline from scene_state.");
 
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
-    for (transform, geometry, has_renderable) in query.iter() {
+    for (transform, geometry, _has_renderable) in query.iter() {
         log::debug!("Creating secondary command buffer builder...");
         // create buffer buildres
         // create a command buffer builder

@@ -5,7 +5,6 @@ use crate::core::scene::{
 use crate::core::systems::ui_systems::DebugUiSystem;
 use crate::core::scene::scene_manager::SceneManager;
 use bevy_ecs::{
-    world::World,
     schedule::Stage,
 };
 use bevy_ecs::prelude::Schedule;

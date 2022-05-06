@@ -2,7 +2,7 @@ use crate::core::plugins::components::{DebugUiComponent, CameraComponent, Transf
 // use egui_winit::State;
 use egui_vulkano::Painter;
 use egui::Context;
-use egui::Ui;
+
 
 use bevy_ecs::prelude::{
     Res,
@@ -92,7 +92,7 @@ pub fn TransformUiSystem(
 ){
     log::debug!("Transform ui....");
     let ctx = egui_state.ctx.clone();
-    for mut transform in query.iter_mut(){
+    for _transform in query.iter_mut(){
         // let mut pos = transform.global_position();
         // let mut posx = pos[0];
         // let mut posy = pos[1];

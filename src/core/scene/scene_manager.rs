@@ -5,26 +5,13 @@ use std::cell::{
 };
 use std::sync::Mutex;
 use std::path::Path;
-use std::fs;
-use std::convert::Infallible;
 
-use ron;
 
-use crate::deserialize_individually;
-use crate::core::plugins::components::{
-    InputComponent,
-    CameraComponent,
-    TransformComponent,
-    TransformUiComponent,
-    DebugUiComponent,
-    RenderableComponent,
-    DirectionalLightComponent,
-    AmbientLightingComponent,
-    TerrainComponent,
-    TerrainUiComponent,
-    SerializerFlag,
-    GeometryComponent,
-};
+
+
+
+
+
 use super::{
     super::managers::manager::Manager,
     scene::{
@@ -140,7 +127,7 @@ impl SceneManager{
         self.scenes.lock().unwrap().contains_key(id)
     }
 
-    pub fn load_scene_interface(&mut self, interface_path: &'static str) {
+    pub fn load_scene_interface(&mut self, _interface_path: &'static str) {
         
         let scene_id = self.generate_and_register_scene();  // create scene
         self.stage_scene(scene_id);  // stage it

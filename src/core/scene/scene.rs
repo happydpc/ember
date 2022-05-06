@@ -5,16 +5,14 @@ use bevy_ecs::{
     schedule::Stage,
     system::Resource,
 };
-use ron;
-use ron::ser::PrettyConfig;
+
+
 
 use std::{
     cell::{
         RefCell,
         RefMut,
     },
-    fs::File,
-    convert::Infallible,
 };
 
 use crate::core::managers::input_manager::KeyInputQueue;
@@ -43,22 +41,9 @@ use crate::core::systems::{
     TerrainUiSystem,
     GeometryInitializerSystem,
 };
-use crate::core::plugins::components::{
-    InputComponent,
-    CameraComponent,
-    TransformComponent,
-    TransformUiComponent,
-    DebugUiComponent,
-    RenderableComponent,
-    DirectionalLightComponent,
-    AmbientLightingComponent,
-    TerrainComponent,
-    TerrainUiComponent,
-    SerializerFlag,
-    GeometryComponent,
-};
 
-use crate::serialize_individually;
+
+
 
 pub struct Scene<S>{
     pub world: Option<RefCell<World>>,
@@ -102,7 +87,7 @@ impl Scene<Staged> {
     }
     
     fn create_teardown_schedule(&mut self){
-        let mut schedule = Schedule::default();
+        let schedule = Schedule::default();
         self.state.setup_schedule = Some(Box::new(schedule));
     }
 
@@ -189,7 +174,7 @@ impl Scene<Active> {
     }
 
     pub fn create_update_schedule(&mut self){
-        let mut schedule = Schedule::default();
+        let schedule = Schedule::default();
         self.state.update_schedule = Some(Box::new(schedule));
     }
 

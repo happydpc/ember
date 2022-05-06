@@ -23,7 +23,6 @@ use crate::core::{
     managers::physics_manager::PhysicsManager,
     managers::render_manager::RenderManager,
     managers::input_manager::InputManager,
-    plugins::components::EguiComponent,
     scene::{
         Scene,
         Active,
@@ -56,7 +55,7 @@ use winit::{
 // egui
 
 use crate::core::plugins::components::AppInterfaceFlag;
-use crate::core::plugins::components::SerializerFlag;
+
 
 // logging
 use simple_logger::SimpleLogger;
