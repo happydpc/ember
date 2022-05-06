@@ -1,4 +1,5 @@
-use specs::{Component, VecStorage};
+use bevy_ecs::component::Component;
+
 use cgmath::Vector3;
 use serde::{
     Serialize,
@@ -6,7 +7,6 @@ use serde::{
 };
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
-#[storage(VecStorage)]
 pub struct VelocityComponent{
     pub velocity: Vector3<f32>,
 }

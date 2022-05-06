@@ -14,9 +14,6 @@ use crate::core::plugins::components::EguiComponent;
 
 use puffin;
 
-// ecs
-use specs::prelude::*;
-
 // Vulkano imports
 use vulkano::{
     instance::{
@@ -222,7 +219,6 @@ impl RenderManager{
     }
 
     pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
-        scene.register::<EguiComponent>();
 
         // get required egui data
         let (egui_ctx, egui_painter) = self.initialize_egui();
@@ -307,18 +303,18 @@ impl RenderManager{
 
         // start egui frame
         {
-            let world = scene.get_world().unwrap();
-            let state = world.write_resource::<EguiState>();
-            let mut egui_winit = world.write_resource::<egui_winit::State>();
-            state.ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
+            let mut world = scene.get_world().unwrap();
+            let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
+            let mut egui_winit = world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state.");
+            ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
         }
 
         // run all systems. This will build secondary command buffers
-        log::debug!("----Render Dispatch-----");
-        scene.run_render_dispatch();
+        log::debug!("----Render schedule-----");
+        scene.run_render_schedule();
 
         let save = {
-            *scene.get_world().unwrap().read_resource::<bool>()
+            *scene.get_world().unwrap().get_resource::<bool>().expect("Couldn't get save bool")
         };
         if save {
             scene.serialize();
@@ -327,16 +323,32 @@ impl RenderManager{
         // get egui shapes from world
         log::debug!("Getting egui shapes");
         let egui_output = {
-            let world = scene.get_world().unwrap();
-            let mut state = world.write_resource::<EguiState>();
-            let mut egui_winit = world.write_resource::<egui_winit::State>();
-
-            let egui_output = state.ctx.end_frame();
+            // let world = scene.get_world().unwrap();
+            let mut ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
+            let egui_output = ctx.end_frame();
             let platform_output = egui_output.platform_output.clone();
             let textures_delta = egui_output.textures_delta.clone();
 
-            egui_winit.handle_platform_output(self.surface().window(), &state.ctx, platform_output);
-            state.painter.update_textures(textures_delta, &mut command_buffer_builder).expect("egui texture error");
+            // let mut egui_winit = scene.get_world().unwrap().get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state");
+            scene
+                .get_world()
+                .unwrap()
+                .get_resource_mut::<egui_winit::State>()
+                .expect("Couldn't get egui winit state")
+                .handle_platform_output(
+                    self.surface().window(),
+                    &ctx,
+                    platform_output
+                );
+            
+            scene
+                .get_world()
+                .unwrap()
+                .get_resource_mut::<EguiState>()
+                .expect(".")
+                .painter
+                .update_textures(textures_delta, &mut command_buffer_builder)
+                .expect("egui texture error");
             egui_output
         };
 
@@ -351,8 +363,8 @@ impl RenderManager{
 
         // get and submit secondary command buffers to render pass
         {
-            let world = scene.get_world().unwrap();
-            let mut secondary_buffers = world.write_resource::<TriangleSecondaryBuffers>();
+            let mut world = scene.get_world().unwrap();
+            let mut secondary_buffers = world.get_resource_mut::<TriangleSecondaryBuffers>().expect("Couldn't get secondary buffer vec.");
             // submit secondary buffers
             for buff in secondary_buffers.buffers.drain(..){
                 command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
@@ -360,7 +372,7 @@ impl RenderManager{
 
             command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
 
-            let mut lighting_secondary_buffers = world.write_resource::<LightingSecondaryBuffers>();
+            let mut lighting_secondary_buffers = world.get_resource_mut::<LightingSecondaryBuffers>().expect("Couldn't get lighting buffer vec");
             for buff in lighting_secondary_buffers.buffers.drain(..){
                 command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
             }
@@ -372,12 +384,14 @@ impl RenderManager{
             let size = surface.window().inner_size();
             let sf: f32 = surface.window().scale_factor() as f32;
             // let sf = 1.0;
-            let world = scene.get_world().unwrap();
-            let mut state = world.write_resource::<EguiState>();
-            let ctx = state.ctx.clone();
+            let mut world = scene.get_world().unwrap();
+            let mut ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
             // ctx.set_pixels_per_point(1.0);
             command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
-            state.painter
+            world
+                .get_resource_mut::<EguiState>()
+                .expect("Couldn't get egui state.")
+                .painter
                 .draw(
                     &mut command_buffer_builder,
                     [(size.width as f32) / sf, (size.height as f32) / sf],

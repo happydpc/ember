@@ -1,5 +1,6 @@
 use winit::event::VirtualKeyCode;
-use specs::{Component, HashMapStorage};
+use bevy_ecs::component::Component;
+
 use std::collections::VecDeque;
 use serde::{
     Serialize,
@@ -7,7 +8,6 @@ use serde::{
 };
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
-#[storage(HashMapStorage)]
 pub struct InputComponent{
     #[serde(skip, default="InputComponent::default_input_vec")]
     pub key_buffer: VecDeque<VirtualKeyCode>,

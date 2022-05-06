@@ -4,7 +4,8 @@ use vulkano::{
         Device
     }
 };
-use specs::{Component, VecStorage};
+use bevy_ecs::component::Component;
+
 use std::sync::{Arc};
 use serde::{
     Serialize,
@@ -13,7 +14,6 @@ use serde::{
 
 
 #[derive(Component, Clone, Serialize, Deserialize)]
-#[storage(VecStorage)]
 pub struct RenderableComponent{
     pub initialized: bool,
 }

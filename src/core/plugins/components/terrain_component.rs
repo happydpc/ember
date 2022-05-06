@@ -1,4 +1,5 @@
-use specs::{Component, HashMapStorage};
+use bevy_ecs::component::Component;
+
 use crate::core::rendering::geometries::TerrainGeometry;
 use vulkano::device::Device;
 use std::sync::{Arc, Mutex};
@@ -8,11 +9,9 @@ use serde::{
 };
 
 #[derive(Component, Clone, Serialize, Deserialize)]
-#[storage(HashMapStorage)]
 pub struct TerrainUiComponent;
 
 #[derive(Component, Clone, Serialize, Deserialize)]
-#[storage(HashMapStorage)]
 pub struct TerrainComponent{
     pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
 }

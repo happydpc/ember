@@ -1,7 +1,7 @@
-use crate::core::systems::render_systems::DirectionalLightingSystem;
-use crate::core::systems::render_systems::AmbientLightingSystem;
-use crate::core::systems::render_systems::RenderableDrawSystem;
-use crate::core::systems::terrain_systems::TerrainDrawSystem;
+use crate::core::systems::render_systems::DirectionalLightingSystemPipeline;
+use crate::core::systems::render_systems::AmbientLightingSystemPipeline;
+use crate::core::systems::render_systems::RenderableDrawSystemPipeline;
+use crate::core::systems::terrain_systems::TerrainDrawSystemPipeline;
 use crate::core::systems::RequiresGraphicsPipeline;
 
 use vulkano::pipeline::GraphicsPipeline;
@@ -66,10 +66,10 @@ impl SceneState{
         let pass = self.build_render_pass(swapchain.image_format(), device.clone());
 
         // create pipelines
-        let directional_lighting_pipeline = DirectionalLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
-        let ambient_lighting_pipeline = AmbientLightingSystem::create_graphics_pipeline(device.clone(), pass.clone());
-        let renderable_pipeline = RenderableDrawSystem::create_graphics_pipeline(device.clone(), pass.clone());
-        let terrain_draw_pipeline = TerrainDrawSystem::create_graphics_pipeline(device.clone(), pass.clone());
+        let directional_lighting_pipeline = DirectionalLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let ambient_lighting_pipeline = AmbientLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let renderable_pipeline = RenderableDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let terrain_draw_pipeline = TerrainDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
         
         // create viewport
         let viewport = Viewport {
@@ -83,10 +83,10 @@ impl SceneState{
         
         // add pipelines
         let pipelines = &mut *self.pipelines.lock().unwrap();
-        pipelines.insert(TypeId::of::<DirectionalLightingSystem>(), directional_lighting_pipeline);
-        pipelines.insert(TypeId::of::<RenderableDrawSystem>(), renderable_pipeline);
-        pipelines.insert(TypeId::of::<AmbientLightingSystem>(), ambient_lighting_pipeline);
-        pipelines.insert(TypeId::of::<TerrainDrawSystem>(), terrain_draw_pipeline);
+        pipelines.insert(TypeId::of::<DirectionalLightingSystemPipeline>(), directional_lighting_pipeline);
+        pipelines.insert(TypeId::of::<RenderableDrawSystemPipeline>(), renderable_pipeline);
+        pipelines.insert(TypeId::of::<AmbientLightingSystemPipeline>(), ambient_lighting_pipeline);
+        pipelines.insert(TypeId::of::<TerrainDrawSystemPipeline>(), terrain_draw_pipeline);
         
         // add buffers
         self.diffuse_buffer = Some(Arc::new(Mutex::new(diffuse_buffer)));

@@ -57,12 +57,6 @@ use winit::{
 
 use crate::core::plugins::components::AppInterfaceFlag;
 use crate::core::plugins::components::SerializerFlag;
-use specs::saveload::SimpleMarker;
-use specs::saveload::MarkedBuilder;
-use specs::Builder;
-
-// specs
-use specs::{WorldExt};
 
 // logging
 use simple_logger::SimpleLogger;
@@ -205,18 +199,18 @@ impl Application{
     }
 
     fn temp_prep(&mut self){
+        use crate::core::plugins::components::DebugUiComponent;
         let mut scene_manager = self.get_scene_manager().unwrap();
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
 
-        scene.register::<AppInterfaceFlag>();
-
         scene.get_world()
             .unwrap()
-            .create_entity()
-            .with(AppInterfaceFlag{})
-            .marked::<SimpleMarker<SerializerFlag>>()
-            .build();
+            .spawn()
+            .insert(AppInterfaceFlag{})
+            .insert(DebugUiComponent::create())
+            // .marked::<SimpleMarker<SerializerFlag>>()
+            .id();
     }
 
     // main game loop
@@ -242,7 +236,7 @@ impl Application{
                 let mut active_scene = scene_manager.get_active_scene().unwrap();
                 self.get_physics_manager().unwrap().update(active_scene.borrow_mut());
                 self.get_input_manager().unwrap().update(active_scene.borrow_mut());
-                active_scene.run_update_dispatch();
+                active_scene.run_update_schedule();
 
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;
@@ -252,10 +246,14 @@ impl Application{
             let egui_consumed_event = {
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut scene = scene_manager.get_active_scene().unwrap();
-                let world = scene.get_world().unwrap();
-                let state = world.write_resource::<EguiState>();
-                let mut egui_winit = world.write_resource::<egui_winit::State>();
-                let egui_ctx = state.ctx.clone();
+                let mut world = scene.get_world().unwrap();
+                let egui_ctx = {
+                    world.get_resource_mut::<EguiState>().expect("Couldn't get Egui state from world").ctx.clone()
+                };
+                let mut egui_winit = {
+                    world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui_winit state from world")
+                };
+                // let egui_ctx = state.ctx.clone();
                 match event{
                     Event::WindowEvent{ref event, ..} => {
                         egui_winit.on_event(&egui_ctx, &event)
@@ -362,7 +360,6 @@ impl Application{
 
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
-        scene.register::<EguiComponent>();
 
         // get required egui data
         let render_manager = self.get_render_manager().unwrap();

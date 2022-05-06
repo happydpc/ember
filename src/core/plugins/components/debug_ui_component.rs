@@ -1,7 +1,5 @@
-use specs::{
-    Component,
-    HashMapStorage,
-};
+use bevy_ecs::component::Component;
+
 use serde::{
     Serialize,
     Deserialize,
@@ -9,7 +7,6 @@ use serde::{
 
 
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
-#[storage(HashMapStorage)]
 pub struct DebugUiComponent{
     pub show_profiler: bool,
     pub terrain_wireframe: bool

@@ -1,4 +1,5 @@
-use specs::{Component, HashMapStorage};
+use bevy_ecs::component::Component;
+
 use cgmath::{
     Matrix4,
     Vector3,
@@ -14,7 +15,6 @@ use serde::{
 
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
-#[storage(HashMapStorage)]
 pub struct CameraComponent{
     pub fov: f32,
     pub near: f32,

@@ -6,7 +6,8 @@ use vulkano::{
     device::Device,
     buffer::BufferUsage,
 };
-use specs::{Component, VecStorage};
+use bevy_ecs::component::Component;
+
 use crate::core::rendering::geometries::Vertex;
 
 
@@ -18,7 +19,6 @@ pub enum GeometryType{
 }
 
 #[derive(Component, Clone, Serialize, Deserialize)]
-#[storage(VecStorage)]
 pub struct GeometryComponent{
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,

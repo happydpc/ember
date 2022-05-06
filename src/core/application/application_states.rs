@@ -2,22 +2,25 @@ use crate::core::scene::{
     Scene,
     Active
 };
-use crate::core::scene::system_dispatch::{MultiThreadedDispatcher, SystemDispatch};
-use crate::construct_dispatcher;
 use crate::core::systems::ui_systems::DebugUiSystem;
 use crate::core::scene::scene_manager::SceneManager;
-
+use bevy_ecs::{
+    world::World,
+    schedule::Stage,
+};
+use bevy_ecs::prelude::Schedule;
+use bevy_ecs::prelude::SystemStage;
 use std::cell::RefMut;
 
 
 pub trait ApplicationState{
-    fn run_dispatch(&mut self, scene: &mut Scene<Active>);
-    fn init_dispatcher(&mut self);
+    fn run_schedule(&mut self, scene: &mut Scene<Active>);
+    fn init_schedule(&mut self);
     fn scene_interface_path(&self) -> &'static str;
 }
 
 pub struct ApplicationIdleState{
-    pub dispatcher: Option<Box<dyn SystemDispatch + 'static>>,
+    pub schedule: Option<Box<dyn Stage>>,
     pub scene_interface_path: &'static str,
     idle_scene_id: i16,
 }
@@ -25,7 +28,7 @@ pub struct ApplicationIdleState{
 impl ApplicationIdleState{
     pub fn create() -> Self{
         ApplicationIdleState{
-            dispatcher: None,
+            schedule: None,
             scene_interface_path: "./idle_state.ron",
             idle_scene_id: -1,
         }
@@ -41,18 +44,19 @@ impl ApplicationIdleState{
 }
 
 impl ApplicationState for ApplicationIdleState {
-    fn run_dispatch(&mut self, scene: &mut Scene<Active>){
-        log::info!("Running scene dispatch...");
-        let mut dispatch = self.dispatcher.take().expect("No setup dispatch");
-        dispatch.run_now(&mut *scene.get_world().unwrap());
-        self.dispatcher = Some(dispatch);
+    fn run_schedule(&mut self, scene: &mut Scene<Active>){
+        log::info!("Running scene schedule...");
+        let mut schedule = self.schedule.take().expect("No setup schedule");
+        schedule.run(&mut *scene.get_world().unwrap());
+        self.schedule = Some(schedule);
     }
 
-    fn init_dispatcher(&mut self){
-        construct_dispatcher!(
-            (DebugUiSystem, "debug_ui", &[])
+    fn init_schedule(&mut self){
+        let mut schedule = Schedule::default();
+        schedule.add_stage("draw_ui", SystemStage::parallel()
+            .with_system(DebugUiSystem)
         );
-        self.dispatcher = Some(new_dispatch());
+        self.schedule = Some(Box::new(schedule));
     }
     
     fn scene_interface_path(&self) -> &'static str{

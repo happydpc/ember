@@ -1,8 +1,8 @@
-use specs::{
-    System,
-    Join,
-    WriteStorage,
-    ReadExpect,
+use bevy_ecs::{
+    prelude::{
+        Query, 
+        Res,
+    }
 };
 use vulkano::device::Device;
 
@@ -12,19 +12,19 @@ use crate::core::rendering::geometries::geometry_primitives::{
 };
 use crate::core::plugins::components::geometry_component::{GeometryComponent, GeometryType};
 
-pub struct GeometryInitializerSystem;
+pub struct GeometryInitHelper;
 
-impl GeometryInitializerSystem{
-    fn create_geometry(&self, mut geom: &mut GeometryComponent, device: Arc<Device>){
+impl GeometryInitHelper{
+    fn create_geometry(mut geom: &mut GeometryComponent, device: Arc<Device>){
         match geom.geometry_type{
-            GeometryType::Box => self.init_cube(&mut geom),
-            GeometryType::Triangle => self.init_triangle(&mut geom),
-            GeometryType::Plane => self.init_plane(&mut geom),
+            GeometryType::Box => GeometryInitHelper::init_cube(&mut geom),
+            GeometryType::Triangle => GeometryInitHelper::init_triangle(&mut geom),
+            GeometryType::Plane => GeometryInitHelper::init_plane(&mut geom),
         };
         geom.initialize(device.clone());
     }
 
-    fn init_cube(&self, mut geom: &mut GeometryComponent){
+    fn init_cube(mut geom: &mut GeometryComponent){
         // dx here is just delta, not associated with x axis
         let dx = 0.5;
 
@@ -58,7 +58,7 @@ impl GeometryInitializerSystem{
         // geom.initialized = true;
     }
 
-    fn init_plane(&self, mut geom: &mut GeometryComponent){
+    fn init_plane(mut geom: &mut GeometryComponent){
         let corner_offset = 0.5;
 
         // top left, top right, bottom left, bottom right
@@ -72,7 +72,7 @@ impl GeometryInitializerSystem{
         // geom.initialized = true;
     }
 
-    fn init_triangle(&self, mut geom: &mut GeometryComponent){
+    fn init_triangle(mut geom: &mut GeometryComponent){
         let corner_offset = 0.5;
         let vertices = vec![
             Vertex{position: [-corner_offset, -corner_offset, 0.0]},
@@ -85,19 +85,15 @@ impl GeometryInitializerSystem{
     }
 }
 
-impl<'a> System<'a> for GeometryInitializerSystem{
-    type SystemData = (
-        ReadExpect<'a, Arc<Device>>,
-        WriteStorage<'a, GeometryComponent>,
-    );
 
-    fn run(&mut self, data: Self::SystemData) {
-        log::debug!("Running geometry init system...");
-        let (device, mut geometries) = data;
-        let device = &*device;
-        for mut geometry in (&mut geometries).join() {
-            self.create_geometry(&mut geometry, device.clone());
-            geometry.initialize(device.clone());
-        }
+pub fn GeometryInitializerSystem(
+    mut query: Query<&mut GeometryComponent>,
+    device: Res<Arc<Device>>,
+)
+{
+    log::debug!("Running geometry init system...");
+    for mut geometry in query.iter_mut() {
+        GeometryInitHelper::create_geometry(&mut geometry, device.clone());
+        geometry.initialize(device.clone());
     }
 }

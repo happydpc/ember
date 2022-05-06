@@ -9,7 +9,8 @@ edition = "2018"
 [dependencies]
 serde = {version = "1", features=["derive"]}
 ron = "0.7"
-specs = {version = "*", features = ["specs-derive", "serde"] }
+# specs = {version = "*", features = ["specs-derive", "serde"] }
+bevy_ecs = {version = "0.7"}
 bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
 vulkano = "0.29"
 vulkano-shaders = "0.29"

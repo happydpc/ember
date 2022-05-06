@@ -1,4 +1,5 @@
-use specs::{Component, VecStorage};
+use bevy_ecs::component::Component;
+
 use cgmath::{
     Matrix4,
     Vector3,
@@ -11,11 +12,9 @@ use serde::{
 };
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
-#[storage(VecStorage)]
 pub struct TransformUiComponent;
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
-#[storage(VecStorage)]
 pub struct TransformComponent{
     pub global_position: Arc<Mutex<Vector3<f32>>>,
     pub rotation: Arc<Mutex<Matrix4<f32>>>,
