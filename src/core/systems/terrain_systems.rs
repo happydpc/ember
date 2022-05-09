@@ -50,7 +50,7 @@ pub fn TerrainInitSystem(
     mut query: Query<&mut TerrainComponent>,
     device: Res<Arc<Device>>,
 ){
-    log::debug!("Terrain init system...");
+    log::info!("Terrain init system...");
     for mut terrain in query.iter_mut() {
         {
             terrain.geometry.lock().unwrap().generate_terrain();

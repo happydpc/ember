@@ -219,7 +219,7 @@ impl RenderManager{
     }
 
     pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
-
+        log::info!("Render Manager prepping scene...");
         // get required egui data
         let (egui_ctx, egui_painter) = self.initialize_egui();
         let egui_winit = self.create_egui_winit_state();
@@ -238,6 +238,7 @@ impl RenderManager{
         scene.insert_resource(self.queue());
         scene.insert_resource(camera_state);
         scene.insert_resource(self.scene_state());
+        log::debug!("Does device exist: {:?}", scene.contains_resource::<Arc<Device>>());
     }
 
     // create a new render manager with Inactive values

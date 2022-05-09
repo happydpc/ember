@@ -18,7 +18,7 @@ pub struct TerrainComponent{
 
 impl TerrainComponent{
 
-    pub fn new(size: usize) -> Self{
+    pub fn create(size: usize) -> Self{
         TerrainComponent{
             geometry: Arc::new(Mutex::new(Box::new(TerrainGeometry::new(size))))
         }

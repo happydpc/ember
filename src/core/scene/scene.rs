@@ -14,6 +14,7 @@ use std::{
         RefMut,
     },
 };
+use std::borrow::BorrowMut;
 
 use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::systems::{
@@ -52,13 +53,13 @@ pub struct Scene<S>{
 
 pub struct Active{
     pub device_loaded: bool,
-    pub update_schedule: Option<Box<dyn Stage>>,
-    pub render_schedule: Option<Box<dyn Stage>>,
+    pub update_schedule: Option<Schedule>,
+    pub render_schedule: Option<Schedule>,
 }
 pub struct Inactive;
 pub struct Staged{
-    pub setup_schedule: Option<Box<dyn Stage>>,
-    pub teardown_schedule: Option<Box<dyn Stage>>,
+    pub setup_schedule: Option<Schedule>,
+    pub teardown_schedule: Option<Schedule>,
 }
 
 impl Scene<Inactive> {
@@ -74,27 +75,29 @@ impl Scene<Inactive> {
 impl Scene<Staged> {
     fn create_setup_schedule(&mut self){
         let mut schedule = Schedule::default();
-        
+        log::info!("Creating setup schedule.");
         schedule
         .add_stage("geometry_init", SystemStage::parallel()
             .with_system(GeometryInitializerSystem)
             .with_system(TerrainInitSystem)
-        ).add_stage_after("geometry_init", "final_init", SystemStage::parallel()
+        ).add_stage("final_init", SystemStage::parallel()
             .with_system(CameraInitSystem)
             .with_system(RenderableInitializerSystem)
         );
-        self.state.setup_schedule = Some(Box::new(schedule));
+        self.state.setup_schedule = Some(schedule);
     }
     
     fn create_teardown_schedule(&mut self){
         let schedule = Schedule::default();
-        self.state.setup_schedule = Some(Box::new(schedule));
+        self.state.teardown_schedule = Some(schedule);
     }
 
     pub fn run_setup_schedule(&mut self){
-        log::info!("Running setup schedule...");
+        log::info!("Running setup schedule for staged scene...");
         let mut schedule = self.state.setup_schedule.take().expect("No setup schedule");
+        log::debug!("about to run schedule");
         schedule.run(&mut *self.get_world().unwrap());
+        log::debug!("Reinserting schedule");
         self.state.setup_schedule = Some(schedule);
     }
 
@@ -124,6 +127,18 @@ impl Scene<Staged> {
             None=> (),
         }
     }
+
+    pub fn contains_resource<R>(&mut self) -> bool
+    where
+        R: Resource,
+    {
+        match &self.world{
+            Some(world) => {
+                world.borrow().contains_resource::<R>()
+            },
+            None => false
+        }
+    }
 }
 
 impl Scene<Active> {
@@ -140,6 +155,29 @@ impl Scene<Active> {
             None=> (),
         }
     }
+
+    pub fn contains_resource<R>(&mut self) -> bool
+    where
+        R: Resource,
+    {
+        match &self.world{
+            Some(world) => {
+                world.borrow().contains_resource::<R>()
+            },
+            None => false
+        }
+    }
+    // pub fn get_resource<R>(&mut self, r: R) -> Option<&R>
+    // where
+    //     R: Resource,
+    // {
+    //     match &self.world{
+    //         Some(world) => {
+    //             world.borrow().get_resource::<R>()
+    //         },
+    //         None => None,
+    //     }
+    // }
 
     pub fn get_world(&mut self) -> Option<RefMut<World>>{
         match &self.world {
@@ -165,17 +203,17 @@ impl Scene<Active> {
             .with_system(DirectionalLightingSystem)
             .with_system(AmbientLightingSystem)
             .with_system(TerrainDrawSystem)
-        ).add_stage("ui_stage", SystemStage::parallel()
+        ).add_stage("ui_stage", SystemStage::single_threaded()
             .with_system(TerrainUiSystem)
             .with_system(DebugUiSystem)
             .with_system(CameraUiSystem)
         );
-        self.state.render_schedule = Some(Box::new(schedule));
+        self.state.render_schedule = Some(schedule);
     }
 
     pub fn create_update_schedule(&mut self){
         let schedule = Schedule::default();
-        self.state.update_schedule = Some(Box::new(schedule));
+        self.state.update_schedule = Some(schedule);
     }
 
     pub fn run_render_schedule(&mut self){

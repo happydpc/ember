@@ -3,7 +3,7 @@ use crate::core::scene::{
     Active
 };
 use crate::core::systems::ui_systems::DebugUiSystem;
-use crate::core::scene::scene_manager::SceneManager;
+use crate::core::managers::SceneManager;
 use bevy_ecs::{
     schedule::Stage,
 };

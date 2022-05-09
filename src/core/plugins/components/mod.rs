@@ -25,4 +25,5 @@ pub use terrain_component::TerrainComponent;
 pub use terrain_component::TerrainUiComponent;
 pub use serializer_component::SerializerFlag;
 pub use geometry_component::GeometryComponent;
+pub use geometry_component::GeometryType;
 pub use ui::AppInterfaceFlag;

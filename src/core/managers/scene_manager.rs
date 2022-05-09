@@ -6,14 +6,8 @@ use std::cell::{
 use std::sync::Mutex;
 use std::path::Path;
 
-
-
-
-
-
-
-use super::{
-    super::managers::manager::Manager,
+use crate::core::{
+    managers::manager::Manager,
     scene::{
         Scene,
         Active,

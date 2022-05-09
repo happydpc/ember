@@ -20,15 +20,12 @@ use std::borrow::Borrow;
 
 use crate::core::{
     managers::manager::Manager,
-    managers::physics_manager::PhysicsManager,
-    managers::render_manager::RenderManager,
-    managers::input_manager::InputManager,
+    managers::RenderManager,
+    managers::InputManager,
+    managers::SceneManager,
     scene::{
         Scene,
         Active,
-        scene_manager::{
-            SceneManager,
-        },
     },
     systems::ui_systems::EguiState,
 };
@@ -69,7 +66,6 @@ use log::LevelFilter;
 pub struct Application{
     // state: ApplicationState,
     render_manager: Option<RefCell<RenderManager>>,
-    physics_manager: Option<RefCell<PhysicsManager>>,
     scene_manager: Option<RefCell<SceneManager>>,
     input_manager: Option<RefCell<InputManager>>,
     event_loop: Option<EventLoop<()>>,
@@ -89,14 +85,12 @@ impl Manager for Application{
         log::info!("Starting application ...");
         // create other managers
         let mut render_manager = RenderManager::create_new();
-        let mut physics_manager = PhysicsManager::create_new();
         let mut scene_manager = SceneManager::create_new();
         let mut input_manager = InputManager::create_new();
 
         // initialize other managers
         log::info!("Running manager startup functions ...");
         let (event_loop, surface) = render_manager.startup();
-        physics_manager.startup();
         scene_manager.startup();
         input_manager.startup();
 
@@ -107,7 +101,6 @@ impl Manager for Application{
         
         // store managers and other created things
         self.render_manager = Some(RefCell::new(render_manager));
-        self.physics_manager = Some(RefCell::new(physics_manager));
         self.scene_manager = Some(RefCell::new(scene_manager));
         self.input_manager = Some(RefCell::new(input_manager));
         self.event_loop = Some(event_loop);
@@ -116,7 +109,7 @@ impl Manager for Application{
         // prep staged scene
         log::info!("Prepping and activating idle scene ...");
         self.prep_staged_scene();
-        self.temp_prep();
+        self.temp_prep(); // here until i fix serialization again and actually have a functional editor state
         self.activate_staged_scene();
 
         log::info!("Startup complete...");
@@ -125,10 +118,6 @@ impl Manager for Application{
     // Shutdown process
     fn shutdown(&mut self){
         log::info!("Shutting down application...");
-        match &self.physics_manager {
-            Some(manager) => manager.borrow_mut().shutdown(),
-            None => log::error!("No physics manager to shutdown."),
-        }
         match &self.scene_manager {
             Some(manager) => manager.borrow_mut().shutdown(),
             None => log::error!("No scene manager to shutdown."),
@@ -149,10 +138,6 @@ impl Manager for Application{
             Some(manager) => manager.borrow_mut().update(scene),
             None => log::error!("No input manager to update."),
         }
-        match &self.physics_manager {
-            Some(manager) => manager.borrow_mut().update(scene),
-            None => log::error!("No physics manager to update."),
-        }
         match &self.scene_manager {
             Some(manager) => manager.borrow_mut().update(scene),
             None => log::error!("No scene manager to update."),
@@ -169,7 +154,6 @@ impl Application{
     pub fn create_application(log_level: Option<LevelFilter>) -> Self{
         Self {
             render_manager: None,
-            physics_manager: None,
             scene_manager: None,
             input_manager: None,
             event_loop: None,
@@ -182,7 +166,7 @@ impl Application{
 
     // preps a staged scene
     fn prep_staged_scene(&mut self){
-
+        log::debug!("Prepping idle scene...");
         let mut scene_manager = self.get_scene_manager().unwrap();
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
@@ -198,7 +182,21 @@ impl Application{
     }
 
     fn temp_prep(&mut self){
-        use crate::core::plugins::components::DebugUiComponent;
+        use crate::core::plugins::components::{
+            DebugUiComponent,
+            TerrainUiComponent,
+            TerrainComponent,
+            TransformComponent,
+            DirectionalLightComponent,
+            CameraComponent,
+            InputComponent,
+            GeometryType,
+            GeometryComponent,
+            RenderableComponent,
+            AmbientLightingComponent,
+        };
+        use cgmath::Vector3;
+
         let mut scene_manager = self.get_scene_manager().unwrap();
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
@@ -209,6 +207,41 @@ impl Application{
             .insert(AppInterfaceFlag{})
             .insert(DebugUiComponent::create())
             // .marked::<SimpleMarker<SerializerFlag>>()
+            .id();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(TerrainComponent::create(20))
+            .insert(TransformComponent::create_empty())
+            .insert(TerrainUiComponent{})
+            .id();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(TransformComponent::create_empty())
+            .id();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(DirectionalLightComponent::new(Vector3::new(-0.5, -0.2, -0.8), [1.0, 1.0, 1.0]))
+            .id();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(AmbientLightingComponent::new([1.0, 1.0, 1.0]))
+            .id();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(CameraComponent::create_default())
+            .insert(InputComponent::create())
             .id();
     }
 
@@ -231,10 +264,14 @@ impl Application{
 
             let mut loops = 0;
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
+                // get scene
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut active_scene = scene_manager.get_active_scene().unwrap();
-                self.get_physics_manager().unwrap().update(active_scene.borrow_mut());
+
+                // run input 
                 self.get_input_manager().unwrap().update(active_scene.borrow_mut());
+                
+                // run physics
                 active_scene.run_update_schedule();
 
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
@@ -333,12 +370,6 @@ impl Application{
                     }
                 }
             }
-
-            // Event::MainEventsCleared => {
-            //     self.render_scene();
-            // }
-
-
             _ => (), // catch all of event match
         } // end of event match
     }
@@ -353,9 +384,6 @@ impl Application{
     // pub fn stage_scene(&mut self, scene_id: i16) {
     pub fn initialize_egui_state_on_staged_scene(&mut self){// scene: &mut Scene<Active>){
         let mut scene_manager = self.get_scene_manager().unwrap();
-
-        // create scene and register egui component
-        // scene_manager.stage_scene(scene_id);
 
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
@@ -376,13 +404,6 @@ impl Application{
 
     pub fn get_scene_manager(&self) -> Option<RefMut<SceneManager>> {
         match &self.scene_manager{
-            Some(manager) => Some(manager.borrow_mut()),
-            None => None,
-        }
-    }
-
-    pub fn get_physics_manager(&self) -> Option<RefMut<PhysicsManager>> {
-        match &self.physics_manager {
             Some(manager) => Some(manager.borrow_mut()),
             None => None,
         }
