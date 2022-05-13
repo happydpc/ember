@@ -34,6 +34,8 @@ use crate::core::systems::{
     },
     ui_systems::{
         CameraUiSystem,
+        FileSubMenuSystem,
+        MainMenuSystem,
     },
     CameraInitSystem,
     TerrainInitSystem,
@@ -41,6 +43,9 @@ use crate::core::systems::{
     TerrainAssemblyStateModifierSystem,
     TerrainUiSystem,
     GeometryInitializerSystem,
+    SceneSerializationSystem,
+    TerrainUpdateSystem,
+    MainMenuInitSystem,
 };
 
 
@@ -203,10 +208,18 @@ impl Scene<Active> {
             .with_system(DirectionalLightingSystem)
             .with_system(AmbientLightingSystem)
             .with_system(TerrainDrawSystem)
-        ).add_stage("ui_stage", SystemStage::single_threaded()
+        ).add_stage("pre_ui", SystemStage::single_threaded()
+            .with_system(MainMenuInitSystem)
+        )
+        .add_stage_after("pre_ui", "ui", SystemStage::single_threaded()
             .with_system(TerrainUiSystem)
             .with_system(DebugUiSystem)
             .with_system(CameraUiSystem)
+            .with_system(MainMenuSystem)
+            .with_system(FileSubMenuSystem)
+        ).add_stage("event_processing", SystemStage::parallel()
+            .with_system(SceneSerializationSystem)
+            .with_system(TerrainUpdateSystem)
         );
         self.state.render_schedule = Some(schedule);
     }

@@ -3,8 +3,15 @@ use winit::event::VirtualKeyCode;
 use cgmath::InnerSpace;
 
 use crate::core::managers::input_manager::KeyInputQueue;
-use bevy_ecs::prelude::{Query, Res};
+use bevy_ecs::prelude::{Query, Res, ResMut};
 // pub struct CameraMoveSystem;
+
+pub fn InputPrepSystem(
+    input_queue: ResMut<KeyInputQueue>,
+    modifier_state: ResMut<Option<VirtualKeyCode>>,
+){
+
+}
 
 pub fn CameraMoveSystem(
     mut query: Query<&mut CameraComponent>,

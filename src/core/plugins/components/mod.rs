@@ -27,3 +27,6 @@ pub use serializer_component::SerializerFlag;
 pub use geometry_component::GeometryComponent;
 pub use geometry_component::GeometryType;
 pub use ui::AppInterfaceFlag;
+pub use ui::MainMenuComponent;
+pub use ui::FileSubMenuComponent;
+pub use ui::FileMenuSaveComponent;

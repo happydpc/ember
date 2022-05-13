@@ -1,12 +1,28 @@
-use specs::{System, Read};
 use crate::core::plugins::components::{
     DebugUiComponent,
 };
 use ron::ser::{to_string_pretty, PrettyConfig};
-
+use bevy_ecs::prelude::{
+    ResMut,
+};
+use bevy_ecs::event::{
+    // Reader,
+    Events,
+};
+use crate::core::events::serialization_events::SaveEvent;
 
 // types
 pub struct SerializerData(Vec<String>);
+
+pub fn SceneSerializationSystem(
+    mut save_events: ResMut<Events<SaveEvent>>,
+){
+    let mut reader = save_events.get_reader();
+    for event in reader.iter(&save_events){
+        log::info!("Save detected!");
+    }
+    save_events.clear();
+}
 
 
 // systems

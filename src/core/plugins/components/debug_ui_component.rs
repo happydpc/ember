@@ -6,7 +6,7 @@ use serde::{
 };
 
 
-#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+#[derive(Component, Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct DebugUiComponent{
     pub show_profiler: bool,
     pub terrain_wireframe: bool

@@ -4,6 +4,7 @@ use bevy_ecs::prelude::{
     ResMut,
     With,
 };
+use bevy_ecs::event::Events;
 
 use cgmath::Matrix4;
 
@@ -18,6 +19,8 @@ use crate::core::systems::render_systems::CameraState;
 use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::systems::ui_systems::EguiState;
 use crate::core::plugins::components::TerrainUiComponent;
+
+use crate::core::events::terrain_events::TerrainRecalculateEvent;
 
 use vulkano::buffer::CpuBufferPool;
 use vulkano::buffer::BufferUsage;
@@ -57,6 +60,23 @@ pub fn TerrainInitSystem(
         }
         terrain.initialize(device.clone());
     }
+}
+
+pub fn TerrainUpdateSystem(
+    mut query: Query<&mut TerrainComponent>,
+    mut recalculate_events: ResMut<Events<TerrainRecalculateEvent>>,
+    device: Res<Arc<Device>>,
+){
+    let mut reader = recalculate_events.get_reader();
+    for event in reader.iter(&recalculate_events){
+        for mut terrain in query.iter_mut(){
+            {
+                terrain.geometry.lock().unwrap().generate_terrain();
+            }
+            terrain.initialize(device.clone());
+        }
+    }
+    recalculate_events.clear();
 }
 
 pub struct TerrainDrawSystemPipeline;
@@ -251,6 +271,7 @@ impl TerrainAssemblyStateSystemPipeline {
 
 pub fn TerrainUiSystem(
     mut query: Query<&mut TerrainComponent, With<TerrainUiComponent>>,
+    mut terrain_recalc_events: ResMut<Events<TerrainRecalculateEvent>>,
     egui_state: Res<EguiState>,
 ){
     log::debug!("Terrain ui system...");
@@ -266,7 +287,7 @@ pub fn TerrainUiSystem(
             .show(&ctx, |ui| {
                 ui.horizontal(|ui|{
                     ui.label("Size");
-                    ui.add(egui::Slider::new(&mut size, 2..=100).step_by(1.0));
+                    ui.add(egui::Slider::new(&mut size, 2..=500).step_by(1.0));
                 });
                 ui.horizontal(|ui|{
                     ui.label("Amplidutde");
@@ -276,7 +297,10 @@ pub fn TerrainUiSystem(
         if size < 1 {
             size = 1;
         }
-        terrain.set_size(size as usize);
-        terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude = amplitude;
+        if size != terrain.get_size(){
+            terrain.set_size(size as usize);
+            terrain_recalc_events.send(TerrainRecalculateEvent{});
+        }
+        // terrain.set_size(size as usize);
     }
 }

@@ -16,7 +16,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize)]
 pub struct TerrainGeometry{
     pub vertices: Vec<Vertex>,
-    pub indices: Vec<u16>,
+    pub indices: Vec<u32>,
     pub height_map: Vec<Vec<f64>>,
     pub size: usize,
     pub amplitude: f64,
@@ -26,7 +26,7 @@ pub struct TerrainGeometry{
     #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
     #[serde(skip, default="GeometryComponent::default_index_buffer")]
-    pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
+    pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
     pub initialized: bool,
 }
 
@@ -54,7 +54,7 @@ impl TerrainGeometry{
 
     pub fn generate_terrain(&mut self){
         self.height_map.clear();
-        let size = self.size as u16;
+        let size = self.size as u32;
         self.vertices.clear();
         self.indices.clear();
         let noise_fn: &(dyn NoiseFn<[f64; 2]> + Send + Sync) = self.noise_fn.borrow();
@@ -74,7 +74,7 @@ impl TerrainGeometry{
 
         for y in 0..(size-1) {
             for x in 0..(size-1) {
-                let ix = (y * size + x) as u16;
+                let ix = (y * size + x) as u32;
                 self.indices.push(ix);
                 self.indices.push(ix + 1);
                 self.indices.push(ix + size + 1);

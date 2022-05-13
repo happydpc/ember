@@ -21,11 +21,11 @@ pub enum GeometryType{
 #[derive(Component, Clone, Serialize, Deserialize)]
 pub struct GeometryComponent{
     pub vertices: Vec<Vertex>,
-    pub indices: Vec<u16>,
+    pub indices: Vec<u32>,
     #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
     #[serde(skip, default="GeometryComponent::default_index_buffer")]
-    pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u16]>>>,
+    pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
     pub initialized: bool,
     pub geometry_type: GeometryType,
 }
@@ -44,7 +44,7 @@ impl GeometryComponent{
     pub fn default_vertex_buffer() -> Option<Arc<CpuAccessibleBuffer<[Vertex]>>> {
         None
     }
-    pub fn default_index_buffer() -> Option<Arc<CpuAccessibleBuffer<[u16]>>> {
+    pub fn default_index_buffer() -> Option<Arc<CpuAccessibleBuffer<[u32]>>> {
         None
     }
 
@@ -84,7 +84,7 @@ impl GeometryComponent{
         self.vertex_buffer.clone().unwrap().clone()
     }
 
-    pub fn index_buffer(&self) -> Arc<CpuAccessibleBuffer<[u16]>> {
+    pub fn index_buffer(&self) -> Arc<CpuAccessibleBuffer<[u32]>> {
         self.index_buffer.clone().unwrap().clone()
     }
 

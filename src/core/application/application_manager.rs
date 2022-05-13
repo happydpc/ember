@@ -194,7 +194,13 @@ impl Application{
             GeometryComponent,
             RenderableComponent,
             AmbientLightingComponent,
+            MainMenuComponent,
+            FileSubMenuComponent,
         };
+        use crate::core::events::serialization_events::SaveEvent;
+        use crate::core::events::menu_messages::MenuMessage;
+        use crate::core::events::terrain_events::TerrainRecalculateEvent;
+        use bevy_ecs::event::Events;
         use cgmath::Vector3;
 
         let mut scene_manager = self.get_scene_manager().unwrap();
@@ -203,11 +209,34 @@ impl Application{
 
         scene.get_world()
             .unwrap()
+            .init_resource::<Events<SaveEvent>>();
+
+        scene.get_world()
+            .unwrap()
+            .init_resource::<Events<MenuMessage<MainMenuComponent>>>();
+        scene.get_world()
+            .unwrap()
+            .init_resource::<Events<MenuMessage<FileSubMenuComponent>>>();
+        
+        scene.get_world()
+            .unwrap()
+            .init_resource::<Events<TerrainRecalculateEvent>>();
+            
+
+        let MainMenuEntity = scene.get_world()
+            .unwrap()
             .spawn()
             .insert(AppInterfaceFlag{})
+            .insert(MainMenuComponent{ui: None})
             .insert(DebugUiComponent::create())
             // .marked::<SimpleMarker<SerializerFlag>>()
             .id();
+        
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(FileSubMenuComponent{parent: Some(MainMenuEntity)});    
+
 
         scene.get_world()
             .unwrap()
