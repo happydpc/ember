@@ -2,7 +2,6 @@ use crate::core::scene::{
     Scene,
     Active
 };
-use crate::core::systems::ui_systems::DebugUiSystem;
 use crate::core::managers::SceneManager;
 use bevy_ecs::{
     schedule::Stage,
@@ -52,9 +51,6 @@ impl ApplicationState for ApplicationIdleState {
 
     fn init_schedule(&mut self){
         let mut schedule = Schedule::default();
-        schedule.add_stage("draw_ui", SystemStage::parallel()
-            .with_system(DebugUiSystem)
-        );
         self.schedule = Some(Box::new(schedule));
     }
     

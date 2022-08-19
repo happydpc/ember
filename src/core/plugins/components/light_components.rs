@@ -1,19 +1,21 @@
 use bevy_ecs::component::Component;
 
-use cgmath::Vector3;
+use ember_math::Vector3f;
 use serde::{
     Serialize,
     Deserialize,
 };
+use bevy_reflect::{Reflect, FromReflect};
+
 
 #[derive(Component, Clone, Serialize, Deserialize)]
 pub struct DirectionalLightComponent{
-    pub direction: Vector3<f32>,
+    pub direction: Vector3f,
     pub color: [f32; 3],
 }
 
 impl DirectionalLightComponent{
-    pub fn new(direction: Vector3<f32>, color: [f32; 3]) -> Self {
+    pub fn new(direction: Vector3f, color: [f32; 3]) -> Self {
         DirectionalLightComponent{
             direction: direction,
             color: color,
@@ -24,7 +26,7 @@ impl DirectionalLightComponent{
 impl Default for DirectionalLightComponent {
     fn default() -> Self { 
         DirectionalLightComponent{
-            direction: Vector3::new(1.0, 1.0, -1.0),
+            direction: Vector3f::new(1.0, 1.0, -1.0),
             color: [1.0, 1.0, 1.0],
         }
     }

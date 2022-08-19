@@ -7,12 +7,18 @@ use serde::{
     Serialize,
     Deserialize,
 };
+use bevy_reflect::{
+    Reflect,
+    FromReflect
+};
 
-#[derive(Component, Clone, Serialize, Deserialize)]
+
+#[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 pub struct TerrainUiComponent;
 
-#[derive(Component, Clone, Serialize, Deserialize)]
+#[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 pub struct TerrainComponent{
+    #[reflect(ignore)]
     pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
 }
 

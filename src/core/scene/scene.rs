@@ -18,9 +18,6 @@ use std::borrow::BorrowMut;
 
 use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::systems::{
-    ui_systems::{
-        DebugUiSystem,
-    },
     input_systems::{
         CameraMoveSystem,
     },
@@ -35,7 +32,6 @@ use crate::core::systems::{
     ui_systems::{
         CameraUiSystem,
         FileSubMenuSystem,
-        MainMenuSystem,
     },
     CameraInitSystem,
     TerrainInitSystem,
@@ -46,6 +42,8 @@ use crate::core::systems::{
     SceneSerializationSystem,
     TerrainUpdateSystem,
     MainMenuInitSystem,
+    ShowNewProjectWindow,
+    ShowOpenProjectWindow,
 };
 
 
@@ -213,10 +211,10 @@ impl Scene<Active> {
         )
         .add_stage_after("pre_ui", "ui", SystemStage::single_threaded()
             .with_system(TerrainUiSystem)
-            .with_system(DebugUiSystem)
             .with_system(CameraUiSystem)
-            .with_system(MainMenuSystem)
             .with_system(FileSubMenuSystem)
+            .with_system(ShowNewProjectWindow)
+            .with_system(ShowOpenProjectWindow)
         ).add_stage("event_processing", SystemStage::parallel()
             .with_system(SceneSerializationSystem)
             .with_system(TerrainUpdateSystem)
@@ -271,7 +269,6 @@ impl <Active> Scene<Active>{
         //         CameraComponent,
         //         TransformComponent,
         //         TransformUiComponent,
-        //         DebugUiComponent,
         //         RenderableComponent,
         //         DirectionalLightComponent,
         //         AmbientLightingComponent,

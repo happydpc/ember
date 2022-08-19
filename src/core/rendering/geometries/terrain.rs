@@ -1,3 +1,4 @@
+use bevy_reflect::{Reflect, FromReflect};
 use std::sync::{
     Arc,
 };
@@ -122,5 +123,22 @@ impl TerrainGeometry{
 
     fn default_noise_fn() -> Box<dyn NoiseFn<[f64; 2]> + Send + Sync>{
         Box::new(OpenSimplex::new())
+    }
+}
+
+impl Default for TerrainGeometry {
+    fn default() -> Self {
+        TerrainGeometry{
+            vertices: Vec::new(),
+            indices: Vec::new(),
+            height_map: Vec::new(),
+            size: 128,
+            amplitude: 1.0,
+            seed: 1,
+            noise_fn: Box::new(OpenSimplex::new()),
+            vertex_buffer: None,
+            index_buffer: None,
+            initialized: false
+        }
     }
 }

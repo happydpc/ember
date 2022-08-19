@@ -7,27 +7,46 @@ use vulkano::{
     buffer::BufferUsage,
 };
 use bevy_ecs::component::Component;
+use bevy_ecs::prelude::ReflectComponent;
+use bevy_reflect::{Reflect, FromReflect, ReflectDeserialize};
 
 use crate::core::rendering::geometries::Vertex;
 
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Reflect, FromReflect, PartialEq)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum GeometryType{
     Triangle,
     Box,
     Plane,
 }
 
-#[derive(Component, Clone, Serialize, Deserialize)]
+#[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct GeometryComponent{
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
     #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
+    #[reflect(ignore)]
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
     #[serde(skip, default="GeometryComponent::default_index_buffer")]
+    #[reflect(ignore)]
     pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
     pub initialized: bool,
     pub geometry_type: GeometryType,
+}
+
+impl Default for GeometryComponent{
+    fn default() -> Self {
+        GeometryComponent{
+            vertices: Vec::new(),
+            indices: Vec::new(),
+            vertex_buffer: None,
+            index_buffer: None,
+            initialized: false,
+            geometry_type: GeometryType::Triangle,
+        }
+    }
 }
 
 impl GeometryComponent{

@@ -6,7 +6,7 @@ use bevy_ecs::prelude::{
 };
 use bevy_ecs::event::Events;
 
-use cgmath::Matrix4;
+use ember_math::Matrix4f;
 
 use crate::core::plugins::components::TerrainComponent;
 use crate::core::plugins::components::TransformComponent;
@@ -161,14 +161,16 @@ pub fn TerrainDrawSystem(
         let geometry = g_arc.lock().unwrap();
         let uniform_buffer_subbuffer = {
             // create matrix
-            let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position());
-            let rotation_matrix: Matrix4<f32> = transform.rotation();
-            let scale_matrix: Matrix4<f32> = Matrix4::from_scale(transform.scale());
-            let model_to_world: Matrix4<f32> = rotation_matrix * translation_matrix * scale_matrix;
+            let translation_matrix: Matrix4f = Matrix4f::from_translation(transform.global_position());
+            let rotation_matrix: Matrix4f = transform.rotation();
+            let scale_matrix: Matrix4f = Matrix4f::from_scale(transform.scale());
+            let model_to_world: Matrix4f = rotation_matrix * translation_matrix * scale_matrix;
 
             
             let uniform_buffer_data = shaders::triangle::vs::ty::Data{
-                mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
+                // mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
+                mwv: (camera_state[1] * model_to_world).into()
+
             };
             uniform_buffer.next(uniform_buffer_data).unwrap()
         };

@@ -93,8 +93,7 @@ use egui::Context;
 use std::sync::{Arc};
 
 // math
-use cgmath::Matrix4;
-
+use ember_math::Matrix4f;
 
 // logging
 use log;
@@ -226,7 +225,7 @@ impl RenderManager{
         let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
         let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
         let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
-        let camera_state: [Matrix4<f32>; 2] = [Matrix4::from_scale(1.0), Matrix4::from_scale(1.0)];
+        let camera_state: [Matrix4f; 2] = [Matrix4f::from_scale(1.0), Matrix4f::from_scale(1.0)];
         let save: bool = false;
         scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
         scene.insert_resource(lighting_buffer_vec);
@@ -464,7 +463,7 @@ impl RenderManager{
 
     // insert required render data into scene so systems can run
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Active>) {
-        let camera_state: [Matrix4<f32>; 2] = [Matrix4::from_scale(1.0), Matrix4::from_scale(1.0)];
+        let camera_state: [Matrix4f; 2] = [Matrix4f::from_scale(1.0), Matrix4f::from_scale(1.0)];
         // insert resources. some of these should eventually be submitted more often than othrs
         scene.insert_resource(self.device());
         scene.insert_resource(self.surface());

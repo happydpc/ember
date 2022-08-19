@@ -1,9 +1,11 @@
 use bytemuck::{Pod, Zeroable};
 use serde::{Serialize, Deserialize};
+use bevy_reflect::{Reflect, FromReflect};
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Zeroable, Pod, Serialize, Deserialize, Reflect, FromReflect)]
 pub struct Vertex {
+    #[reflect(ignore)]
     pub position: [f32; 3],
 }
 

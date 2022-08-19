@@ -30,7 +30,7 @@ use crate::core::managers::render_manager::{
 use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::rendering::SceneState;
 
-use cgmath::Matrix4;
+use ember_math::Matrix4f;
 
 use vulkano::device::Device;
 use vulkano::device::Queue;
@@ -89,7 +89,7 @@ pub fn RenderableInitializerSystem(
     }
 }
 
-pub type CameraState = [Matrix4<f32>; 2];
+pub type CameraState = [Matrix4f; 2];
 pub fn CameraUpdateSystem(
     mut query: Query<&mut CameraComponent>,
     surface: Res<Arc<Surface<Window>>>,
@@ -190,14 +190,16 @@ pub fn RenderableDrawSystem(
         // let geometry = g_arc.lock().unwrap();
         let uniform_buffer_subbuffer = {
             // create matrix
-            let translation_matrix: Matrix4<f32> = Matrix4::from_translation(transform.global_position());
-            let rotation_matrix: Matrix4<f32> = transform.rotation();
-            let scale_matrix: Matrix4<f32> = Matrix4::from_scale(transform.scale());
-            let model_to_world: Matrix4<f32> = translation_matrix * rotation_matrix * scale_matrix;
+            let translation_matrix: Matrix4f = Matrix4f::from_translation(transform.global_position());
+            let rotation_matrix: Matrix4f = transform.rotation();
+            let scale_matrix: Matrix4f = Matrix4f::from_scale(transform.scale());
+            let model_to_world: Matrix4f = translation_matrix * rotation_matrix * scale_matrix;
 
-            
+            // state is view, perspective
+            // TODO : de-couple model matrix and camera matrices            
             let uniform_buffer_data = shaders::triangle::vs::ty::Data{
-                mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
+                // mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
+                mwv: (camera_state[0] * camera_state[1] * model_to_world).into()
             };
             uniform_buffer.next(uniform_buffer_data).unwrap()
         };

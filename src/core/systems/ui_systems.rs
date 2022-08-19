@@ -7,7 +7,12 @@ use crate::core::plugins::components::{
     FileSubMenuComponent,
     FileMenuSaveComponent,
 };
-use crate::core::events::serialization_events::SaveEvent;
+use crate::core::events::project_events::{
+    SaveEvent,
+    CreateProjectEvent,
+    CloseProjectEvent,
+    OpenProjectEvent,
+};
 use crate::core::events::menu_messages::MenuMessage;
 
 
@@ -26,6 +31,8 @@ use bevy_ecs::event::Events;
 use bevy_ecs::entity::Entity;
 // use puffin_egui;
 
+use std::sync::Arc;
+use std::path::Path;
 use log;
 
 
@@ -37,9 +44,9 @@ pub struct EguiState{
 
 pub fn MainMenuInitSystem(
     mut query: Query<(&mut MainMenuComponent, Entity)>,
-    mut egui_state: ResMut<EguiState>,
+    mut egui_state: Res<EguiState>,
 ){
-    log::debug!("Init main menu.........................");
+    log::debug!("Init main menu...");
     for (mut comp, entity) in query.iter_mut(){
         let ctx = egui_state.ctx.clone();
         let panel = egui::TopBottomPanel::top("Debug")
@@ -56,137 +63,190 @@ pub fn MainMenuInitSystem(
         comp.ui = Some(ui);
     }
 }
-pub fn MainMenuSystem(
-    mut query: Query<&mut MainMenuComponent>,
-    mut egui_state: ResMut<EguiState>,
-    mut menu_items: ResMut<Events<MenuMessage<MainMenuComponent>>>,
-){
-    // let ctx = &mut egui_state.ctx;
-    // let mut reader = menu_items.get_reader();
-
-    // egui::TopBottomPanel::top("Test")
-    //     .show(&ctx, |ui|{
-    //         for item in reader.iter(&menu_items){
-    //             (item.ui)(ui);
-    //         }
-    //     });
-    // menu_items.clear();
-}
 
 pub fn FileSubMenuSystem(
-    mut query: Query<&mut FileSubMenuComponent>,
+    mut query: Query<(&mut FileSubMenuComponent, Entity)>,
     mut main_menu_query: Query<&mut MainMenuComponent>,
+    mut egui_state: Res<EguiState>,
     mut save_events: ResMut<Events<SaveEvent>>,
+    mut close_events: ResMut<Events<CloseProjectEvent>>,
 ){
     log::debug!("File Sub Menu System...");
-    for mut comp in query.iter_mut(){
+    for (mut comp, entity) in query.iter_mut(){
+        let ctx = egui_state.ctx.clone();
         let mut parent = &mut comp.parent.as_mut().unwrap();
-        // let mut ui = &mut parent.get::<MainMenuComponent>().ui;
         let mut target_comp = main_menu_query.get_mut(parent.clone()).expect("Couldn't get main menu component");
-        let mut ui = target_comp.ui.as_mut().expect("No ui on target comp");
-        ui.menu_button("File", |ui|{
+        let mut menu_ui = target_comp.ui.as_mut().expect("No ui on target comp");
+        let file_ui = menu_ui.menu_button("File", |ui|{
             if ui.button("New").clicked() {
                 log::info!("New project...");
+                comp.new_project_window = true;
+                comp.open_project_window = false;
+                // comp.current_nav_path = std::env::current_dir().unwrap();
+                ui.close_menu();
             }
             if ui.button("Open").clicked() {
-                log::info!("Opening a file...");
+                log::info!("Open project...");
+                let root = std::env::current_dir().unwrap();
+                comp.open_project_window = true;
+                comp.new_project_window = false;
+                ui.close_menu();
+                // comp.current_nav_path = std::env::current_dir().unwrap();
             }
             if ui.button("Save").clicked() {
                 log::info!("Sending a save message");
                 save_events.send(SaveEvent);
+                ui.close_menu();
             }
             if ui.button("Close").clicked() {
                 log::info!("Close scene...");
+                close_events.send(CloseProjectEvent);
+                ui.close_menu();
             }
         });
     }
-    // let mut reader = submenu_items.get_reader();
-    // let message = MenuMessage::<MainMenuComponent>::new(|ui|{
-    //     ui.menu_button("File", |ui| {
-    //         for item in reader.iter(&submenu_items) {
-    //             (item.ui)(ui);
-    //         }
-    //     });
-    // });
-    // target_menu_channel.send(message);
-    // submenu_items.clear();
 }
 
-pub fn FileMenuSaveSystem(
-    mut query: Query<&FileMenuSaveComponent>,
-    mut target_menu_channel: ResMut<Events<MenuMessage<FileSubMenuComponent>>>,
-    mut save_events: ResMut<Events<SaveEvent>>,
+pub fn ShowNewProjectWindow(
+    mut query: Query<&mut FileSubMenuComponent>,
+    mut egui_state: Res<EguiState>,
+    mut create_project_events: ResMut<Events<CreateProjectEvent>>,
 ){
-    // let message = MenuMessage::<FileSubMenuComponent>::new(|ui|{
-    //     // if ui.button("Save").clicked() {
-    //     //     log::info!("Sending a save message");
-    //     //     save_events.send(SaveEvent);
-    //     // }
-    // });
-}
+    for mut comp in query.iter_mut(){
+        let ctx = egui_state.ctx.clone();
+        let mut current_path = comp.current_nav_path.clone();
+        let paths = std::fs::read_dir(&current_path).unwrap();
+        let mut entry_buf = comp.text_entry.clone();
 
-pub fn DebugUiSystem(
-    mut query: Query<&mut DebugUiComponent>,
-    mut egui_state: ResMut<EguiState>,
-    mut should_save: ResMut<bool>,
-    mut save_events: ResMut<Events<SaveEvent>>,
-){
-    log::debug!("Debug ui...");
-    let ctx = egui_state.ctx.clone();
-    for mut comp in query.iter_mut() {
+        egui::Window::new("New Project")
+            .open(&mut comp.new_project_window)
+            .show(&ctx.clone(), |ui|{
+                ui.label("Select a location for a new project.");
+                ui.horizontal(|ui|{
 
-        // draw ui
-        let panel = egui::TopBottomPanel::top("Debug")
-            .show(&ctx, |ui| {
-                egui::menu::bar(ui, |ui| {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("New").clicked() {
-                            log::info!("New project...");
-                        }
-                        if ui.button("Open").clicked() {
-                            log::info!("Opening a file...");
-                        }
-                        if ui.button("Save").clicked() {
-                            log::info!("Sending a save message");
-                            save_events.send(SaveEvent);
-                        }
-                        if ui.button("Close").clicked() {
-                            log::info!("Close scene...");
-                        }
-                        if SubMenu(ui){
-                            save_events.send(SaveEvent);
-                        }
-                    });
-
-                    ui.menu_button("Debug Options", |ui| {
-                        if ui.button("Toggle Profiling").clicked() {
-                            log::info!("I still don't know why this breaks.");
-                            comp.show_profiler = !comp.show_profiler;
-                        }
-                        if ui.button("Toggle wireframe").clicked() {
-                            log::info!("Toggling wireframe");
-                            comp.terrain_wireframe = !comp.terrain_wireframe;
-                        }
-                    });
+                    ui.label("Current Path : ");
+                    if ui.button("+").clicked(){
+                        current_path = match current_path.clone().as_path().parent(){
+                            Some(p) => p.to_path_buf(),
+                            None => current_path.clone(),
+                        };
+                    }
+                    ui.label(format!("{}", current_path.to_str().unwrap()))
                 });
-            Ui::new(
-                ctx.clone(),
-                ui.layer_id(),
-                egui::Id::new(&*comp),
-                ui.max_rect(),
-                ui.clip_rect()
-            )
-            }); // end of panel
-        let ui = panel.inner;
+
+                ui.separator();
+                egui::ScrollArea::vertical()
+                    .max_height(100.0)
+                    .max_width(f32::INFINITY)
+                    .show(ui, |ui|{
+                        for path in paths {
+                            let p = path.unwrap().path();
+                            if !p.is_dir(){
+                                continue;
+                            }
+                            let label = ui.selectable_label(
+                                false,
+                                p.clone().to_str().unwrap(),
+                            );
+                            if label.clicked() {
+                                if p.clone().is_dir(){
+                                    current_path = p.clone();
+                                }
+                            }
+                        }
+                });
+                ui.separator();
+                ui.horizontal(|ui|{
+                    ui.label("Project Name : ");
+                    ui.text_edit_singleline(&mut entry_buf);
+                    if ui.button("Create Project").clicked(){
+                        let target = Path::new(&entry_buf);
+                        let mut p = current_path.clone();
+                        p.push(target);
+                        if p.exists() {
+                            log::warn!("Path already exists!");
+                        }else{
+                            std::fs::create_dir(p.clone()).expect("Couldn't create project");
+                            create_project_events.send(CreateProjectEvent{project_path: String::from(p.to_str().unwrap())});
+                        }
+                    }
+                });
+
+        });
+        comp.text_entry = entry_buf;
+        comp.current_nav_path = current_path;
     }
 }
 
-pub fn SubMenu(ui: &mut Ui) -> bool{
-    if ui.button("Test").clicked(){
-        log::info!("Test");
-        return true;
+pub fn ShowOpenProjectWindow(
+    mut query: Query<&mut FileSubMenuComponent>,
+    mut egui_state: Res<EguiState>,
+    mut open_project_events: ResMut<Events<OpenProjectEvent>>,
+){
+    for mut comp in query.iter_mut(){
+        let ctx = egui_state.ctx.clone();
+        let mut current_path = comp.current_nav_path.clone();
+        let paths = std::fs::read_dir(&current_path).unwrap();
+        let mut entry_buf = comp.text_entry.clone();
+
+        egui::Window::new("Open Project")
+            .open(&mut comp.open_project_window)
+            .show(&ctx.clone(), |ui|{
+                ui.label("Select a location for a new project.");
+                ui.horizontal(|ui|{
+
+                    ui.label("Current Path : ");
+                    if ui.button("+").clicked(){
+                        current_path = match current_path.clone().as_path().parent(){
+                            Some(p) => p.to_path_buf(),
+                            None => current_path.clone(),
+                        };
+                    }
+                    ui.label(format!("{}", current_path.to_str().unwrap()))
+                });
+
+                ui.separator();
+                egui::ScrollArea::vertical()
+                    .max_height(100.0)
+                    .max_width(f32::INFINITY)
+                    .show(ui, |ui|{
+                        for path in paths {
+                            let p = path.unwrap().path();
+                            if !p.is_dir(){
+                                continue;
+                            }
+                            let label = ui.selectable_label(
+                                false,
+                                p.clone().to_str().unwrap(),
+                            );
+                            if label.clicked() {
+                                if p.clone().is_dir(){
+                                    current_path = p.clone();
+                                }
+                            }
+                        }
+                });
+                ui.separator();
+                ui.horizontal(|ui|{
+                    ui.label("Selected Project : ");
+                    ui.label(current_path.clone().to_str().unwrap());
+                    if ui.button("Open Project").clicked(){
+                        let target = Path::new(&entry_buf);
+                        let mut p = current_path.clone();
+                        p.push(target);
+                        if !p.exists() {
+                            log::warn!("Project doesn't exist at {:?} ", p.to_str());
+                        }else{
+                            log::info!("Opening project : {:?}", p.to_str().unwrap());
+                            open_project_events.send(OpenProjectEvent{project_path: String::from(p.to_str().unwrap())});
+                        }
+                    }
+                });
+
+        });
+        comp.current_nav_path = current_path;
     }
-    return false;
+
 }
 
 pub fn CameraUiSystem(
@@ -201,7 +261,7 @@ pub fn CameraUiSystem(
         egui::Window::new("Camera Settings")
             .show(&ctx, |ui| {
                 ui.label("FOV");
-                ui.add(egui::Slider::new(&mut fov, 0.1..=3.0))
+                ui.add(egui::Slider::new(&mut fov, 0.1..=5.0))
             });
         if cam.fov != fov {
             cam.fov = fov;

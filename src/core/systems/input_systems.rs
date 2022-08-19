@@ -1,6 +1,5 @@
 use crate::core::plugins::components::{CameraComponent};
 use winit::event::VirtualKeyCode;
-use cgmath::InnerSpace;
 
 use crate::core::managers::input_manager::KeyInputQueue;
 use bevy_ecs::prelude::{Query, Res, ResMut};
@@ -28,34 +27,34 @@ pub fn CameraMoveSystem(
         for key in keys{
             match key {
                 VirtualKeyCode::W => {
-                    cam.eye = cam.eye - (forward * delta);
-                    cam.look_at = cam.look_at - (forward * delta);
+                    cam.eye = cam.eye - (forward.scale(delta));
+                    cam.look_at = cam.look_at - (forward.scale(delta));
                 },
                 VirtualKeyCode::A => {
-                    cam.eye = cam.eye + (right * delta);
-                    cam.look_at = cam.look_at + (right * delta);
+                    cam.eye = cam.eye + (right.scale(delta));
+                    cam.look_at = cam.look_at + (right.scale(delta));
                 },
                 VirtualKeyCode::S => {
-                    cam.eye = cam.eye + (forward * delta);
-                    cam.look_at = cam.look_at + (forward * delta);
+                    cam.eye = cam.eye + (forward.scale(delta));
+                    cam.look_at = cam.look_at + (forward.scale(delta));
                 },
                 VirtualKeyCode::D => {
-                    cam.eye = cam.eye - (right * delta);
-                    cam.look_at = cam.look_at - (right * delta);
+                    cam.eye = cam.eye - (right.scale(delta));
+                    cam.look_at = cam.look_at - (right.scale(delta));
                 },
                 VirtualKeyCode::E => {
-                    cam.eye = cam.eye + (right * delta);
+                    cam.eye = cam.eye + (right.scale(delta));
                 },
                 VirtualKeyCode::Q => {
-                    cam.eye = cam.eye - (right * delta);
+                    cam.eye = cam.eye - (right.scale(delta));
                 },
                 VirtualKeyCode::F => {
-                    let dx = cam.up * delta;
+                    let dx = cam.up.scale(delta);
                     cam.eye = cam.eye + dx;
                     cam.look_at = cam.look_at + dx;
                 },
                 VirtualKeyCode::R => {
-                    let dx = cam.up * delta;
+                    let dx = cam.up.scale(delta);
                     cam.eye = cam.eye - dx;
                     cam.look_at = cam.look_at - dx;
                 },
