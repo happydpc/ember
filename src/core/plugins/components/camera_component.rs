@@ -3,20 +3,20 @@ use bevy_ecs::component::Component;
 use ember_math::{
     Matrix4f,
     Vector3f,
-    Rad,
-    Deg
+    rad,
+    deg
 };
 use serde::{
     Serialize,
     Deserialize,
 };
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, FromReflect};
 
 // bevy_reflect::impl_reflect_value!(CameraComponent);
 // bevy_reflect::impl_from_reflect_value!(CameraComponent);
 
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct CameraComponent{
     pub fov: f32,
@@ -37,13 +37,13 @@ pub struct CameraComponent{
 
 impl CameraComponent {
     pub fn create_default() -> Self {
-        let fov = 3.14 / 1.75;
-        let near = 0.001;
+        let fov = 3.14 / 2.0;
+        let near = 0.01;
         let far = 1e6;
-        let aspect = 0.5;
+        let aspect = 1.0;
         let look_at = Vector3f::new(0.0, 0.0, 0.0);
-        let eye = Vector3f::new(3.0, 5.0, -3.0);
-        let up = Vector3f::new(0.0, 0.0, 1.0);
+        let eye = Vector3f::new(5.0, 5.0, 5.0);
+        let up = Vector3f::new(0.0, 1.0, 0.0);
         let mut cam = CameraComponent{
             fov: fov,
             near: near,
@@ -84,12 +84,12 @@ impl CameraComponent {
 impl Default for CameraComponent {
     fn default() -> Self {
         let fov = 3.1415 / 1.75;
-        let near = 0.001;
-        let far = 1e6;
+        let near = 0.1;
+        let far = 1e4;
         let aspect = 0.5;
         let look_at = Vector3f::new(0.0, 0.0, 0.0);
         let eye = Vector3f::new(3.0, 0.0, -3.0);
-        let up = Vector3f::new(0.0, 0.0, 1.0);
+        let up = Vector3f::new(0.0, -1.0, 0.0);
         let mut cam = CameraComponent{
             fov: fov,
             near: near,

@@ -17,30 +17,33 @@ use bevy_reflect::{
 use bevy_ecs::prelude::ReflectComponent;
 
 
-#[derive(Component, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Default, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct TransformUiComponent;
 
-#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
+
 pub struct TransformComponent{
-    pub global_position: Arc<Mutex<Vector3f>>,
-    pub rotation: Arc<Mutex<Matrix4f>>,
-    pub scale: Arc<Mutex<f32>>,
+    pub global_position: Vector3f,
+    pub rotation: Matrix4f,
+    pub scale: f32,
 }
 
 impl TransformComponent{
     pub fn create_empty() -> Self {
         TransformComponent{
-            global_position: Arc::new(Mutex::new(Vector3f::new(0.0, 0.0, 0.0))),
-            rotation: Arc::new(Mutex::new(Matrix4f::from_scale(1.0))),
-            scale: Arc::new(Mutex::new(1.0)),
+            global_position: Vector3f::zero(),
+            rotation: Matrix4f::identity(),
+            scale: 1.0,
         }
     }
 
     pub fn create(global_pos: Vector3f, rot: Matrix4f, s: f32) -> Self {
         TransformComponent{
-            global_position: Arc::new(Mutex::new(global_pos)),
-            rotation: Arc::new(Mutex::new(rot)),
-            scale: Arc::new(Mutex::new(s)),
+            global_position: global_pos,
+            rotation: rot,
+            scale: s,
         }
     }
 
@@ -53,24 +56,24 @@ impl TransformComponent{
     }
 
     pub fn global_position(&self) -> Vector3f {
-        self.global_position.lock().expect("Transform can't read its own position.").clone()
+        self.global_position
     }
 
     pub fn rotation(&self) -> Matrix4f {
-        self.rotation.lock().expect("Transform can't read its own rotation.").clone()
+        self.rotation.clone()
     }
 
     pub fn scale(&self) -> f32 {
-        self.scale.lock().expect("Transform can't read its own scale").clone()
+        self.scale
     }
 }
 
 impl Default for TransformComponent{
     fn default() -> Self{
         TransformComponent{
-            global_position: Arc::new(Mutex::new(Vector3f::new(0.0, 0.0, 0.0))),
-            rotation: Arc::new(Mutex::new(Matrix4f::from_scale(1.0))),
-            scale: Arc::new(Mutex::new(1.0))
+            global_position: Vector3f::zero(),
+            rotation: Matrix4f::identity(),
+            scale: 1.0
         }
     }
 }
@@ -93,16 +96,16 @@ impl TransformBuilder{
     pub fn build(self) -> TransformComponent{
         TransformComponent{
             global_position: match self.global_position {
-                Some(gp) => Arc::new(Mutex::new(gp)),
-                None => Arc::new(Mutex::new(Vector3f::new(0.0, 0.0, 0.0))),
+                Some(gp) => gp,
+                None => Vector3f::zero(),
             },
             rotation: match self.rotation {
-                Some(r) => Arc::new(Mutex::new(r)),
-                None => Arc::new(Mutex::new(Matrix4f::from_scale(1.0))),
+                Some(r) => r,
+                None => Matrix4f::identity(),
             },
             scale: match self.scale {
-                Some(s) => Arc::new(Mutex::new(s)),
-                None => Arc::new(Mutex::new(1.0)),
+                Some(s) => s,
+                None => 1.0
             }
         }
     }

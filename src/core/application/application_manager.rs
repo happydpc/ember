@@ -15,7 +15,7 @@ use std::{
 use std::ops::DerefMut;
 use std::borrow::Borrow;
 
-
+use ember_math::{Vector3f, Vector4f};
 
 
 use crate::core::{
@@ -187,6 +187,7 @@ impl Application{
             TerrainUiComponent,
             TerrainComponent,
             TransformComponent,
+            TransformUiComponent,
             DirectionalLightComponent,
             CameraComponent,
             InputComponent,
@@ -251,12 +252,12 @@ impl Application{
             registry.register::<DebugUiComponent>();
             registry.register::<FileSubMenuComponent>();
             registry.register::<TerrainComponent>();
-            // registry.register::<TransformComponent>();
+            registry.register::<TransformComponent>();
             registry.register::<TerrainUiComponent>();
             registry.register::<RenderableComponent>();
             registry.register::<GeometryComponent>();
-            // registry.register::<DirectionalLightComponent>();
-            // registry.register::<AmbientLightingComponent>();
+            registry.register::<DirectionalLightComponent>();
+            registry.register::<AmbientLightingComponent>();
             registry.register::<CameraComponent>();
             registry.register::<InputComponent>();
 
@@ -291,24 +292,72 @@ impl Application{
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(TransformComponent::create_empty())
+            .insert(TransformUiComponent{})
+            .id();
+
+        
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(
+                TransformComponent::start()
+                    .with_global_position(Vector3f::new(0.0, 2.0, 0.0))
+                    .with_scale(0.3)
+                    .build()
+            )
             .id();
 
         scene.get_world()
             .unwrap()
             .spawn()
-            .insert(DirectionalLightComponent::new(Vector3f::new(-0.5, -0.2, -0.8), [1.0, 1.0, 1.0]))
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(
+                TransformComponent::start()
+                    .with_global_position(Vector3f::new(0.0, 0.0, 2.0))
+                    .with_scale(0.3)
+                    .build()
+            )
+            .id();
+        
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(
+                TransformComponent::start()
+                    .with_global_position(Vector3f::new(2.0, 0.0, 0.0))
+                    .with_scale(0.1)
+                    .build()
+            )
+            .insert(TransformUiComponent{})
             .id();
 
         scene.get_world()
             .unwrap()
             .spawn()
-            .insert(AmbientLightingComponent::new([1.0, 1.0, 1.0]))
+            .insert(
+                DirectionalLightComponent::new(
+                    Vector3f::new(0.5, 0.2, 0.8),
+                    Vector4f::one()
+                )
+            )
+            .id();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(AmbientLightingComponent::new(Vector3f::one()))
             .id();
 
         scene.get_world()
             .unwrap()
             .spawn()
             .insert(CameraComponent::create_default())
+            .insert(TransformComponent::create_empty())
             .insert(InputComponent::create())
             .id();
     }

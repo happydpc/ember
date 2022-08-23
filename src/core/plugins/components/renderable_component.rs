@@ -6,6 +6,7 @@ use vulkano::{
 };
 use bevy_ecs::component::Component;
 use bevy_reflect::{Reflect, FromReflect};
+use bevy_ecs::prelude::ReflectComponent;
 
 use std::sync::{Arc};
 use serde::{
@@ -14,7 +15,8 @@ use serde::{
 };
 
 
-#[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Component, Default, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct RenderableComponent{
     pub initialized: bool,
 }

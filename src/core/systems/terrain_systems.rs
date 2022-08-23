@@ -169,8 +169,10 @@ pub fn TerrainDrawSystem(
             
             let uniform_buffer_data = shaders::triangle::vs::ty::Data{
                 // mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
-                mwv: (camera_state[1] * model_to_world).into()
-
+                // mwv: (camera_state[1] * model_to_world).into()
+                world: model_to_world.into(),
+                view: camera_state[0].clone().into(),
+                proj: camera_state[1].clone().into()
             };
             uniform_buffer.next(uniform_buffer_data).unwrap()
         };

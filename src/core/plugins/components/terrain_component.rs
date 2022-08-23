@@ -11,12 +11,14 @@ use bevy_reflect::{
     Reflect,
     FromReflect
 };
+use bevy_ecs::prelude::ReflectComponent;
 
-
-#[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Component, Default, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct TerrainUiComponent;
 
 #[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct TerrainComponent{
     #[reflect(ignore)]
     pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
@@ -46,5 +48,11 @@ impl TerrainComponent{
 
     pub fn get_size(&self) -> usize {
         self.geometry.clone().lock().unwrap().size
+    }
+}
+
+impl Default for TerrainComponent {
+    fn default() -> Self {
+        TerrainComponent::create(16)
     }
 }

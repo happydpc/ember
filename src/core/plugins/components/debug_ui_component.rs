@@ -4,10 +4,10 @@ use serde::{
     Serialize,
     Deserialize,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, FromReflect};
 use bevy_ecs::prelude::ReflectComponent;
 
-#[derive(Component, Debug, Serialize, Deserialize, Clone, Hash, Reflect)]
+#[derive(Component, Debug, Serialize, Deserialize, Clone, Hash, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct DebugUiComponent{
     pub show_profiler: bool,

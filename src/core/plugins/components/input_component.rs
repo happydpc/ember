@@ -1,6 +1,9 @@
 use winit::event::VirtualKeyCode;
 use bevy_ecs::component::Component;
-use bevy_reflect::Reflect;
+use bevy_reflect::{
+    Reflect,
+    FromReflect
+};
 use bevy_ecs::prelude::ReflectComponent;
 
 use std::collections::VecDeque;
@@ -9,7 +12,7 @@ use serde::{
     Deserialize,
 };
 
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct InputComponent{
     #[serde(skip, default="InputComponent::default_input_vec")]

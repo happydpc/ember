@@ -15,6 +15,7 @@ use crate::core::events::project_events::{
 };
 use crate::core::events::menu_messages::MenuMessage;
 
+use ember_math::Vector3f;
 
 use egui_vulkano::Painter;
 use egui::Context;
@@ -261,7 +262,30 @@ pub fn CameraUiSystem(
         egui::Window::new("Camera Settings")
             .show(&ctx, |ui| {
                 ui.label("FOV");
-                ui.add(egui::Slider::new(&mut fov, 0.1..=5.0))
+                ui.add(egui::Slider::new(&mut fov, 0.1..=5.0));
+                ui.horizontal(|ui| {
+                    ui.label("eye: : ");
+                    ui.add(egui::DragValue::new(&mut cam.eye.x).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut cam.eye.y).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut cam.eye.z).speed(0.1));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("look_at: : ");
+                    ui.add(egui::DragValue::new(&mut cam.look_at.x).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut cam.look_at.y).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut cam.look_at.z).speed(0.1));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("up: : ");
+                    ui.add(egui::DragValue::new(&mut cam.up.x).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut cam.up.y).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut cam.up.z).speed(0.1));
+                });
+                if ui.button("Reset").clicked() {
+                    cam.look_at = Vector3f::zero();
+                    cam.eye = Vector3f::new(10.0, 10.0, 10.0);
+                    cam.up = Vector3f::new(0.0, 1.0, 0.0);
+                }
             });
         if cam.fov != fov {
             cam.fov = fov;
@@ -272,24 +296,24 @@ pub fn CameraUiSystem(
 
 
 pub fn TransformUiSystem(
-    mut query: Query<&mut TransformComponent, With<TransformUiComponent>>,
+    mut query: Query<(&mut TransformComponent, &TransformUiComponent, Entity)>,
     egui_state: Res<EguiState>,
 ){
     log::debug!("Transform ui....");
     let ctx = egui_state.ctx.clone();
-    for _transform in query.iter_mut(){
-        // let mut pos = transform.global_position();
-        // let mut posx = pos[0];
-        // let mut posy = pos[1];
-        // let mut posz = pos[2];
-        egui::Window::new("Transform")
+    for (mut transform, ui_comp, entity) in query.iter_mut(){
+        egui::Window::new(format!("Transform {:?}", entity))
             .show(&ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Position");
-                    // ui.add(egui::DragValue::new(&mut posx).speed(0.1).clamp_range(-100.0..=100.0));
-                    // ui.add(egui::DragValue::new(&mut posy).speed(0.1).clamp_range(-100.0..=100.0));
-                    // ui.add(egui::DragValue::new(&mut posz).speed(0.1).clamp_range(-100.0..=100.0));
+                    ui.label("Position: ");
+                    ui.add(egui::DragValue::new(&mut transform.global_position.x).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut transform.global_position.y).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut transform.global_position.z).speed(0.1));
                 });
+                ui.horizontal(|ui| {
+                    ui.label("Scale: ");
+                    ui.add(egui::DragValue::new(&mut transform.scale).speed(0.01));
+                })
             });
     }
 }

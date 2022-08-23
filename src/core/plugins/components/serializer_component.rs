@@ -4,8 +4,10 @@ use serde::{
     Serialize,
     Deserialize,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, FromReflect};
+use bevy_ecs::prelude::ReflectComponent;
 
 
-#[derive(Component, Clone, Serialize, Deserialize)]
+#[derive(Component, Default, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct SerializerFlag;

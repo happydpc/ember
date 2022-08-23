@@ -31,6 +31,8 @@ use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::rendering::SceneState;
 
 use ember_math::Matrix4f;
+use ember_math::Matrix3f;
+use ember_math::Vector3f;
 
 use vulkano::device::Device;
 use vulkano::device::Queue;
@@ -91,19 +93,17 @@ pub fn RenderableInitializerSystem(
 
 pub type CameraState = [Matrix4f; 2];
 pub fn CameraUpdateSystem(
-    mut query: Query<&mut CameraComponent>,
+    mut query: Query<(&mut CameraComponent, &mut TransformComponent)>,
     surface: Res<Arc<Surface<Window>>>,
     mut state: ResMut<CameraState>,
 ){
     log::debug!("Running camera update system...");
     let dimensions: [u32; 2] = surface.window().inner_size().into();
     let aspect = dimensions[0] as f32/ dimensions[1] as f32;
-    for mut camera in query.iter_mut(){
+    for (mut camera, mut transform) in query.iter_mut(){
         log::debug!("updating camera");
         camera.aspect = aspect;
         camera.calculate_view();
-
-        // somehow make this unique idk
         *state = [camera.get_view(), camera.get_perspective()];
     }
 }
@@ -199,7 +199,10 @@ pub fn RenderableDrawSystem(
             // TODO : de-couple model matrix and camera matrices            
             let uniform_buffer_data = shaders::triangle::vs::ty::Data{
                 // mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
-                mwv: (camera_state[0] * camera_state[1] * model_to_world).into()
+                // mwv: (model_to_world * camera_state[0] * camera_state[1]).into()
+                world: model_to_world.transpose().into(),
+                view: camera_state[0].clone().into(),
+                proj: camera_state[1].clone().into()
             };
             uniform_buffer.next(uniform_buffer_data).unwrap()
         };
@@ -312,7 +315,7 @@ pub fn DirectionalLightingSystem(
 
     for light_comp in query.iter(){
         let push_constants = shaders::directional_lighting::fs::ty::PushConstants {
-            color: [light_comp.color[0], light_comp.color[1], light_comp.color[2], 1.0],
+            color: [light_comp.color.x, light_comp.color.y, light_comp.color.z, 1.0],
             direction: light_comp.direction.extend(0.0).into(),
         };
 
@@ -443,7 +446,7 @@ pub fn AmbientLightingSystem(
 
     for light_comp in query.iter(){
         let push_constants = shaders::ambient_lighting::fs::ty::PushConstants {
-            color: [light_comp.color[0], light_comp.color[1], light_comp.color[2], 1.0],
+            color: [light_comp.color.x, light_comp.color.y, light_comp.color.z, 1.0],
         };
 
         let descriptor_set = PersistentDescriptorSet::new(

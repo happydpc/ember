@@ -5,10 +5,14 @@ use serde::{
     Serialize,
     Deserialize,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{
+    Reflect,
+    FromReflect
+};
+use bevy_ecs::prelude::ReflectComponent;
 
-
-#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+#[derive(Component, Debug, Default, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct VelocityComponent{
     pub velocity: Vector3f,
 }

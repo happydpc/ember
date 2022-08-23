@@ -44,7 +44,6 @@ pub fn SceneSerializationSystem(
     // mut save_events: ResMut<Events<SaveEvent>>,
     type_registry: Res<TypeRegistryArc>,
 ){
-    return;
     // let mut reader = save_events.get_reader();
     // for event in reader.iter(&save_events){
     log::info!("~~~~~~~~~~~~~~~~~~Save detected!~~~~~~~~~~~~~~~~~~~~");

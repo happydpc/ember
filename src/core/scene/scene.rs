@@ -32,6 +32,7 @@ use crate::core::systems::{
     ui_systems::{
         CameraUiSystem,
         FileSubMenuSystem,
+        TransformUiSystem,
     },
     CameraInitSystem,
     TerrainInitSystem,
@@ -215,6 +216,7 @@ impl Scene<Active> {
             .with_system(FileSubMenuSystem)
             .with_system(ShowNewProjectWindow)
             .with_system(ShowOpenProjectWindow)
+            .with_system(TransformUiSystem)
         ).add_stage("event_processing", SystemStage::parallel()
             .with_system(SceneSerializationSystem)
             .with_system(TerrainUpdateSystem)
