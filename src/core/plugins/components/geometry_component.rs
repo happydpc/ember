@@ -8,28 +8,32 @@ use vulkano::{
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
-use bevy_reflect::{Reflect, FromReflect, ReflectDeserialize};
+
+use bevy_reflect::{
+    Reflect, FromReflect,
+    serde::{ReflectSerializer, ReflectDeserializer}
+};
 
 use crate::core::rendering::geometries::Vertex;
 
 
-#[derive(Clone, Serialize, Deserialize, Reflect, FromReflect, PartialEq)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Reflect, FromReflect, PartialEq)]
+#[reflect_value(PartialEq)]
 pub enum GeometryType{
     Triangle,
     Box,
     Plane,
 }
 
-#[derive(Component, Clone, Serialize, Deserialize, Reflect, FromReflect)]
+#[derive(Component, Clone, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct GeometryComponent{
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
-    #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
+    // #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
     #[reflect(ignore)]
     pub vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
-    #[serde(skip, default="GeometryComponent::default_index_buffer")]
+    // #[serde(skip, default="GeometryComponent::default_index_buffer")]
     #[reflect(ignore)]
     pub index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
     pub initialized: bool,

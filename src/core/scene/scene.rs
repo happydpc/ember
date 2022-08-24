@@ -217,7 +217,7 @@ impl Scene<Active> {
             .with_system(ShowNewProjectWindow)
             .with_system(ShowOpenProjectWindow)
             .with_system(TransformUiSystem)
-        ).add_stage("event_processing", SystemStage::parallel()
+        ).add_stage_after("ui", "event_processing", SystemStage::parallel()
             .with_system(SceneSerializationSystem)
             .with_system(TerrainUpdateSystem)
         );
@@ -248,40 +248,6 @@ impl Scene<Active> {
 
 impl <Active> Scene<Active>{
     pub fn serialize(&mut self){
-        log::info!("Serializing Scene");
-        // let mut worldref = self.world.take().unwrap();
-        // let world = worldref.get_mut();
-        
-        // // Actually serialize
-        // {
-        //     let data = ( world.entities(), world.read_storage::<SimpleMarker<SerializerFlag>>() );
-
-        //     let pretty = PrettyConfig::new()
-        //         .depth_limit(2)
-        //         .separate_tuple_members(true)
-        //         .enumerate_arrays(true);
-
-        //     let writer = File::create("./savegame.ron").unwrap();
-        //     let mut serializer = ron::ser::Serializer::new(writer, Some(pretty), true).expect("Couldn't create ron serializer.");
-        //     serialize_individually!(
-        //         world,
-        //         serializer,
-        //         data,
-        //         InputComponent,
-        //         CameraComponent,
-        //         TransformComponent,
-        //         TransformUiComponent,
-        //         RenderableComponent,
-        //         DirectionalLightComponent,
-        //         AmbientLightingComponent,
-        //         TerrainComponent,
-        //         TerrainUiComponent,
-        //         GeometryComponent
-        //     );
-        // }
-
-        // self.world = Some(worldref);
-
     }
 }
 

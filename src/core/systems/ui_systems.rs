@@ -28,7 +28,7 @@ use bevy_ecs::prelude::{
     Query,
     With,
 };
-use bevy_ecs::event::Events;
+use bevy_ecs::prelude::EventWriter;
 use bevy_ecs::entity::Entity;
 // use puffin_egui;
 
@@ -69,8 +69,8 @@ pub fn FileSubMenuSystem(
     mut query: Query<(&mut FileSubMenuComponent, Entity)>,
     mut main_menu_query: Query<&mut MainMenuComponent>,
     mut egui_state: Res<EguiState>,
-    mut save_events: ResMut<Events<SaveEvent>>,
-    mut close_events: ResMut<Events<CloseProjectEvent>>,
+    mut save_events: EventWriter<SaveEvent>,
+    mut close_events: EventWriter<CloseProjectEvent>,
 ){
     log::debug!("File Sub Menu System...");
     for (mut comp, entity) in query.iter_mut(){
@@ -111,7 +111,7 @@ pub fn FileSubMenuSystem(
 pub fn ShowNewProjectWindow(
     mut query: Query<&mut FileSubMenuComponent>,
     mut egui_state: Res<EguiState>,
-    mut create_project_events: ResMut<Events<CreateProjectEvent>>,
+    mut create_project_events: EventWriter<CreateProjectEvent>,
 ){
     for mut comp in query.iter_mut(){
         let ctx = egui_state.ctx.clone();
@@ -182,7 +182,7 @@ pub fn ShowNewProjectWindow(
 pub fn ShowOpenProjectWindow(
     mut query: Query<&mut FileSubMenuComponent>,
     mut egui_state: Res<EguiState>,
-    mut open_project_events: ResMut<Events<OpenProjectEvent>>,
+    mut open_project_events: EventWriter<OpenProjectEvent>,
 ){
     for mut comp in query.iter_mut(){
         let ctx = egui_state.ctx.clone();
