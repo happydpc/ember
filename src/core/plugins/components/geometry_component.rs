@@ -28,7 +28,9 @@ pub enum GeometryType{
 #[derive(Component, Clone, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct GeometryComponent{
+    #[reflect(ignore)]
     pub vertices: Vec<Vertex>,
+    #[reflect(ignore)]
     pub indices: Vec<u32>,
     // #[serde(skip, default="GeometryComponent::default_vertex_buffer")]
     #[reflect(ignore)]
