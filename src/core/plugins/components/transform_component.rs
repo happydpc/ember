@@ -4,8 +4,8 @@ use ember_math::{
     Matrix4f,
     Vector3f,
 };
-use std::sync::Arc;
-use std::sync::Mutex;
+
+
 use serde::{
     Serialize,
     Deserialize,
@@ -23,7 +23,6 @@ pub struct TransformUiComponent;
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(Component)]
-
 pub struct TransformComponent{
     pub global_position: Vector3f,
     pub rotation: Matrix4f,

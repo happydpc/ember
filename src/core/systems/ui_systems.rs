@@ -28,6 +28,7 @@ use bevy_ecs::prelude::{
     Query,
     With,
 };
+use bevy_ecs::prelude::World;
 use bevy_ecs::prelude::EventWriter;
 use bevy_ecs::entity::Entity;
 // use puffin_egui;
@@ -75,8 +76,8 @@ pub fn FileSubMenuSystem(
     log::debug!("File Sub Menu System...");
     for (mut comp, entity) in query.iter_mut(){
         let ctx = egui_state.ctx.clone();
-        let mut parent = &mut comp.parent.as_mut().unwrap();
-        let mut target_comp = main_menu_query.get_mut(parent.clone()).expect("Couldn't get main menu component");
+        // let mut parent = query.get_mut(entity.id()).resolve_from_id(comp.parent_id.unwrap()).unwrap();//&mut comp.parent.as_mut().unwrap();
+        let mut target_comp = main_menu_query.get_mut(entity).expect("target not found");
         let mut menu_ui = target_comp.ui.as_mut().expect("No ui on target comp");
         let file_ui = menu_ui.menu_button("File", |ui|{
             if ui.button("New").clicked() {

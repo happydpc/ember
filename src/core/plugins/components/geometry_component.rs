@@ -1,6 +1,6 @@
 
 use std::sync::Arc;
-use serde::{Serialize, Deserialize};
+
 use vulkano::{
     buffer::CpuAccessibleBuffer,
     device::Device,
@@ -10,19 +10,26 @@ use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
 
 use bevy_reflect::{
-    Reflect, FromReflect,
-    serde::{ReflectSerializer, ReflectDeserializer}
+    Reflect, FromReflect
 };
-
+use bevy_reflect::ReflectSerialize;
+use bevy_reflect::ReflectDeserialize;
+use serde::{Deserialize, Serialize};
 use crate::core::rendering::geometries::Vertex;
 
 
-#[derive(Clone, Reflect, FromReflect, PartialEq)]
-#[reflect_value(PartialEq)]
+#[derive(Reflect, FromReflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum GeometryType{
     Triangle,
     Box,
     Plane,
+}
+
+impl Default for GeometryType{
+    fn default() -> Self {
+        GeometryType::Box
+    }
 }
 
 #[derive(Component, Clone, Reflect, FromReflect)]

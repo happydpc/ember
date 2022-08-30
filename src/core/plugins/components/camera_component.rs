@@ -2,9 +2,7 @@ use bevy_ecs::component::Component;
 
 use ember_math::{
     Matrix4f,
-    Vector3f,
-    rad,
-    deg
+    Vector3f
 };
 use serde::{
     Serialize,

@@ -1,6 +1,6 @@
 use egui::Ui;
 use std::ops::FnOnce;
-use std::sync::{Arc, Mutex};
+
 
 pub struct MenuMessage<T>{
     target: Option<T>,

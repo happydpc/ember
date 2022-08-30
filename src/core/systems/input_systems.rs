@@ -4,13 +4,13 @@ use winit::event::VirtualKeyCode;
 use crate::core::managers::input_manager::KeyInputQueue;
 use bevy_ecs::prelude::{Query, Res, ResMut};
 // pub struct CameraMoveSystem;
-use ember_math::Matrix3f;
+
 use ember_math::Matrix4f;
-use ember_math::Vector3f;
+
 
 pub fn InputPrepSystem(
-    input_queue: ResMut<KeyInputQueue>,
-    modifier_state: ResMut<Option<VirtualKeyCode>>,
+    _input_queue: ResMut<KeyInputQueue>,
+    _modifier_state: ResMut<Option<VirtualKeyCode>>,
 ){
 
 }
@@ -52,7 +52,7 @@ pub fn CameraMoveSystem(
                     // let vr = rm.transform(v);
                     // let vt = vr + cam.look_at;
                     // cam.eye = vr;
-                    let mut v = cam.eye - cam.look_at;
+                    let _v = cam.eye - cam.look_at;
                     // let m = Matrix4f::from_translation(cam.look_at.scale(-1.0));
                     let rm = Matrix4f::from_axis_angle(cam.up.normalize(), -0.05);
 
@@ -65,7 +65,7 @@ pub fn CameraMoveSystem(
                 },
                 VirtualKeyCode::Q => {
                     // cam.eye = cam.eye - (right.scale(delta));
-                    let mut v = cam.eye - cam.look_at;
+                    let _v = cam.eye - cam.look_at;
                     let m = Matrix4f::from_translation(cam.look_at.scale(-1.0));
                     let rm = Matrix4f::from_axis_angle(cam.up, 0.05);
 

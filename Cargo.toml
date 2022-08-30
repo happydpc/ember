@@ -27,3 +27,4 @@ simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
 ember_math = {path="../ember_math"}
 rfd = "0.8.2"
+thiserror = "1"

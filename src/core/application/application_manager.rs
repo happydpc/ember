@@ -255,6 +255,7 @@ impl Application{
             registry.register::<TransformComponent>();
             registry.register::<TerrainUiComponent>();
             registry.register::<RenderableComponent>();
+            registry.register::<GeometryType>();
             registry.register::<GeometryComponent>();
             registry.register::<DirectionalLightComponent>();
             registry.register::<AmbientLightingComponent>();
@@ -269,15 +270,9 @@ impl Application{
             .insert(AppInterfaceFlag{})
             .insert(MainMenuComponent{ui: None})
             .insert(DebugUiComponent::create())
-            // .marked::<SimpleMarker<SerializerFlag>>()
+            .insert(FileSubMenuComponent::new())    
             .id();
         
-        scene.get_world()
-            .unwrap()
-            .spawn()
-            .insert(FileSubMenuComponent::with_parent(MainMenuEntity));    
-
-
         scene.get_world()
             .unwrap()
             .spawn()

@@ -68,7 +68,7 @@ pub fn TerrainUpdateSystem(
     device: Res<Arc<Device>>,
 ){
     let mut reader = recalculate_events.get_reader();
-    for event in reader.iter(&recalculate_events){
+    for _event in reader.iter(&recalculate_events){
         for mut terrain in query.iter_mut(){
             {
                 terrain.geometry.lock().unwrap().generate_terrain();

@@ -45,6 +45,7 @@ use crate::core::systems::{
     MainMenuInitSystem,
     ShowNewProjectWindow,
     ShowOpenProjectWindow,
+    ProjectCreationSystem,
 };
 
 
@@ -220,6 +221,7 @@ impl Scene<Active> {
         ).add_stage_after("ui", "event_processing", SystemStage::parallel()
             .with_system(SceneSerializationSystem)
             .with_system(TerrainUpdateSystem)
+            .with_system(ProjectCreationSystem)
         );
         self.state.render_schedule = Some(schedule);
     }

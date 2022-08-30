@@ -31,8 +31,8 @@ use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::rendering::SceneState;
 
 use ember_math::Matrix4f;
-use ember_math::Matrix3f;
-use ember_math::Vector3f;
+
+
 
 use vulkano::device::Device;
 use vulkano::device::Queue;
@@ -100,7 +100,7 @@ pub fn CameraUpdateSystem(
     log::debug!("Running camera update system...");
     let dimensions: [u32; 2] = surface.window().inner_size().into();
     let aspect = dimensions[0] as f32/ dimensions[1] as f32;
-    for (mut camera, mut transform) in query.iter_mut(){
+    for (mut camera, _transform) in query.iter_mut(){
         log::debug!("updating camera");
         camera.aspect = aspect;
         camera.calculate_view();

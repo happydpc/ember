@@ -7,7 +7,7 @@ use bevy_ecs::{
     schedule::Stage,
 };
 use bevy_ecs::prelude::Schedule;
-use bevy_ecs::prelude::SystemStage;
+
 use std::cell::RefMut;
 
 
@@ -50,7 +50,7 @@ impl ApplicationState for ApplicationIdleState {
     }
 
     fn init_schedule(&mut self){
-        let mut schedule = Schedule::default();
+        let schedule = Schedule::default();
         self.schedule = Some(Box::new(schedule));
     }
     
