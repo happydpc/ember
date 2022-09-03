@@ -1,11 +1,9 @@
 use crate::core::plugins::components::{
-    DebugUiComponent,
     CameraComponent,
     TransformComponent,
     TransformUiComponent,
     MainMenuComponent,
     FileSubMenuComponent,
-    FileMenuSaveComponent,
 };
 use crate::core::events::project_events::{
     SaveEvent,
@@ -13,27 +11,25 @@ use crate::core::events::project_events::{
     CloseProjectEvent,
     OpenProjectEvent,
 };
-use crate::core::events::menu_messages::MenuMessage;
+
 
 use ember_math::Vector3f;
 
 use egui_vulkano::Painter;
 use egui::Context;
 use egui::Ui;
-use egui::Id;
+
 
 use bevy_ecs::prelude::{
     Res,
-    ResMut,
     Query,
-    With,
 };
-use bevy_ecs::prelude::World;
+
 use bevy_ecs::prelude::EventWriter;
 use bevy_ecs::entity::Entity;
 // use puffin_egui;
 
-use std::sync::Arc;
+
 use std::path::Path;
 use log;
 
@@ -46,7 +42,7 @@ pub struct EguiState{
 
 pub fn MainMenuInitSystem(
     mut query: Query<(&mut MainMenuComponent, Entity)>,
-    mut egui_state: Res<EguiState>,
+    egui_state: Res<EguiState>,
 ){
     log::debug!("Init main menu...");
     for (mut comp, entity) in query.iter_mut(){
@@ -69,17 +65,17 @@ pub fn MainMenuInitSystem(
 pub fn FileSubMenuSystem(
     mut query: Query<(&mut FileSubMenuComponent, Entity)>,
     mut main_menu_query: Query<&mut MainMenuComponent>,
-    mut egui_state: Res<EguiState>,
+    egui_state: Res<EguiState>,
     mut save_events: EventWriter<SaveEvent>,
     mut close_events: EventWriter<CloseProjectEvent>,
 ){
     log::debug!("File Sub Menu System...");
     for (mut comp, entity) in query.iter_mut(){
-        let ctx = egui_state.ctx.clone();
+        let _ctx = egui_state.ctx.clone();
         // let mut parent = query.get_mut(entity.id()).resolve_from_id(comp.parent_id.unwrap()).unwrap();//&mut comp.parent.as_mut().unwrap();
         let mut target_comp = main_menu_query.get_mut(entity).expect("target not found");
-        let mut menu_ui = target_comp.ui.as_mut().expect("No ui on target comp");
-        let file_ui = menu_ui.menu_button("File", |ui|{
+        let menu_ui = target_comp.ui.as_mut().expect("No ui on target comp");
+        let _file_ui = menu_ui.menu_button("File", |ui|{
             if ui.button("New").clicked() {
                 log::info!("New project...");
                 comp.new_project_window = true;
@@ -88,7 +84,7 @@ pub fn FileSubMenuSystem(
                 ui.close_menu();
             }
             if ui.button("Open").clicked() {
-                let root = std::env::current_dir().unwrap();
+                let _root = std::env::current_dir().unwrap();
                 comp.open_project_window = true;
                 comp.new_project_window = false;
                 ui.close_menu();
@@ -108,7 +104,7 @@ pub fn FileSubMenuSystem(
 
 pub fn ShowNewProjectWindow(
     mut query: Query<&mut FileSubMenuComponent>,
-    mut egui_state: Res<EguiState>,
+    egui_state: Res<EguiState>,
     mut create_project_events: EventWriter<CreateProjectEvent>,
 ){
     for mut comp in query.iter_mut(){
@@ -186,14 +182,14 @@ pub fn ShowNewProjectWindow(
 
 pub fn ShowOpenProjectWindow(
     mut query: Query<&mut FileSubMenuComponent>,
-    mut egui_state: Res<EguiState>,
+    egui_state: Res<EguiState>,
     mut open_project_events: EventWriter<OpenProjectEvent>,
 ){
     for mut comp in query.iter_mut(){
         let ctx = egui_state.ctx.clone();
         let mut current_path = comp.current_nav_path.clone();
         let paths = std::fs::read_dir(&current_path).unwrap();
-        let mut entry_buf = comp.text_entry.clone();
+        let entry_buf = comp.text_entry.clone();
 
         egui::Window::new("Open Project")
             .open(&mut comp.open_project_window)
@@ -242,9 +238,15 @@ pub fn ShowOpenProjectWindow(
                         p.push(target);
                         if !p.exists() {
                             log::warn!("Project doesn't exist at {:?} ", p.to_str());
-                        }else{
-                            log::info!("Opening project : {:?}", p.to_str().unwrap());
-                            open_project_events.send(OpenProjectEvent{project_path: String::from(p.to_str().unwrap())});
+                        }else{ // project folder exists
+                            let mut proj_file = p.clone();
+                            proj_file.push("ember.project");
+                            if !proj_file.exists(){
+                                log::warn!("This is not a valid project. {} Does not exist", proj_file.display());
+                            } else {
+                                log::info!("Opening project : {:?}", p.to_str().unwrap());
+                                open_project_events.send(OpenProjectEvent{project_path: String::from(p.to_str().unwrap())});
+                            }
                         }
                     }
                 });
@@ -306,7 +308,7 @@ pub fn TransformUiSystem(
 ){
     log::debug!("Transform ui....");
     let ctx = egui_state.ctx.clone();
-    for (mut transform, ui_comp, entity) in query.iter_mut(){
+    for (mut transform, _ui_comp, entity) in query.iter_mut(){
         egui::Window::new(format!("Transform {:?}", entity))
             .show(&ctx, |ui| {
                 ui.horizontal(|ui| {

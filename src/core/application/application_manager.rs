@@ -15,7 +15,7 @@ use std::{
 use std::ops::DerefMut;
 use std::borrow::Borrow;
 
-use ember_math::{Vector3f, Vector4f};
+use ember_math::{Vector4f};
 
 
 use crate::core::{
@@ -136,7 +136,7 @@ impl Manager for Application{
     }
 
     // update process
-    fn update(&mut self, scene: &mut Scene<Active>){
+    fn update(&mut self, _scene: &mut Scene<Active>){
         // match &self.input_manager {
         //     Some(manager) => manager.borrow_mut().update(scene),
         //     None => log::error!("No input manager to update."),
@@ -254,7 +254,7 @@ impl Application{
 
         {
             let mut world = scene.get_world().unwrap();
-            let mut registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
+            let registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
             let mut registry = registry_arc.write();
             registry.register::<AppInterfaceFlag>();
             registry.register::<MainMenuComponent>();
@@ -272,7 +272,7 @@ impl Application{
             registry.register::<InputComponent>();
         }
 
-        let MainMenuEntity = scene.get_world()
+        let _MainMenuEntity = scene.get_world()
             .unwrap()
             .spawn()
             .insert(AppInterfaceFlag{})
@@ -387,7 +387,7 @@ impl Application{
                 self.update_managers();
 
                 // run physics
-                let mut scene_manager = self.get_scene_manager().unwrap();
+                let scene_manager = self.get_scene_manager().unwrap();
                 let mut active_scene = scene_manager.get_active_scene().unwrap();
                 active_scene.run_update_schedule();
 
@@ -449,7 +449,7 @@ impl Application{
         }
         
         // get scene
-        let mut scene_manager = self.get_scene_manager().unwrap();
+        let scene_manager = self.get_scene_manager().unwrap();
         let mut active_scene = scene_manager.get_active_scene().unwrap();
         
         // run input

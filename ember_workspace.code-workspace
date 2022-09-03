@@ -4,13 +4,13 @@
 			"path": "."
 		},
 		{
-			"path": "../sandbox"
-		},
-		{
 			"path": "../ember_math"
 		},
 		{
 			"path": "../ember-ecs"
+		},
+		{
+			"path": "../test_projects"
 		}
 	],
 	"settings": {}

@@ -8,7 +8,6 @@ use std::path::Path;
 use std::fs;
 use thiserror::Error;
 use crate::core::{
-    managers::manager::Manager,
     scene::{
         Scene,
         Active,
@@ -17,13 +16,13 @@ use crate::core::{
     },
 };
 use serde::de::DeserializeSeed;
-use crate::core::scene::SerdeScene;
+
 use crate::core::events::scene_manager_messages::SceneManagerMessage;
 
-use bevy_ecs::prelude::EventReader;
+
 use bevy_ecs::entity::EntityMap;
 use bevy_reflect::TypeRegistryArc;
-use crate::core::events::project_events::CreateProjectEvent;
+
 use crate::core::scene::SceneDeserializer;
 
 pub struct SceneManagerMessagePump{
@@ -121,12 +120,12 @@ impl SceneManager{
                 Some(s) => s, 
                 None => return Err(SceneManagerUpdateError::NoActiveScene)
             };
-            let mut world = match scene.get_world() {
+            let world = match scene.get_world() {
                 Some(w) => w,
                 None => return Err(SceneManagerUpdateError::NoWorldOnScene)
             };
             
-            let mut pump = world.get_resource::<SceneManagerMessagePump>().expect("Event channel not found");
+            let pump = world.get_resource::<SceneManagerMessagePump>().expect("Event channel not found");
             let type_registry = world.get_resource::<TypeRegistryArc>().expect("Type registry not found.");
 
             let messages = (*pump.messages.lock().unwrap()).clone();
@@ -141,7 +140,15 @@ impl SceneManager{
                     let mut scene_path = path.clone();
                     scene_path.push_str("scenes/");
                     scene_path.push_str(&scene_name.clone().to_owned());
-                    log::info!("{}", format!("Opening Project {} with scene {}", path, scene_path));
+                    log::info!(
+                        "{}",
+                        format!(
+                            "Opening Project {} with scene {} - exists: {}",
+                            path,
+                            scene_path,
+                            self.does_save_exist(scene_path.clone()),
+                        )
+                    );
                     let ron_str = match fs::read_to_string(scene_path) {
                         Ok(s) => s,
                         _ => return Err(SceneManagerUpdateError::RonReadError)
@@ -161,7 +168,7 @@ impl SceneManager{
 
                     log::info!("Creating and staging new scene from ron...");
                     let mut staged_scene = Scene::<Staged>::new(); 
-                    let mut world = staged_scene.world.take().expect("No world on new scene");
+                    let world = staged_scene.world.take().expect("No world on new scene");
                     loaded_scene.write_to_world(&mut world.borrow_mut(), &mut EntityMap::default());
                     staged_scene.world.replace(world);
                     self.set_staged_scene(staged_scene);
@@ -176,8 +183,8 @@ impl SceneManager{
     pub fn prep_staged_scene(&mut self, _scene: &mut Scene<Staged>){
     }
 
-    pub fn does_save_exist(&self, save_name: &'static str) -> bool {
-        Path::new(save_name).exists()
+    pub fn does_save_exist(&self, save_name: String) -> bool {
+        Path::new(&save_name.as_str()).exists()
     }
 
     // adds a scene and returns its scene id
@@ -229,7 +236,7 @@ impl SceneManager{
         let staged_scene_id = self.staged_scene_id.take().expect("Staged scene id not set.");
         let staged_scene = self.staged_scene.take().expect("Staged scene not set.");
         match &staged_scene.borrow().state.setup_schedule {
-            Some(s) => log::info!("Setup schedule exists..."),
+            Some(_s) => log::info!("Setup schedule exists..."),
             None => log::info!("wtf"),
         };
         let active_scene = Scene::<Active>::from(staged_scene.into_inner());
@@ -254,11 +261,11 @@ impl SceneManager{
     pub fn deactivate_staged_scene(&mut self){
         log::info!("Deactivating staged scene...");
         // get staged scene
-        let staged_scene_id = self.staged_scene_id.take().expect("Staged scene id not set.");
+        let _staged_scene_id = self.staged_scene_id.take().expect("Staged scene id not set.");
         let staged_scene = self.staged_scene.take().expect("Staged scene not set.");
 
         // transition it to inactive
-        let inactive_scene = Scene::<Inactive>::from(staged_scene.into_inner());
+        let _inactive_scene = Scene::<Inactive>::from(staged_scene.into_inner());
     }
 
     pub fn get_staged_scene(&mut self) -> Option<RefMut<Scene<Staged>>> {

@@ -2,7 +2,7 @@
 use crate::core::scene::SerdeScene;
 use crate::core::managers::SceneManagerMessagePump;
 use crate::core::events::scene_manager_messages::SceneManagerMessage;
-use std::path::Path;
+
 use std::fs::File;
 use bevy_ecs::prelude::{
     Query, 
@@ -47,15 +47,20 @@ pub fn ProjectCreationSystem(
         let mut buff = format!("{}/scenes", event.project_path.clone());
         std::fs::create_dir(buff.clone());
         buff.push_str("/default.ron");
-        let mut file = match File::create(&buff) {
+        match File::create(&buff) {
             Err(why) => panic!("couldn't create default ron scene: {}", why),
-            Ok(file) => file,
+            Ok(file) => (),
+        };
+        let mut project_file = event.project_path.clone();
+        project_file.push_str("ember.project");
+        match File::create(&project_file){
+            Err(why) => panic!("couldn't create project file {}", why),
+            Ok(file) => (),
         };
         
         let m = SceneManagerMessage::OpenProject {
             path: event.project_path.clone(),
             scene_name: String::from("default.ron")
-
         };
         scene_manager_messages.send(m);
     }

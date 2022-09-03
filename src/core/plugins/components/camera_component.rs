@@ -81,13 +81,13 @@ impl CameraComponent {
 
 impl Default for CameraComponent {
     fn default() -> Self {
-        let fov = 3.1415 / 1.75;
-        let near = 0.1;
-        let far = 1e4;
-        let aspect = 0.5;
+        let fov = 3.14 / 2.0;
+        let near = 0.01;
+        let far = 1e6;
+        let aspect = 1.0;
         let look_at = Vector3f::new(0.0, 0.0, 0.0);
-        let eye = Vector3f::new(3.0, 0.0, -3.0);
-        let up = Vector3f::new(0.0, -1.0, 0.0);
+        let eye = Vector3f::new(5.0, 5.0, 5.0);
+        let up = Vector3f::new(0.0, 1.0, 0.0);
         let mut cam = CameraComponent{
             fov: fov,
             near: near,

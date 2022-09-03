@@ -144,7 +144,7 @@ impl Scene<Staged> {
             .init_resource::<TypeRegistryArc>();
         {
             let mut world = scene.get_world().unwrap();
-            let mut registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
+            let registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
             let mut registry = registry_arc.write();
             registry.register::<AppInterfaceFlag>();
             registry.register::<MainMenuComponent>();
@@ -384,7 +384,7 @@ impl From<Scene<Active>> for Scene<Staged> {
 }
 
 impl From<Scene<Staged>> for Scene<Inactive> {
-    fn from(staged_scene: Scene<Staged>) -> Scene<Inactive> {
+    fn from(_staged_scene: Scene<Staged>) -> Scene<Inactive> {
         let scene = Scene {
             world: None,
             state: Inactive

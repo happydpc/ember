@@ -1,6 +1,6 @@
 use std::env;
 
-use mylib::Manager;
+use ember::Manager;
 
 use log::LevelFilter;
 
@@ -16,7 +16,7 @@ fn main() {
             println!("Get fucked that's not a valid log level");
         }
     }
-    let mut app: mylib::Application = mylib::Application::create_application(log_level);
+    let mut app: ember::Application = ember::Application::create_application(log_level);
     app.startup();
     app.run();
 }
