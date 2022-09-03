@@ -29,3 +29,4 @@ pub use terrain_systems::TerrainUpdateSystem;
 
 pub use project_systems::SceneSerializationSystem;
 pub use project_systems::ProjectCreationSystem;
+pub use project_systems::OpenProjectSystem;

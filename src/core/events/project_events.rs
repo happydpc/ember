@@ -8,4 +8,5 @@ pub struct OpenProjectEvent{
 }
 pub struct CreateProjectEvent{
     pub project_path: String,
+    pub scene_name: String,
 }

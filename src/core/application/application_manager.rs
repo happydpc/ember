@@ -23,6 +23,9 @@ use crate::core::{
     managers::RenderManager,
     managers::InputManager,
     managers::SceneManager,
+    managers::scene_manager::{
+        SceneManagerUpdateResults,
+    },
     scene::{
         Scene,
         Active,
@@ -134,18 +137,18 @@ impl Manager for Application{
 
     // update process
     fn update(&mut self, scene: &mut Scene<Active>){
-        match &self.input_manager {
-            Some(manager) => manager.borrow_mut().update(scene),
-            None => log::error!("No input manager to update."),
-        }
-        match &self.scene_manager {
-            Some(manager) => manager.borrow_mut().update(scene),
-            None => log::error!("No scene manager to update."),
-        }
-        match &self.render_manager {
-            Some(manager) => manager.borrow_mut().update(scene),
-            None => log::error!("No render manager to update."),
-        }
+        // match &self.input_manager {
+        //     Some(manager) => manager.borrow_mut().update(scene),
+        //     None => log::error!("No input manager to update."),
+        // }
+        // match &self.scene_manager {
+        //     Some(manager) => manager.borrow_mut().update(scene),
+        //     None => log::error!("No scene manager to update."),
+        // }
+        // match &self.render_manager {
+        //     Some(manager) => manager.borrow_mut().update(scene),
+        //     None => log::error!("No render manager to update."),
+        // }
     }
 }
 
@@ -166,7 +169,7 @@ impl Application{
 
     // preps a staged scene
     fn prep_staged_scene(&mut self){
-        log::debug!("Prepping idle scene...");
+        log::info!("Prepping idle scene...");
         let mut scene_manager = self.get_scene_manager().unwrap();
         let mut _scene = scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
@@ -204,6 +207,8 @@ impl Application{
         use crate::core::events::project_events::OpenProjectEvent;
         use crate::core::events::menu_messages::MenuMessage;
         use crate::core::events::terrain_events::TerrainRecalculateEvent;
+        use crate::core::managers::SceneManagerMessagePump;
+
         use bevy_ecs::event::Events;
         use bevy_reflect::TypeRegistryArc;
         use ember_math::Vector3f;
@@ -219,6 +224,10 @@ impl Application{
         scene.get_world()
             .unwrap()
             .init_resource::<TypeRegistryArc>();
+
+        scene.get_world()
+            .unwrap()
+            .init_resource::<SceneManagerMessagePump>();
 
         scene.get_world()
             .unwrap()
@@ -261,7 +270,6 @@ impl Application{
             registry.register::<AmbientLightingComponent>();
             registry.register::<CameraComponent>();
             registry.register::<InputComponent>();
-
         }
 
         let MainMenuEntity = scene.get_world()
@@ -376,14 +384,11 @@ impl Application{
 
             let mut loops = 0;
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
-                // get scene
-                let scene_manager = self.get_scene_manager().unwrap();
-                let mut active_scene = scene_manager.get_active_scene().unwrap();
+                self.update_managers();
 
-                // run input 
-                self.get_input_manager().unwrap().update(active_scene.borrow_mut());
-                
                 // run physics
+                let mut scene_manager = self.get_scene_manager().unwrap();
+                let mut active_scene = scene_manager.get_active_scene().unwrap();
                 active_scene.run_update_schedule();
 
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
@@ -425,6 +430,32 @@ impl Application{
             }
         }); // end of event_loop run
     } // end of run function
+
+    fn update_managers(&mut self){
+        let scene_manager_update_result = {
+            let mut scene_manager = self.get_scene_manager().unwrap();
+            match scene_manager.update(){
+                Ok(r) => r,
+                Err(e) => panic!(e)
+            }
+        };
+        match scene_manager_update_result {
+            SceneManagerUpdateResults::NewSceneOpened => {
+                self.prep_staged_scene();
+                self.activate_staged_scene();
+            },
+            SceneManagerUpdateResults::NoUpdate => log::debug!("No action required from scene manager"),
+            _ => panic!("unexpected result")
+        }
+        
+        // get scene
+        let mut scene_manager = self.get_scene_manager().unwrap();
+        let mut active_scene = scene_manager.get_active_scene().unwrap();
+        
+        // run input
+        self.get_input_manager().unwrap().update(active_scene.borrow_mut());
+        self.get_render_manager().unwrap().update(active_scene.borrow_mut());
+    }
 
     fn handle_event(
         &mut self,
@@ -493,7 +524,7 @@ impl Application{
         id // return id
     }
 
-    // pub fn stage_scene(&mut self, scene_id: i16) {
+    // pub fn stage_inactive_scene(&mut self, scene_id: i16) {
     pub fn initialize_egui_state_on_staged_scene(&mut self){// scene: &mut Scene<Active>){
         let mut scene_manager = self.get_scene_manager().unwrap();
 

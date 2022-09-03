@@ -8,3 +8,4 @@ pub use scene::Staged;
 pub use scene::Inactive;
 
 pub use serialization::SerdeScene;
+pub use serialization::SceneDeserializer;

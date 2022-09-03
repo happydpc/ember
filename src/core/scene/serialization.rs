@@ -88,23 +88,6 @@ impl SerdeScene {
     }
 
     pub fn write_to_file(&self, file_name: &str, type_registry: &TypeRegistryArc){
-        // let pretty = PrettyConfig::new()
-        //     .depth_limit(2)
-        //     .separate_tuple_members(true)
-        //     .enumerate_arrays(true);
-        // let writer = File::create(file_name).unwrap();
-        // let mut serializer = ron::ser::Serializer::new(&writer, Some(pretty.clone()), true).expect("Couldn't create ron serializer.");
-
-        // for entity in &self.entities {
-        //     log::info!("Serilizing entity with {:?} comps", entity.components.len());
-        //     // to_writer(&writer, &entity.entity);
-        //     for c in &entity.components {
-        //         ReflectSerializer::new(
-        //             &**c,
-        //             &type_registry.read()
-        //         ).serialize(&mut serializer);
-        //     }
-        // }
         let ronald = self.serialize_ron(type_registry).expect("error in serialization");
         let mut buffer = File::create(file_name).expect("Couldn't create file");
         buffer.write(ronald.as_bytes()).expect("Couldn't write to file.");

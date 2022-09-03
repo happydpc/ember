@@ -88,7 +88,6 @@ pub fn FileSubMenuSystem(
                 ui.close_menu();
             }
             if ui.button("Open").clicked() {
-                log::info!("Open project...");
                 let root = std::env::current_dir().unwrap();
                 comp.open_project_window = true;
                 comp.new_project_window = false;
@@ -96,12 +95,10 @@ pub fn FileSubMenuSystem(
                 // comp.current_nav_path = std::env::current_dir().unwrap();
             }
             if ui.button("Save").clicked() {
-                log::info!("Sending a save message");
                 save_events.send(SaveEvent);
                 ui.close_menu();
             }
             if ui.button("Close").clicked() {
-                log::info!("Close scene...");
                 close_events.send(CloseProjectEvent);
                 ui.close_menu();
             }
@@ -168,8 +165,15 @@ pub fn ShowNewProjectWindow(
                         if p.exists() {
                             log::warn!("Path already exists!");
                         }else{
-                            std::fs::create_dir(p.clone()).expect("Couldn't create project");
-                            create_project_events.send(CreateProjectEvent{project_path: String::from(p.to_str().unwrap())});
+                            create_project_events.send(
+                                CreateProjectEvent{
+                                    project_path: String::from(
+                                        p.to_str()
+                                            .unwrap()
+                                        ),
+                                    scene_name: String::from("default.ron")
+                                    }
+                                );
                         }
                     }
                 });
