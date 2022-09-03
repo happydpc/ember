@@ -1379,6 +1379,7 @@ dependencies = [
  "ron",
  "serde",
  "simple_logger",
+ "thiserror",
  "vulkano",
  "vulkano-shaders",
  "vulkano-win",
