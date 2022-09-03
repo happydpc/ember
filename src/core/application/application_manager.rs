@@ -436,7 +436,7 @@ impl Application{
             let mut scene_manager = self.get_scene_manager().unwrap();
             match scene_manager.update(){
                 Ok(r) => r,
-                Err(e) => panic!(e)
+                Err(e) => panic!("{:?}", e)
             }
         };
         match scene_manager_update_result {
