@@ -153,11 +153,13 @@ impl SceneManager{
                         Ok(s) => s,
                         _ => return Err(SceneManagerUpdateError::RonReadError)
                     };
+                    log::info!("Got ron string.");
                     let scene_bytes = ron_str.as_bytes();
                     let mut deserializer = ron::de::Deserializer::from_bytes(scene_bytes).expect("Error making deserializer.");
                     let scene_deserializer = SceneDeserializer {
                         type_registry: &*type_registry.read(),
                     };
+                    log::info!("Created deserializer.");
                     let loaded_scene = match scene_deserializer.deserialize(&mut deserializer){
                         Ok(s) => s,
                         _ => return Err(SceneManagerUpdateError::DeserializationError)

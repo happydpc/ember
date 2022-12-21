@@ -16,7 +16,7 @@ path = "src/bin.rs"
 
 [dependencies]
 serde = {version = "1", features=["derive"]}
-ron = "0.7"
+ron = "0.8"
 bevy_ecs = {version = "0.8.1"}
 bevy_reflect = {version = "0.8.1"}
 bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
