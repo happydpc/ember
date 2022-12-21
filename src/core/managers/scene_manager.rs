@@ -93,7 +93,7 @@ impl SceneManager{
     //
 
     // creates a new SceneManager
-    pub fn create_new() -> Self {
+    pub fn new() -> Self {
         log::info!("Creating SceneManager...");
         SceneManager{
             active_scene: None,
@@ -138,7 +138,7 @@ impl SceneManager{
                 SceneManagerMessage::OpenProject {path, scene_name} => {
                     // i think here is where i deserde and tell the application that it needs to re-prep
                     let mut scene_path = path.clone();
-                    scene_path.push_str("scenes/");
+                    scene_path.push_str("/scenes/");
                     scene_path.push_str(&scene_name.clone().to_owned());
                     log::info!(
                         "{}",

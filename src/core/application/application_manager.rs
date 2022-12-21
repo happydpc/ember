@@ -23,6 +23,7 @@ use crate::core::{
     managers::RenderManager,
     managers::InputManager,
     managers::SceneManager,
+    managers::PluginManager,
     managers::scene_manager::{
         SceneManagerUpdateResults,
     },
@@ -71,6 +72,7 @@ pub struct Application{
     render_manager: Option<RefCell<RenderManager>>,
     scene_manager: Option<RefCell<SceneManager>>,
     input_manager: Option<RefCell<InputManager>>,
+    plugin_manager: Option<RefCell<PluginManager>>,
     event_loop: Option<EventLoop<()>>,
     surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
     state: Box<dyn ApplicationState>,
@@ -87,15 +89,17 @@ impl Manager for Application{
 
         log::info!("Starting application ...");
         // create other managers
-        let mut render_manager = RenderManager::create_new();
-        let mut scene_manager = SceneManager::create_new();
-        let mut input_manager = InputManager::create_new();
+        let mut render_manager = RenderManager::new();
+        let mut scene_manager = SceneManager::new();
+        let mut input_manager = InputManager::new();
+        let mut plugin_manager = PluginManager::new();
 
         // initialize other managers
         log::info!("Running manager startup functions ...");
         let (event_loop, surface) = render_manager.startup();
         scene_manager.startup();
         input_manager.startup();
+        plugin_manager.startup();
 
         // set to idle state
         log::info!("Setting application idle state ...");
@@ -106,13 +110,14 @@ impl Manager for Application{
         self.render_manager = Some(RefCell::new(render_manager));
         self.scene_manager = Some(RefCell::new(scene_manager));
         self.input_manager = Some(RefCell::new(input_manager));
+        self.plugin_manager = Some(RefCell::new(plugin_manager));
         self.event_loop = Some(event_loop);
         self.surface = Some(surface);
 
         // prep staged scene
         log::info!("Prepping and activating idle scene ...");
         self.prep_staged_scene();
-        self.temp_prep(); // here until i fix serialization again and actually have a functional editor state
+        self.temp_prep(); // idk what to do with this lol
         self.activate_staged_scene();
 
         log::info!("Startup complete...");
@@ -137,18 +142,7 @@ impl Manager for Application{
 
     // update process
     fn update(&mut self, _scene: &mut Scene<Active>){
-        // match &self.input_manager {
-        //     Some(manager) => manager.borrow_mut().update(scene),
-        //     None => log::error!("No input manager to update."),
-        // }
-        // match &self.scene_manager {
-        //     Some(manager) => manager.borrow_mut().update(scene),
-        //     None => log::error!("No scene manager to update."),
-        // }
-        // match &self.render_manager {
-        //     Some(manager) => manager.borrow_mut().update(scene),
-        //     None => log::error!("No render manager to update."),
-        // }
+
     }
 }
 
@@ -159,6 +153,7 @@ impl Application{
             render_manager: None,
             scene_manager: None,
             input_manager: None,
+            plugin_manager: None,
             event_loop: None,
             surface: None,
             log_level: log_level.unwrap_or(LevelFilter::Info),
@@ -167,20 +162,23 @@ impl Application{
         }
     }
 
-    // preps a staged scene
+    // preps a staged scene. this mostly lends the scene to managers so they can do whatever prep they
+    // need to do in the ecs world like creating resources and storages etc
     fn prep_staged_scene(&mut self){
         log::info!("Prepping idle scene...");
-        let mut scene_manager = self.get_scene_manager().unwrap();
-        let mut _scene = scene_manager.get_staged_scene().unwrap();
-        let scene = _scene.deref_mut();
+        {
+            let mut scene_manager = self.get_scene_manager().unwrap();
+            let mut _scene = scene_manager.get_staged_scene().unwrap();
+            let scene = _scene.deref_mut();
 
-        match &self.input_manager {
-            Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
-            None => log::error!("No input manager to prep scene."),
-        }
-        match &self.render_manager {
-            Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
-            None => log::error!("No render manager to prep scene."),
+            match &self.input_manager {
+                Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
+                None => log::error!("No input manager to prep scene."),
+            }
+            match &self.render_manager {
+                Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
+                None => log::error!("No render manager to prep scene."),
+            }
         }
     }
 
@@ -445,7 +443,6 @@ impl Application{
                 self.activate_staged_scene();
             },
             SceneManagerUpdateResults::NoUpdate => log::debug!("No action required from scene manager"),
-            _ => panic!("unexpected result")
         }
         
         // get scene

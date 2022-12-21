@@ -241,7 +241,7 @@ impl RenderManager{
     }
 
     // create a new render manager with Inactive values
-    pub fn create_new() -> Self {
+    pub fn new() -> Self {
         log::info!("Creating RenderManager...");
 
         // initialize our render system with all of the required vulkan components

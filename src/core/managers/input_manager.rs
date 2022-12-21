@@ -38,7 +38,7 @@ impl Manager for InputManager{
 impl InputManager {
 
     // Creates a new input manager
-    pub fn create_new() -> Self {
+    pub fn new() -> Self {
         log::info!("Creating input manager...");
         InputManager{
             modifier_state: ModifiersState::empty(),

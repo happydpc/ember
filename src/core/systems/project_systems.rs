@@ -44,18 +44,21 @@ pub fn ProjectCreationSystem(
         log::info!("Creating a project");
 
         std::fs::create_dir(event.project_path.clone()).expect("Couldn't create project");
-        let mut buff = format!("{}/scenes", event.project_path.clone());
-        std::fs::create_dir(buff.clone());
-        buff.push_str("/default.ron");
-        match File::create(&buff) {
+        let mut scenes_folder = format!("{}/scenes", event.project_path.clone());
+        std::fs::create_dir(scenes_folder.clone());
+
+        // basically run cargo init here
+
+        scenes_folder.push_str("/default.ron");
+        match File::create(&scenes_folder) {
             Err(why) => panic!("couldn't create default ron scene: {}", why),
-            Ok(file) => (),
+            Ok(_file) => (),
         };
         let mut project_file = event.project_path.clone();
-        project_file.push_str("ember.project");
+        project_file.push_str("/ember.project");
         match File::create(&project_file){
             Err(why) => panic!("couldn't create project file {}", why),
-            Ok(file) => (),
+            Ok(_file) => (),
         };
         
         let m = SceneManagerMessage::OpenProject {

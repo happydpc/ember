@@ -20,7 +20,6 @@ pub trait ApplicationState{
 pub struct ApplicationIdleState{
     pub schedule: Option<Box<dyn Stage>>,
     pub scene_interface_path: &'static str,
-    idle_scene_id: i16,
 }
 
 impl ApplicationIdleState{
@@ -28,15 +27,11 @@ impl ApplicationIdleState{
         ApplicationIdleState{
             schedule: None,
             scene_interface_path: "./idle_state.ron",
-            idle_scene_id: -1,
         }
     }
 
     fn create_idle_scene(&mut self, scene_manager: Option<RefMut<SceneManager>>){
-        if self.idle_scene_id == -1 {  // if the scene doesn't exist, create one
-            let scene_id = scene_manager.expect("Scene manager should exist here.").generate_and_register_scene();
-            self.idle_scene_id = scene_id;
-        }
+        let _scene_id = scene_manager.expect("Scene manager should exist here.").generate_and_register_scene();
     }
    
 }
