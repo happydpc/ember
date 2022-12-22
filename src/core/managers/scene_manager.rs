@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+
 use std::cell::{
     RefCell,
     RefMut
@@ -149,13 +149,13 @@ impl SceneManager{
                     // Get the metadata for the file
                     let metadata = match fs::metadata(path) {
                         Ok(metadata) => metadata,
-                        Err(e) => return Err(SceneManagerUpdateError::DeserializationError)
+                        Err(_e) => return Err(SceneManagerUpdateError::DeserializationError)
                     };
                     
-                    let mut loaded_scene = SerdeScene::default();
+                    let loaded_scene = SerdeScene::default();
 
                     if metadata.len() != 0 {
-                        let loaded_scene = match scene_deserializer.deserialize(&mut deserializer){
+                        let _loaded_scene = match scene_deserializer.deserialize(&mut deserializer){
                             Ok(s) => s,
                             _ => return Err(SceneManagerUpdateError::DeserializationError)
                         };
@@ -243,7 +243,7 @@ impl SceneManager{
     }
 
     pub fn create_and_set_staged_scene(&mut self){
-        let mut staged_scene = Scene::<Staged>::new();
+        let staged_scene = Scene::<Staged>::new();
         self.set_staged_scene(staged_scene);
     }
 

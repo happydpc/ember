@@ -1,6 +1,6 @@
 use crate::core::plugins::Plugin;
-use libloading::Library as WinLib;
-use libloading::Symbol as WinSymbol;
+
+
 use libloading::Error as LibError;
 use std::ffi::OsStr;
 use core::ffi::c_char;
@@ -17,7 +17,7 @@ use libloading::os::unix::Library;
 #[cfg(target_os = "macos")]
 use libloading::os::unix::Symbol;
 
-use errors::*;
+
 
 pub struct PluginManager {
     plugins: Vec<Box<dyn Plugin>>,

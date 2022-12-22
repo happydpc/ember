@@ -1,8 +1,8 @@
-use std::ffi::OsStr;
-use std::any::Any;
-use libloading::{Library, Symbol};
 
-use errors::*;
+use std::any::Any;
+
+
+
 
 
 /// A plugin which allows you to add extra functionality to the REST client.

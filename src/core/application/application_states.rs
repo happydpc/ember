@@ -3,13 +3,13 @@ use crate::core::scene::{
     Active,
     Staged
 };
-use crate::core::managers::SceneManager;
+
 use bevy_ecs::{
     schedule::Stage,
 };
 use bevy_ecs::prelude::Schedule;
 
-use std::cell::RefMut;
+
 
 
 use crate::core::plugins::components::{
@@ -25,13 +25,13 @@ use crate::core::events::project_events::CreateProjectEvent;
 use crate::core::events::project_events::CloseProjectEvent;
 use crate::core::events::project_events::OpenProjectEvent;
 use crate::core::events::menu_messages::MenuMessage;
-use crate::core::events::terrain_events::TerrainRecalculateEvent;
+
 use crate::core::managers::SceneManagerMessagePump;
 use crate::core::plugins::components::AppInterfaceFlag;
 
 use bevy_ecs::event::Events;
 use bevy_reflect::TypeRegistryArc;
-use ember_math::Vector3f;
+
 
 
 pub trait ApplicationState{
