@@ -1,13 +1,21 @@
 use crate::core::plugins::Plugin;
 use libloading::Library as WinLib;
-use libloading::os::unix::Library;
 use libloading::Symbol as WinSymbol;
-use libloading::os::unix::Symbol;
 use libloading::Error as LibError;
 use std::ffi::OsStr;
 use core::ffi::c_char;
 use core::ffi::c_int;
 use core::ffi::CStr;
+
+#[cfg(target_os = "windows")]
+use libloading::os::windows::Library;
+#[cfg(target_os = "windows")]
+use libloading::os::windows::Symbol;
+
+#[cfg(target_os = "macos")]
+use libloading::os::unix::Library;
+#[cfg(target_os = "macos")]
+use libloading::os::unix::Symbol;
 
 use errors::*;
 

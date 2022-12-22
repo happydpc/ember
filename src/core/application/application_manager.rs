@@ -103,9 +103,8 @@ impl Manager for Application{
 
         // set to idle state
         log::info!("Setting application idle state ...");
-        let state: &(dyn ApplicationState) = self.state.borrow();
-        scene_manager.load_scene_interface(state.scene_interface_path());
-        
+        scene_manager.create_and_set_staged_scene();
+
         // store managers and other created things
         self.render_manager = Some(RefCell::new(render_manager));
         self.scene_manager = Some(RefCell::new(scene_manager));
@@ -117,7 +116,6 @@ impl Manager for Application{
         // prep staged scene
         log::info!("Prepping and activating idle scene ...");
         self.prep_staged_scene();
-        self.temp_prep(); // idk what to do with this lol
         self.activate_staged_scene();
 
         log::info!("Startup complete...");
@@ -170,6 +168,9 @@ impl Application{
             let mut scene_manager = self.get_scene_manager().unwrap();
             let mut _scene = scene_manager.get_staged_scene().unwrap();
             let scene = _scene.deref_mut();
+            
+            let state: &(dyn ApplicationState) = self.state.borrow();
+            state.overlay_interface_on_staged_scene(scene.borrow_mut());
 
             match &self.input_manager {
                 Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
@@ -275,7 +276,6 @@ impl Application{
             .spawn()
             .insert(AppInterfaceFlag{})
             .insert(MainMenuComponent{ui: None})
-            .insert(DebugUiComponent::create())
             .insert(FileSubMenuComponent::new())    
             .id();
         
@@ -512,13 +512,6 @@ impl Application{
             }
             _ => (), // catch all of event match
         } // end of event match
-    }
-
-    pub fn create_scene(&mut self) -> i16{
-        // get scene manager
-        let mut scene_manager = self.get_scene_manager().unwrap();
-        let id = scene_manager.generate_and_register_scene();
-        id // return id
     }
 
     // pub fn stage_inactive_scene(&mut self, scene_id: i16) {
