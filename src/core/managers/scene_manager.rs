@@ -71,7 +71,6 @@ pub enum SceneManagerUpdateError{
 pub struct SceneManager{
     active_scene: Option<RefCell<Scene<Active>>>,
     staged_scene: Option<RefCell<Scene<Staged>>>,
-    scenes: Mutex<HashMap<i16, Scene<Inactive>>>, // Scene ids and scenes
     scene_counter: i16,
 }
 
@@ -87,7 +86,6 @@ impl SceneManager{
         SceneManager{
             active_scene: None,
             staged_scene: None,
-            scenes: Mutex::new(HashMap::new()),
             scene_counter: 0,
         }
     }
@@ -96,7 +94,7 @@ impl SceneManager{
         log::info!("Starting SceneManager...");
     }
     pub fn shutdown(&mut self){
-        self.scenes.lock().unwrap().clear();
+        log::info!("Shutting down scene manager...");
     }
 
     pub fn update(&mut self) -> Result<SceneManagerUpdateResults, SceneManagerUpdateError>{
@@ -188,15 +186,6 @@ impl SceneManager{
 
     pub fn does_save_exist(&self, save_name: String) -> bool {
         Path::new(&save_name.as_str()).exists()
-    }
-
-    // adds a scene and returns its scene id
-    pub fn generate_and_register_scene(&mut self) -> i16 {
-        self.scene_counter+=1;
-        let key = self.scene_counter;
-        self.scenes.lock().unwrap().insert(key, Scene::<Inactive>::new());
-        log::info!("Registering scene {}.", key);
-        key
     }
 
     pub fn get_active_scene(&self) -> Option<RefMut<Scene<Active>>> {
