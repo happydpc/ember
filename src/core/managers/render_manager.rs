@@ -25,7 +25,6 @@ use vulkano::{
         physical::{
             PhysicalDevice,
             PhysicalDeviceType,
-            QueueFamily,
         },
         Device,
         DeviceExtensions,
@@ -39,6 +38,9 @@ use vulkano::{
         SwapchainCreationError,
         SwapchainAcquireFuture,
         SwapchainCreateInfo,
+    },
+    memory::{
+        allocator::StandardMemoryAllocator,
     },
     swapchain,
     image::{
@@ -123,6 +125,7 @@ pub struct RenderManager{
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
     pub images: Option<Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>>>,
     pub scene_state: Option<Arc<SceneState>>,
+    pub memory_allocator: Option<Arc<StandardMemoryAllocator>>,
 }
 
 impl RenderManager{
@@ -165,6 +168,10 @@ impl RenderManager{
             queue_family
         );
 
+        // create our memory allocator which I think allocates command buffers (?). docs say it's general use 
+        // https://docs.rs/vulkano/latest/vulkano/memory/allocator/type.StandardMemoryAllocator.html
+        let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+
         // get queue
         let queue = queues.next().unwrap();
 
@@ -205,6 +212,7 @@ impl RenderManager{
         self.recreate_swapchain = false;
         self.images = Some(images);
         self.scene_state = Some(Arc::new(scene_state));
+        self.memory_allocator = Some(memory_allocator);
         (event_loop, return_surface)
     }
 
@@ -258,6 +266,7 @@ impl RenderManager{
             previous_frame_end: None,
             images: None,
             scene_state: None,
+            memory_allocator: None,
         };
         render_sys
     }
@@ -491,7 +500,7 @@ impl RenderManager{
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
             .with_title("Ember")
-            .build_vk_surface(&event_loop, instance.clone())
+            .build(&event_loop, instance.clone())
             .unwrap();
         (event_loop, surface)
     }
@@ -503,29 +512,41 @@ impl RenderManager{
         surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>
     ) -> (PhysicalDevice, QueueFamily) {
         // get our physical device and queue family
-        let (physical_device, queue_family) = PhysicalDevice::enumerate(&instance)
+        let (physical_device, queue_family_index) = instance
+            .enumerate_physical_devices()
             .filter(|&p| { // filter to devices that contain desired features
-                p.supported_extensions().is_superset_of(&device_extensions)
+                p.supported_extensions().contains(&device_extensions)
             })
             .filter_map(|p| { // filter queue families to ones that support graphics
-                p.queue_families() // TODO : pick beter queue families since this is one single queue
-                    .find(|&q| {
-                        q.supports_graphics() && q.supports_surface(&surface).unwrap_or(false)
+                p.queue_family_properties() // TODO : pick beter queue families since this is one single queue
+                    .iter()
+                    .enumerate()
+                    .position(|(i, q)| {
+                        // We select a queue family that supports graphics operations. When drawing to
+                        // a window surface, as we do in this example, we also need to check that queues
+                        // in this queue family are capable of presenting images to the surface.
+                        q.queue_flags.intersects(QueueFlags::GRAPHICS)
+                            && p.surface_support(i as u32, &surface).unwrap_or(false)
                     })
-                    .map(|q| (p, q))
+                    // The code here searches for the first queue family that is suitable. If none is
+                    // found, `None` is returned to `filter_map`, which disqualifies this physical
+                    // device.
+                    .map(|i| (p, i as u32))
             })
-            .min_by_key(|(p, _)| { // pick the best device based on a score we assign
+            .min_by_key(|(p, _)| {
+                // We assign a lower score to device types that are likely to be faster/better.
                 match p.properties().device_type {
                     PhysicalDeviceType::DiscreteGpu => 0,
                     PhysicalDeviceType::IntegratedGpu => 1,
                     PhysicalDeviceType::VirtualGpu => 2,
                     PhysicalDeviceType::Cpu => 3,
                     PhysicalDeviceType::Other => 4,
+                    _ => 5,
                 }
             })
-            .unwrap();
+            .expect("No suitable physical device found");
 
-            (physical_device, queue_family)
+            (physical_device, queue_family_index)
     }
 
     // create logical device and queues. Currently a very thin pass-through
@@ -629,6 +650,7 @@ impl RenderManager{
         let egui_ctx = egui::Context::default();
         let egui_painter = egui_vulkano::Painter::new(
             self.device(),
+            self.memory_allocator(),
             self.queue(),
             Subpass::from(self.scene_state().render_passes[0].clone(), 2).unwrap(),
         )
@@ -651,6 +673,10 @@ impl RenderManager{
 
     pub fn queue(&self) -> Arc<Queue> {
         self.queue.clone().unwrap().clone()
+    }
+
+    pub fn memory_allocator(&self) -> Arc<StandardMemoryAllocator> {
+        self.memory_allocator.clone().unwrap().clone()
     }
 
     pub fn surface(&self) -> Arc<vulkano::swapchain::Surface<winit::window::Window>> {

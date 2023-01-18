@@ -4,13 +4,7 @@
 			"path": "."
 		},
 		{
-			"path": "../sandbox"
-		},
-		{
-			"path": "../ember_math"
-		},
-		{
-			"path": "../ember-ecs"
+			"path": "../egui_vulkano"
 		}
 	],
 	"settings": {}

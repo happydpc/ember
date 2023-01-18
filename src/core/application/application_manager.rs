@@ -394,7 +394,7 @@ impl Application{
             }
 
             // pass events to egui
-            let egui_consumed_event = {
+            {
                 let scene_manager = self.get_scene_manager().unwrap();
                 let mut scene = scene_manager.get_active_scene().unwrap();
                 let mut world = scene.get_world().unwrap();
@@ -404,28 +404,30 @@ impl Application{
                 let mut egui_winit = {
                     world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui_winit state from world")
                 };
-                // let egui_ctx = state.ctx.clone();
-                match event{
+
+                match event {
                     Event::WindowEvent{ref event, ..} => {
-                        egui_winit.on_event(&egui_ctx, &event)
+                        let event_response = egui_winit.on_event(&egui_ctx, &event);
+                        if !event_response.consumed {
+                            self.handle_window_event(&event, control_flow);
+                        }
                     },
-                    _ => false
+                    Event::MainEventsCleared => {
+                        puffin::GlobalProfiler::lock().new_frame();
+                        self.render_scene();
+                    },
+                    _ => ()
                 }
             };
 
-            // if egui didn't need it
-            if !egui_consumed_event{
-                self.handle_event(&event, control_flow);
-            }
-
-            // if it's a draw, draw
-            match event{
-                Event::MainEventsCleared => {
-                    puffin::GlobalProfiler::lock().new_frame();
-                    self.render_scene();
-                },
-                _ => (),
-            }
+            // // if it's a draw, draw
+            // match event{
+            //     Event::MainEventsCleared => {
+            //         puffin::GlobalProfiler::lock().new_frame();
+            //         self.render_scene();
+            //     },
+            //     _ => (),
+            // }
         }); // end of event_loop run
     } // end of run function
 
@@ -454,64 +456,56 @@ impl Application{
         self.get_render_manager().unwrap().update(active_scene.borrow_mut());
     }
 
-    fn handle_event(
+    fn handle_window_event(
         &mut self,
-        event: &winit::event::Event<()>,
+        event: &winit::event::WindowEvent,
         control_flow: &mut ControlFlow,
     ){  
         match event {
-            Event::WindowEvent { event, .. } => {
-                let egui_consumed_event = false;//egui_winit.on_event(&egui_ctx, &event);
-                if !egui_consumed_event{
-                    match event {
 
-                        // close requested
-                        WindowEvent::CloseRequested => {
-                            *control_flow = ControlFlow::Exit;
-                        }
+            // close requested
+            WindowEvent::CloseRequested => {
+                *control_flow = ControlFlow::Exit;
+            }
 
-                        // window resized
-                        WindowEvent::Resized(_) => {
-                            log::debug!("Window resized...");
-                            match &self.render_manager {
-                                Some(manager) => {
-                                    manager.borrow_mut().recreate_swapchain();
-                                    log::info!("Swapchain Recreated...");
-                                },
-                                None => log::error!("Render manager not found when trying to recreate swapchain."),
-                            }
-                        }
-
-                        // keyboard input
-                        WindowEvent::KeyboardInput {
-                            input:
-                                KeyboardInput {
-                                    virtual_keycode: Some(virtual_code),
-                                    state: ElementState::Pressed,
-                                    ..
-                                },
-                            ..
-                            } => {
-                                match &self.input_manager {
-                                    Some(manager) => manager.borrow_mut().handle_key_input(Some(virtual_code.clone())),
-                                    None => log::error!("Key detected, but no input manager is loaded..."),
-                                };
-                        }
-                        
-                        // key modifiers, alt, shift, etc
-                        WindowEvent::ModifiersChanged(state) => {
-                            match &self.input_manager{
-                                Some(manager) => manager.borrow_mut().handle_modifier_change(state.clone()),
-                                None => log::error!("Key modifier change detected, but no input manager is loaded..."),
-                            };
-                        }
-
-                        _ => () // catch all for window event
-                    }
+            // window resized
+            WindowEvent::Resized(_) => {
+                log::debug!("Window resized...");
+                match &self.render_manager {
+                    Some(manager) => {
+                        manager.borrow_mut().recreate_swapchain();
+                        log::info!("Swapchain Recreated...");
+                    },
+                    None => log::error!("Render manager not found when trying to recreate swapchain."),
                 }
             }
-            _ => (), // catch all of event match
-        } // end of event match
+
+            // keyboard input
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(virtual_code),
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                ..
+                } => {
+                    match &self.input_manager {
+                        Some(manager) => manager.borrow_mut().handle_key_input(Some(virtual_code.clone())),
+                        None => log::error!("Key detected, but no input manager is loaded..."),
+                    };
+            }
+            
+            // key modifiers, alt, shift, etc
+            WindowEvent::ModifiersChanged(state) => {
+                match &self.input_manager{
+                    Some(manager) => manager.borrow_mut().handle_modifier_change(state.clone()),
+                    None => log::error!("Key modifier change detected, but no input manager is loaded..."),
+                };
+            }
+
+            _ => () // catch all for window event
+        } 
     }
 
     // pub fn stage_inactive_scene(&mut self, scene_id: i16) {

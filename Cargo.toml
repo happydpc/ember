@@ -20,15 +20,15 @@ ron = "0.8"
 bevy_ecs = {version = "0.8.1"}
 bevy_reflect = {version = "0.8.1"}
 bytemuck = { version = "1.7", features = ["derive", "extern_crate_std", "min_const_generics"] }
-vulkano = "0.29"
-vulkano-shaders = "0.29"
-vulkano-win = "0.29"
-egui = "0.17"
-egui-winit = "0.17"
+vulkano = "0.32.2"
+vulkano-shaders = "0.32.0"
+vulkano-win = "0.32.0"
+egui = "0.20.1"
+egui-winit = "0.20.1"
 egui_vulkano = {path="../egui_vulkano"}
 puffin = "0.13.1"
 puffin_egui = "0.14"
-winit = "0.26.1"
+winit = "0.27.5"
 noise = "0.7"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
