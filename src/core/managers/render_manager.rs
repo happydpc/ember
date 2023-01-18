@@ -16,6 +16,7 @@ use puffin;
 
 // Vulkano imports
 use vulkano::{
+    VulkanLibrary,
     instance::{
         Instance,
         InstanceExtensions,
@@ -30,7 +31,8 @@ use vulkano::{
         DeviceExtensions,
         Queue,
         DeviceCreateInfo,
-        QueueCreateInfo
+        QueueCreateInfo,
+        QueueFlags
     },
     swapchain::{
         AcquireError,
@@ -67,7 +69,8 @@ use vulkano::{
         PrimaryAutoCommandBuffer,
         CommandBufferUsage,
         SubpassContents,
-        SecondaryCommandBuffer,
+        SecondaryAutoCommandBuffer,
+        RenderPassBeginInfo,
     },
 };
 
@@ -102,8 +105,8 @@ use log;
 
 pub type Aspect = [u32; 2];
 pub type SwapchainImageNum = usize;
-pub struct TriangleSecondaryBuffers{pub buffers: Vec<Box<dyn SecondaryCommandBuffer>>}
-pub struct LightingSecondaryBuffers{pub buffers: Vec<Box<dyn SecondaryCommandBuffer>>}
+pub struct TriangleSecondaryBuffers{pub buffers: Vec<Box<SecondaryAutoCommandBuffer>>}
+pub struct LightingSecondaryBuffers{pub buffers: Vec<Box<SecondaryAutoCommandBuffer>>}
 pub struct DiffuseBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
 pub struct DepthBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
 pub struct NormalsBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
@@ -117,29 +120,35 @@ pub struct RenderManager{
     required_extensions: Option<InstanceExtensions>,
     device_extensions: Option<DeviceExtensions>,
     instance: Option<Arc<Instance>>,
-    pub surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
+    pub surface: Option<Arc<vulkano::swapchain::Surface>>,
+    pub window: Option<Arc<winit::window::Window>>,
     pub device: Option<Arc<Device>>,
     pub queue: Option<Arc<Queue>>,
-    pub swapchain: Option<Arc<Swapchain<winit::window::Window>>>,
+    pub swapchain: Option<Arc<Swapchain>>,
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
-    pub images: Option<Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>>>,
+    pub images: Option<Vec<Arc<ImageView<SwapchainImage>>>>,
     pub scene_state: Option<Arc<SceneState>>,
     pub memory_allocator: Option<Arc<StandardMemoryAllocator>>,
 }
 
 impl RenderManager{
-    pub fn startup(&mut self) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>){
+    pub fn startup(&mut self) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface>){
         log::info!("Starting RenderManager...");
+
+        // get library
+        let library = VulkanLibrary::new().unwrap();
 
         // get extensions
         let (required_extensions, device_extensions) = RenderManager::get_required_extensions();
 
         // create an instance of vulkan with the required extensions
         let instance = Instance::new(
+            library,
             // None, Version::V1_1, &required_extensions, None
             InstanceCreateInfo{
                 enabled_extensions: required_extensions,
+                enumerate_portability: true,
                 ..Default::default()
             }
         ).unwrap();
@@ -148,7 +157,7 @@ impl RenderManager{
         let (event_loop, surface) = RenderManager::create_event_loop_and_surface(instance.clone());
 
         // get our physical device and queue family
-        let (physical_device, queue_family) = RenderManager::get_physical_device_and_queue_family(
+        let (physical_device, queue_family_index) = RenderManager::get_physical_device_and_queue_family_index(
             &instance,
             device_extensions.clone(),
             surface.clone()
@@ -164,8 +173,8 @@ impl RenderManager{
         // now create the logical device and queues
         let (device, mut queues) = RenderManager::get_logical_device_and_queues(
             physical_device,
-            &device_extensions,
-            queue_family
+            device_extensions.clone(),
+            queue_family_index
         );
 
         // create our memory allocator which I think allocates command buffers (?). docs say it's general use 
@@ -200,11 +209,14 @@ impl RenderManager{
         // clone the surface so we can return this clone
         let return_surface = surface.clone();        
 
+        let window = surface.clone().object().unwrap().downcast_ref::<Window>().unwrap();
+
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
         self.device_extensions = Some(device_extensions);
         self.instance = Some(instance);
         self.surface = Some(surface);
+        self.window = Some(Arc::new(*window));
         self.device = Some(device);
         self.queue = Some(queue);
         self.swapchain = Some(swapchain);
@@ -259,6 +271,7 @@ impl RenderManager{
             device_extensions: None,
             instance: None,
             surface: None,
+            window: None,
             device: None,
             queue: None,
             swapchain: None,
@@ -291,10 +304,10 @@ impl RenderManager{
         // begin main render pass
         log::debug!("Entering main render pass");
         let clear_values = vec![
-            [0.1, 0.2, 0.2, 1.0].into(),
-            [0.0, 0.0, 0.0, 0.0].into(),
-            [0.0, 0.0, 0.0, 0.0].into(),
-            1.0f32.into(),
+            Some([0.1, 0.2, 0.2, 1.0].into()),
+            Some([0.0, 0.0, 0.0, 0.0].into()),
+            Some([0.0, 0.0, 0.0, 0.0].into()),
+            Some(1.0f32.into()),
         ];
 
         // scales framebuffer and attachments to swapchain image view of swapchain image
@@ -315,7 +328,7 @@ impl RenderManager{
             let mut world = scene.get_world().unwrap();
             let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
             let mut egui_winit = world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state.");
-            ctx.begin_frame(egui_winit.take_egui_input(self.surface().window()));
+            ctx.begin_frame(egui_winit.take_egui_input(&self.window()));
         }
 
         // run all systems. This will build secondary command buffers
@@ -345,7 +358,7 @@ impl RenderManager{
                 .get_resource_mut::<egui_winit::State>()
                 .expect("Couldn't get egui winit state")
                 .handle_platform_output(
-                    self.surface().window(),
+                    &self.window(),
                     &ctx,
                     platform_output
                 );
@@ -361,12 +374,19 @@ impl RenderManager{
             egui_output
         };
 
+        // create render pass begin info struct
+        let render_pass_begin_info = RenderPassBeginInfo{
+            clear_values: clear_values,
+            ..RenderPassBeginInfo::framebuffer(
+                self.scene_state().get_framebuffer_image(image_num)
+            )
+        };
+
         // tell builder to begin render pass
         command_buffer_builder
             .begin_render_pass(
-                self.scene_state().get_framebuffer_image(image_num),
+                render_pass_begin_info,
                 SubpassContents::SecondaryCommandBuffers,
-                clear_values,
             )
             .unwrap();
 
@@ -389,9 +409,8 @@ impl RenderManager{
 
         // add egui draws to command buffer
         {
-            let surface = self.surface();
-            let size = surface.window().inner_size();
-            let sf: f32 = surface.window().scale_factor() as f32;
+            let size = self.window().inner_size();
+            let sf: f32 = self.window().scale_factor() as f32;
             // let sf = 1.0;
             let mut world = scene.get_world().unwrap();
             let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
@@ -447,7 +466,7 @@ impl RenderManager{
     // render steps
     fn prep_swapchain(
         &mut self,
-    )->(usize, SwapchainAcquireFuture<winit::window::Window>)
+    )->(usize, SwapchainAcquireFuture)
     {
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
@@ -496,25 +515,26 @@ impl RenderManager{
     }
 
     // creates a surface and ties it to the event loop
-    pub fn create_event_loop_and_surface(instance: Arc<Instance>) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface<winit::window::Window>>) {
+    pub fn create_event_loop_and_surface(instance: Arc<Instance>) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface>) {
         let event_loop = EventLoop::new();
         let surface = WindowBuilder::new()
             .with_title("Ember")
-            .build(&event_loop, instance.clone())
+            .build_vk_surface(&event_loop, instance.clone())
             .unwrap();
         (event_loop, surface)
     }
 
     // gets physical GPU and queues
-    pub fn get_physical_device_and_queue_family(
+    pub fn get_physical_device_and_queue_family_index(
         instance: &Arc<Instance>,
         device_extensions: DeviceExtensions,
-        surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>
-    ) -> (PhysicalDevice, QueueFamily) {
+        surface: Arc<vulkano::swapchain::Surface>
+    ) -> (PhysicalDevice, u32) {
         // get our physical device and queue family
         let (physical_device, queue_family_index) = instance
             .enumerate_physical_devices()
-            .filter(|&p| { // filter to devices that contain desired features
+            .unwrap()
+            .filter(|p| { // filter to devices that contain desired features
                 p.supported_extensions().contains(&device_extensions)
             })
             .filter_map(|p| { // filter queue families to ones that support graphics
@@ -553,15 +573,18 @@ impl RenderManager{
     // but it's here in case i ever want to extend this
     pub fn get_logical_device_and_queues(
         physical_device: PhysicalDevice,
-        device_extensions: &DeviceExtensions,
-        queue_family: QueueFamily,
+        device_extensions: DeviceExtensions,
+        queue_family_index: u32,
     ) -> (Arc<Device>, impl ExactSizeIterator<Item = Arc<Queue>>){
         // now create logical device and queues
         let (device, queues) = Device::new(
-            physical_device,
+            physical_device.into(),
             DeviceCreateInfo{
-                enabled_extensions: physical_device.required_extensions().union(&device_extensions),
-                queue_create_infos: vec![QueueCreateInfo::family(queue_family)], 
+                enabled_extensions: device_extensions,
+                queue_create_infos: vec![QueueCreateInfo {
+                    queue_family_index,
+                    ..Default::default()
+                }],
                 ..Default::default()
             },
         ).unwrap();
@@ -571,10 +594,10 @@ impl RenderManager{
     // Create swapchain and images
     pub fn create_swapchain_and_images(
         physical_device: PhysicalDevice,
-        surface: Arc<vulkano::swapchain::Surface<winit::window::Window>>,
+        surface: Arc<vulkano::swapchain::Surface>,
         device: Arc<Device>,
         _queue: Arc<Queue>
-    ) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>) {
+    ) -> (Arc<Swapchain>, Vec<Arc<SwapchainImage>>) {
         let surface_capabilities = physical_device.surface_capabilities(&surface, Default::default()).unwrap();
         
         let image_format = Some(
@@ -606,11 +629,11 @@ impl RenderManager{
     // if the swapchain needs to be recreated
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
-        let _dimensions: [u32; 2] = self.surface().window().inner_size().into();
+        let _dimensions: [u32; 2] = self.window().inner_size().into();
         let (new_swapchain, new_images) =
         match self.swapchain()
             .recreate(SwapchainCreateInfo {
-                image_extent: self.surface().window().inner_size().into(),
+                image_extent: self.window().inner_size().into(),
                 ..self.swapchain().create_info()
             }) {
                 Ok(r) => r,
@@ -634,7 +657,7 @@ impl RenderManager{
     } // end of if on swapchain recreation
 
     // acquires the next swapchain image
-    pub fn acquire_swapchain_image(&mut self) -> (usize, bool, SwapchainAcquireFuture<Window>) {
+    pub fn acquire_swapchain_image(&mut self) -> (usize, bool, SwapchainAcquireFuture) {
         match swapchain::acquire_next_image(self.swapchain(), None) {
             Ok(r) => r,
             Err(AcquireError::OutOfDate) => {
@@ -679,15 +702,19 @@ impl RenderManager{
         self.memory_allocator.clone().unwrap().clone()
     }
 
-    pub fn surface(&self) -> Arc<vulkano::swapchain::Surface<winit::window::Window>> {
+    pub fn surface(&self) -> Arc<vulkano::swapchain::Surface> {
         self.surface.clone().unwrap().clone()
     }
 
-    pub fn swapchain(&self) -> Arc<Swapchain<winit::window::Window>> {
+    pub fn window(&self) -> Arc<winit::window::Window> {
+        self.window.clone().unwrap().clone()
+    }
+
+    pub fn swapchain(&self) -> Arc<Swapchain> {
         self.swapchain.clone().unwrap().clone()
     }
 
-    pub fn images(&self) -> Vec<Arc<ImageView<SwapchainImage<winit::window::Window>>>> {
+    pub fn images(&self) -> Vec<Arc<ImageView<SwapchainImage>>> {
         self.images.clone().unwrap().clone()
     }
 

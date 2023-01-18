@@ -74,7 +74,7 @@ pub struct Application{
     input_manager: Option<RefCell<InputManager>>,
     plugin_manager: Option<RefCell<PluginManager>>,
     event_loop: Option<EventLoop<()>>,
-    surface: Option<Arc<vulkano::swapchain::Surface<winit::window::Window>>>,
+    surface: Option<Arc<vulkano::swapchain::Surface>>,
     state: Box<dyn ApplicationState>,
 
     log_level: LevelFilter,

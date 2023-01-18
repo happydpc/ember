@@ -94,7 +94,7 @@ pub fn RenderableInitializerSystem(
 pub type CameraState = [Matrix4f; 2];
 pub fn CameraUpdateSystem(
     mut query: Query<(&mut CameraComponent, &mut TransformComponent)>,
-    surface: Res<Arc<Surface<Window>>>,
+    surface: Res<Arc<Surface>>,
     mut state: ResMut<CameraState>,
 ){
     log::debug!("Running camera update system...");

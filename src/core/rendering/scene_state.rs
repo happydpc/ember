@@ -50,7 +50,7 @@ impl SceneState{
 
     pub fn initialize(
         &mut self,
-        swapchain: Arc<Swapchain<winit::window::Window>>,
+        swapchain: Arc<Swapchain>,
         device: Arc<Device>,
     ){  
         // crucially, this does not initialize the framebuffer. to initialize the framebuffer, we must call scale framebuffers to images
@@ -155,7 +155,7 @@ impl SceneState{
         render_pass
     }
 
-    fn build_buffers(&self, device: Arc<Device>, image: Option<Arc<ImageView<SwapchainImage<winit::window::Window>>>>)
+    fn build_buffers(&self, device: Arc<Device>, image: Option<Arc<ImageView<SwapchainImage>>>)
     -> (Arc<ImageView<AttachmentImage>>, Arc<ImageView<AttachmentImage>>, Arc<ImageView<AttachmentImage>>){
         // For now we create three temporary images with a dimension of 1 by 1 pixel.
         // These images will be replaced the first time we call `frame()`.
@@ -204,12 +204,12 @@ impl SceneState{
         (diffuse_buffer, normals_buffer, depth_buffer)
     }
 
-    pub fn scale_scene_state_to_images(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>, device: Arc<Device>){
+    pub fn scale_scene_state_to_images(&self, image: Arc<ImageView<SwapchainImage>>, device: Arc<Device>){
         self.scale_framebuffers_to_images(image.clone(), device.clone());
         self.rescale_viewport(image.clone());
     }
 
-    fn rescale_viewport(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>){
+    fn rescale_viewport(&self, image: Arc<ImageView<SwapchainImage>>){
         let dimensions = image.image().dimensions().width_height();
         match &self.viewport{
             Some(viewport) => viewport.lock().unwrap().dimensions = [dimensions[0] as f32, dimensions[1] as f32],
@@ -217,7 +217,7 @@ impl SceneState{
         }
     }
 
-    fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage<winit::window::Window>>>, device: Arc<Device>){
+    fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage>>, device: Arc<Device>){
         // create buffers
         let (
             _diffuse_buffer,
