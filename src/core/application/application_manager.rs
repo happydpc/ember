@@ -76,6 +76,7 @@ pub struct Application{
     event_loop: Option<EventLoop<()>>,
     surface: Option<Arc<vulkano::swapchain::Surface>>,
     state: Box<dyn ApplicationState>,
+    egui_winit_state: Option<egui_winit::State>,
 
     log_level: LevelFilter,
     start_instant: Instant,
@@ -100,6 +101,9 @@ impl Manager for Application{
         scene_manager.startup();
         input_manager.startup();
         plugin_manager.startup();
+        
+        // get egui_winit state from render manager
+        let egui_winit_state = render_manager.create_egui_winit_state(&event_loop);
 
         // set to idle state
         log::info!("Setting application idle state ...");
@@ -112,6 +116,7 @@ impl Manager for Application{
         self.plugin_manager = Some(RefCell::new(plugin_manager));
         self.event_loop = Some(event_loop);
         self.surface = Some(surface);
+        self.egui_winit_state = Some(egui_winit_state);
 
         // prep staged scene
         log::info!("Prepping and activating idle scene ...");
@@ -157,6 +162,7 @@ impl Application{
             log_level: log_level.unwrap_or(LevelFilter::Info),
             start_instant: Instant::now(),
             state: Box::new(ApplicationIdleState::create()),
+            egui_winit_state: None,
         }
     }
 
@@ -168,7 +174,9 @@ impl Application{
             let mut scene_manager = self.get_scene_manager().unwrap();
             let mut _scene = scene_manager.get_staged_scene().unwrap();
             let scene = _scene.deref_mut();
-            
+
+            // scene.insert_resource(self.egui_winit_state.clone().unwrap());
+ 
             let state: &(dyn ApplicationState) = self.state.borrow();
             state.overlay_interface_on_staged_scene(scene.borrow_mut());
 
@@ -506,22 +514,6 @@ impl Application{
 
             _ => () // catch all for window event
         } 
-    }
-
-    // pub fn stage_inactive_scene(&mut self, scene_id: i16) {
-    pub fn initialize_egui_state_on_staged_scene(&mut self){// scene: &mut Scene<Active>){
-        let mut scene_manager = self.get_scene_manager().unwrap();
-
-        let mut _scene = scene_manager.get_staged_scene().unwrap();
-        let scene = _scene.deref_mut();
-
-        // get required egui data
-        let render_manager = self.get_render_manager().unwrap();
-        let (egui_ctx, egui_painter) = render_manager.initialize_egui();
-        let egui_winit = render_manager.create_egui_winit_state();
-        let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
-        scene.insert_resource(egui_state);
-        scene.insert_resource(egui_winit);
     }
 
     pub fn activate_staged_scene(&self){

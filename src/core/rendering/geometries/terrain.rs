@@ -10,6 +10,7 @@ use crate::core::plugins::components::GeometryComponent;
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::BufferUsage;
 use vulkano::device::Device;
+use vulkano::memory::allocator::StandardMemoryAllocator;
 
 use noise::{NoiseFn, OpenSimplex};
 use serde::{Serialize, Deserialize};
@@ -92,28 +93,30 @@ impl TerrainGeometry{
         self.noise_fn = noise_fn;
     }
 
-    pub fn initialize(&mut self, device: Arc<Device>){
+    pub fn initialize(&mut self, memory_allocator: Arc<StandardMemoryAllocator>){
         // Vertex buffer init
         let vertex_buffer = {
             CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage::all(),
+                &memory_allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
                 false,
                 self.vertices.clone()
-                .iter()
-                .cloned(),
             )
             .unwrap()
         };
 
         // index buffer init
         let index_buffer = CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            BufferUsage::all(),
+            &memory_allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..BufferUsage::empty()
+            },
             false,
             self.indices.clone()
-            .iter()
-            .cloned(),
         ).unwrap();
 
         self.vertex_buffer = Some(vertex_buffer);

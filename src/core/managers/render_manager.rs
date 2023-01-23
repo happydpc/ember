@@ -40,6 +40,7 @@ use vulkano::{
         SwapchainCreationError,
         SwapchainAcquireFuture,
         SwapchainCreateInfo,
+        SwapchainPresentInfo,
     },
     memory::{
         allocator::StandardMemoryAllocator,
@@ -71,6 +72,10 @@ use vulkano::{
         SubpassContents,
         SecondaryAutoCommandBuffer,
         RenderPassBeginInfo,
+        allocator::StandardCommandBufferAllocator,
+    },
+    descriptor_set::{
+        allocator::StandardDescriptorSetAllocator,
     },
 };
 
@@ -89,9 +94,10 @@ use winit::{
 };
 
 // egui
-use egui;
+use egui::{self, FullOutput};
 
 use egui::Context;
+use winit::event_loop::EventLoopWindowTarget;
 
 
 // std imports
@@ -130,6 +136,8 @@ pub struct RenderManager{
     pub images: Option<Vec<Arc<ImageView<SwapchainImage>>>>,
     pub scene_state: Option<Arc<SceneState>>,
     pub memory_allocator: Option<Arc<StandardMemoryAllocator>>,
+    pub command_buffer_allocator: Option<Arc<StandardCommandBufferAllocator>>,
+    pub descriptor_set_allocator: Option<Arc<StandardDescriptorSetAllocator>>,
 }
 
 impl RenderManager{
@@ -140,7 +148,7 @@ impl RenderManager{
         let library = VulkanLibrary::new().unwrap();
 
         // get extensions
-        let (required_extensions, device_extensions) = RenderManager::get_required_extensions();
+        let (required_extensions, device_extensions) = RenderManager::get_required_extensions(&library);
 
         // create an instance of vulkan with the required extensions
         let instance = Instance::new(
@@ -180,6 +188,8 @@ impl RenderManager{
         // create our memory allocator which I think allocates command buffers (?). docs say it's general use 
         // https://docs.rs/vulkano/latest/vulkano/memory/allocator/type.StandardMemoryAllocator.html
         let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
+        let cmd_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(device.clone(), Default::default()));
+        let descriptor_set_allocator = Arc::new(StandardDescriptorSetAllocator::new(device.clone()));
 
         // get queue
         let queue = queues.next().unwrap();
@@ -200,7 +210,7 @@ impl RenderManager{
 
         // TODO : Somehow make this aware of when scenes are Active and do this there instead.
         let mut scene_state = SceneState::new();
-        scene_state.initialize(swapchain.clone(), device.clone());
+        scene_state.initialize(swapchain.clone(), device.clone(), memory_allocator.clone());
         scene_state.scale_scene_state_to_images(images[0].clone(), device.clone());
 
         let _recreate_swapchain = false;
@@ -225,6 +235,8 @@ impl RenderManager{
         self.images = Some(images);
         self.scene_state = Some(Arc::new(scene_state));
         self.memory_allocator = Some(memory_allocator);
+        self.command_buffer_allocator = Some(cmd_buffer_allocator);
+        self.descriptor_set_allocator = Some(descriptor_set_allocator);
         (event_loop, return_surface)
     }
 
@@ -241,7 +253,7 @@ impl RenderManager{
         log::info!("Render Manager prepping scene...");
         // get required egui data
         let (egui_ctx, egui_painter) = self.initialize_egui();
-        let egui_winit = self.create_egui_winit_state();
+        // let egui_winit = self.create_egui_winit_state();
         let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
         let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
         let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
@@ -251,12 +263,18 @@ impl RenderManager{
         scene.insert_resource(lighting_buffer_vec);
         scene.insert_resource(save);
         scene.insert_resource(egui_state);
-        scene.insert_resource(egui_winit);
+        // scene.insert_resource(egui_winit);
         scene.insert_resource(self.device());
         scene.insert_resource(self.surface());
         scene.insert_resource(self.queue());
         scene.insert_resource(camera_state);
         scene.insert_resource(self.scene_state());
+        scene.insert_resource(self.device());
+        scene.insert_resource(self.surface());
+        scene.insert_resource(self.queue());
+        scene.insert_resource(self.memory_allocator());
+        scene.insert_resource(self.descriptor_set_allocator());
+        scene.insert_resource(self.command_buffer_allocator());
         log::debug!("Does device exist: {:?}", scene.contains_resource::<Arc<Device>>());
     }
 
@@ -280,6 +298,8 @@ impl RenderManager{
             images: None,
             scene_state: None,
             memory_allocator: None,
+            command_buffer_allocator: None,
+            descriptor_set_allocator: None,
         };
         render_sys
     }
@@ -293,144 +313,42 @@ impl RenderManager{
         &mut self,
         scene: &mut Scene<Active>
     ){
-        puffin::profile_function!();
         log::debug!("Entering draw");
+
         // create primary command buffer builder
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
         // get swapchain image num and future
         let (image_num, acquire_future) = self.prep_swapchain();
 
-        // begin main render pass
-        log::debug!("Entering main render pass");
-        let clear_values = vec![
-            Some([0.1, 0.2, 0.2, 1.0].into()),
-            Some([0.0, 0.0, 0.0, 0.0].into()),
-            Some([0.0, 0.0, 0.0, 0.0].into()),
-            Some(1.0f32.into()),
-        ];
-
         // scales framebuffer and attachments to swapchain image view of swapchain image
-        self.scene_state().scale_scene_state_to_images(self.images()[image_num].clone(), self.device());
+        self.scene_state().scale_scene_state_to_images(self.images()[image_num as usize].clone(), self.device());
 
         // insert stuff into scene that systems will need
-        let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
-        let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
-        scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
-        scene.insert_resource(lighting_buffer_vec);
-        let save: bool = false;
-        scene.insert_resource(save);
-        scene.insert_resource(image_num); // insert image
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
 
         // start egui frame
-        {
-            let mut world = scene.get_world().unwrap();
-            let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
-            let mut egui_winit = world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state.");
-            ctx.begin_frame(egui_winit.take_egui_input(&self.window()));
-        }
+        self.start_egui_frame(scene);
 
         // run all systems. This will build secondary command buffers
         log::debug!("----Render schedule-----");
         scene.run_render_schedule();
 
-        let save = {
-            *scene.get_world().unwrap().get_resource::<bool>().expect("Couldn't get save bool")
-        };
-        if save {
-            scene.serialize();
-        }
-
         // get egui shapes from world
         log::debug!("Getting egui shapes");
-        let egui_output = {
-            // let world = scene.get_world().unwrap();
-            let ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
-            let egui_output = ctx.end_frame();
-            let platform_output = egui_output.platform_output.clone();
-            let textures_delta = egui_output.textures_delta.clone();
+        let egui_output: FullOutput = self.get_egui_output(scene, &mut command_buffer_builder);
 
-            // let mut egui_winit = scene.get_world().unwrap().get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state");
-            scene
-                .get_world()
-                .unwrap()
-                .get_resource_mut::<egui_winit::State>()
-                .expect("Couldn't get egui winit state")
-                .handle_platform_output(
-                    &self.window(),
-                    &ctx,
-                    platform_output
-                );
-            
-            scene
-                .get_world()
-                .unwrap()
-                .get_resource_mut::<EguiState>()
-                .expect(".")
-                .painter
-                .update_textures(textures_delta, &mut command_buffer_builder)
-                .expect("egui texture error");
-            egui_output
-        };
-
-        // create render pass begin info struct
-        let render_pass_begin_info = RenderPassBeginInfo{
-            clear_values: clear_values,
-            ..RenderPassBeginInfo::framebuffer(
-                self.scene_state().get_framebuffer_image(image_num)
-            )
-        };
-
-        // tell builder to begin render pass
-        command_buffer_builder
-            .begin_render_pass(
-                render_pass_begin_info,
-                SubpassContents::SecondaryCommandBuffers,
-            )
-            .unwrap();
+        // set clear values and begin the render pass
+        self.begin_render_pass(image_num, &mut command_buffer_builder);
 
         // get and submit secondary command buffers to render pass
-        {
-            let mut world = scene.get_world().unwrap();
-            let mut secondary_buffers = world.get_resource_mut::<TriangleSecondaryBuffers>().expect("Couldn't get secondary buffer vec.");
-            // submit secondary buffers
-            for buff in secondary_buffers.buffers.drain(..){
-                command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
-            }
-
-            command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
-
-            let mut lighting_secondary_buffers = world.get_resource_mut::<LightingSecondaryBuffers>().expect("Couldn't get lighting buffer vec");
-            for buff in lighting_secondary_buffers.buffers.drain(..){
-                command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
-            }
-        }
+        submit_render_system_command_buffers_to_render_pass(scene, &mut command_buffer_builder);
 
         // add egui draws to command buffer
-        {
-            let size = self.window().inner_size();
-            let sf: f32 = self.window().scale_factor() as f32;
-            // let sf = 1.0;
-            let mut world = scene.get_world().unwrap();
-            let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
-            // ctx.set_pixels_per_point(1.0);
-            command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
-            world
-                .get_resource_mut::<EguiState>()
-                .expect("Couldn't get egui state.")
-                .painter
-                .draw(
-                    &mut command_buffer_builder,
-                    [(size.width as f32) / sf, (size.height as f32) / sf],
-                    &ctx,
-                    egui_output.shapes,
-                )
-                .unwrap();
-        }
+        self.draw_egui(scene, &mut command_buffer_builder, egui_output);
 
         // end egui pass
-        log::debug!("ending egui pass");
+        log::debug!("ending render pass");
         command_buffer_builder.end_render_pass().unwrap();
 
         // build command buffer
@@ -439,15 +357,24 @@ impl RenderManager{
 
         // submit and render
         log::debug!("Submitting");
+        self.submit_command_buffer_and_render(acquire_future, command_buffer, image_num);
+    }
+
+    fn submit_command_buffer_and_render(&mut self, acquire_future: SwapchainAcquireFuture, command_buffer: PrimaryAutoCommandBuffer, image_num: u32) {
         let future = self.previous_frame_end
             .take()
             .unwrap()
             .join(acquire_future)
             .then_execute(self.queue(), command_buffer)
             .unwrap()
-            .then_swapchain_present(self.queue(), self.swapchain(), image_num)
+            .then_swapchain_present(
+                self.queue(),
+                SwapchainPresentInfo::swapchain_image_index(
+                    self.swapchain(),
+                    image_num as u32
+                ),
+            )
             .then_signal_fence_and_flush();
-
         match future {
             Ok(future) => {
                 self.previous_frame_end = Some(future.boxed());
@@ -463,10 +390,93 @@ impl RenderManager{
         }
     }
 
+    fn draw_egui(&mut self, scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>, egui_output: FullOutput) {
+        let size = self.window().inner_size();
+        let sf: f32 = self.window().scale_factor() as f32;
+        let mut world = scene.get_world().unwrap();
+        let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
+        command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
+        world
+            .get_resource_mut::<EguiState>()
+            .expect("Couldn't get egui state.")
+            .painter
+            .draw(
+                command_buffer_builder,
+                [(size.width as f32) / sf, (size.height as f32) / sf],
+                &ctx,
+                egui_output.shapes,
+            )
+            .unwrap();
+    }
+
+    fn start_egui_frame(&mut self, scene: &mut Scene<Active>) {
+        let mut world = scene.get_world().unwrap();
+        let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
+        let mut egui_winit = world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state.");
+        ctx.begin_frame(egui_winit.take_egui_input(&self.window()));
+    }
+
+    fn get_egui_output(&mut self, scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>) -> egui::FullOutput {
+        let egui_output = {
+            // let world = scene.get_world().unwrap();
+            let ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
+            let egui_output = ctx.end_frame();
+
+            let platform_output = egui_output.platform_output.clone();
+            scene
+                .get_world()
+                .unwrap()
+                .get_resource_mut::<egui_winit::State>()
+                .expect("Couldn't get egui winit state")
+                .handle_platform_output(
+                    &self.window(),
+                    &ctx,
+                    platform_output
+                );
+    
+            let textures_delta = egui_output.textures_delta.clone();
+            scene
+                .get_world()
+                .unwrap()
+                .get_resource_mut::<EguiState>()
+                .expect(".")
+                .painter
+                .update_textures(textures_delta, command_buffer_builder)
+                .expect("egui texture error");
+            egui_output
+        };
+        egui_output
+    }
+
+    fn begin_render_pass(&mut self, image_num: u32, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>) {
+        // begin main render pass
+        log::debug!("Entering main render pass");
+        let clear_values = vec![
+            Some([0.1, 0.2, 0.2, 1.0].into()),
+            Some([0.0, 0.0, 0.0, 0.0].into()),
+            Some([0.0, 0.0, 0.0, 0.0].into()),
+            Some(1.0f32.into()),
+        ];
+        // create render pass begin info struct
+        let render_pass_begin_info = RenderPassBeginInfo{
+            clear_values: clear_values,
+            ..RenderPassBeginInfo::framebuffer(
+                self.scene_state().get_framebuffer_image(image_num)
+            )
+        };
+        // tell builder to begin render pass
+        command_buffer_builder
+            .begin_render_pass(
+                render_pass_begin_info,
+                SubpassContents::SecondaryCommandBuffers,
+            )
+            .unwrap();
+    }
+
     // render steps
     fn prep_swapchain(
         &mut self,
-    )->(usize, SwapchainAcquireFuture)
+    )->(u32, SwapchainAcquireFuture)
     {
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
@@ -479,11 +489,11 @@ impl RenderManager{
         (image_num, acquire_future)
     }
 
-    pub fn get_auto_command_buffer_builder(&self)->AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>{
+    pub fn get_auto_command_buffer_builder(&self) -> AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>{
         // create a command buffer builder
         let builder = AutoCommandBufferBuilder::primary(
-            self.device(),
-            self.queue().family(),
+            &self.command_buffer_allocator(),
+            self.queue().queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
         builder
@@ -493,17 +503,19 @@ impl RenderManager{
     pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Active>) {
         let camera_state: [Matrix4f; 2] = [Matrix4f::from_scale(1.0), Matrix4f::from_scale(1.0)];
         // insert resources. some of these should eventually be submitted more often than othrs
-        scene.insert_resource(self.device());
-        scene.insert_resource(self.surface());
-        scene.insert_resource(self.queue());
         scene.insert_resource(camera_state);
         scene.insert_resource(self.scene_state());
+
+        let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
+        let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
+        scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
+        scene.insert_resource(lighting_buffer_vec);
     }
 
     // returns the required winit extensions and the required extensions of my choosing
-    pub fn get_required_extensions() -> (InstanceExtensions, DeviceExtensions) {
+    pub fn get_required_extensions(library: &VulkanLibrary) -> (InstanceExtensions, DeviceExtensions) {
         // what extensions do we need to have in vulkan to draw a window
-        let required_extensions = vulkano_win::required_extensions();
+        let required_extensions = vulkano_win::required_extensions(&library);
 
         // choose the logical device extensions we're going to use
         let device_extensions = DeviceExtensions {
@@ -529,7 +541,7 @@ impl RenderManager{
         instance: &Arc<Instance>,
         device_extensions: DeviceExtensions,
         surface: Arc<vulkano::swapchain::Surface>
-    ) -> (PhysicalDevice, u32) {
+    ) -> (Arc<PhysicalDevice>, u32) {
         // get our physical device and queue family
         let (physical_device, queue_family_index) = instance
             .enumerate_physical_devices()
@@ -545,8 +557,9 @@ impl RenderManager{
                         // We select a queue family that supports graphics operations. When drawing to
                         // a window surface, as we do in this example, we also need to check that queues
                         // in this queue family are capable of presenting images to the surface.
-                        q.queue_flags.intersects(QueueFlags::GRAPHICS)
-                            && p.surface_support(i as u32, &surface).unwrap_or(false)
+                        // q.queue_flags.intersects(QueueFlags::GRAPHICS)
+                        //     && p.surface_support(i as u32, &surface).unwrap_or(false)
+                        q.queue_flags.graphics && p.surface_support(i as u32, &surface).unwrap_or(false)
                     })
                     // The code here searches for the first queue family that is suitable. If none is
                     // found, `None` is returned to `filter_map`, which disqualifies this physical
@@ -572,7 +585,7 @@ impl RenderManager{
     // create logical device and queues. Currently a very thin pass-through
     // but it's here in case i ever want to extend this
     pub fn get_logical_device_and_queues(
-        physical_device: PhysicalDevice,
+        physical_device: Arc<PhysicalDevice>,
         device_extensions: DeviceExtensions,
         queue_family_index: u32,
     ) -> (Arc<Device>, impl ExactSizeIterator<Item = Arc<Queue>>){
@@ -593,7 +606,7 @@ impl RenderManager{
 
     // Create swapchain and images
     pub fn create_swapchain_and_images(
-        physical_device: PhysicalDevice,
+        physical_device: Arc<PhysicalDevice>,
         surface: Arc<vulkano::swapchain::Surface>,
         device: Arc<Device>,
         _queue: Arc<Queue>
@@ -606,7 +619,9 @@ impl RenderManager{
                 .unwrap()[0]
                 .0,
         );
-        let _dimensions: [u32; 2] = surface.window().inner_size().into();
+        let window = surface.clone().object().unwrap().downcast_ref::<Window>().unwrap();
+        
+        let _dimensions: [u32; 2] = window.inner_size().into();
 
         Swapchain::new(
             device.clone(),
@@ -614,8 +629,11 @@ impl RenderManager{
             SwapchainCreateInfo{
                 min_image_count: surface_capabilities.min_image_count,
                 image_format,
-                image_extent: surface.window().inner_size().into(),
-                image_usage: ImageUsage::color_attachment(),
+                image_extent: _dimensions,
+                image_usage: ImageUsage {
+                    color_attachment: true,
+                    ..ImageUsage::empty()
+                },
                 composite_alpha: surface_capabilities
                     .supported_composite_alpha
                     .iter()
@@ -657,7 +675,7 @@ impl RenderManager{
     } // end of if on swapchain recreation
 
     // acquires the next swapchain image
-    pub fn acquire_swapchain_image(&mut self) -> (usize, bool, SwapchainAcquireFuture) {
+    pub fn acquire_swapchain_image(&mut self) -> (u32, bool, SwapchainAcquireFuture) {
         match swapchain::acquire_next_image(self.swapchain(), None) {
             Ok(r) => r,
             Err(AcquireError::OutOfDate) => {
@@ -674,6 +692,7 @@ impl RenderManager{
         let egui_painter = egui_vulkano::Painter::new(
             self.device(),
             self.memory_allocator(),
+            self.descriptor_set_allocator(),
             self.queue(),
             Subpass::from(self.scene_state().render_passes[0].clone(), 2).unwrap(),
         )
@@ -682,10 +701,8 @@ impl RenderManager{
         (egui_ctx, egui_painter)
     }
 
-    pub fn create_egui_winit_state(&self) -> egui_winit::State{
-        let surface = self.surface();
-        let window = surface.window();
-        egui_winit::State::new(4096, window)
+    pub fn create_egui_winit_state<E>(&self, event_loop: &EventLoopWindowTarget<E>) -> egui_winit::State {
+        egui_winit::State::new(event_loop)
         // egui_winit::State::from_pixels_per_point(4096, 1.0)
     }
 
@@ -700,6 +717,14 @@ impl RenderManager{
 
     pub fn memory_allocator(&self) -> Arc<StandardMemoryAllocator> {
         self.memory_allocator.clone().unwrap().clone()
+    }
+
+    pub fn command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
+        self.command_buffer_allocator.clone().unwrap().clone()
+    }
+
+    pub fn descriptor_set_allocator(&self) -> Arc<StandardDescriptorSetAllocator> {
+        self.descriptor_set_allocator.clone().unwrap().clone()
     }
 
     pub fn surface(&self) -> Arc<vulkano::swapchain::Surface> {
@@ -720,5 +745,18 @@ impl RenderManager{
 
     pub fn scene_state(&self) -> Arc<SceneState> {
         self.scene_state.clone().unwrap().clone()
+    }
+}
+
+fn submit_render_system_command_buffers_to_render_pass(scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>) {
+    let mut world = scene.get_world().unwrap();
+    let mut secondary_buffers = world.get_resource_mut::<TriangleSecondaryBuffers>().expect("Couldn't get secondary buffer vec.");
+    for buff in secondary_buffers.buffers.drain(..){
+        command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
+    }
+    command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
+    let mut lighting_secondary_buffers = world.get_resource_mut::<LightingSecondaryBuffers>().expect("Couldn't get lighting buffer vec");
+    for buff in lighting_secondary_buffers.buffers.drain(..){
+        command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
     }
 }

@@ -43,6 +43,7 @@ use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
 use vulkano::pipeline::graphics::viewport::ViewportState;
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::PipelineBindPoint;
+use vulkano::memory::allocator::StandardMemoryAllocator;
 
 use winit::event::VirtualKeyCode;
 use winit::event::ModifiersState;
@@ -51,14 +52,14 @@ use std::sync::{Arc};
 
 pub fn TerrainInitSystem(
     mut query: Query<&mut TerrainComponent>,
-    device: Res<Arc<Device>>,
+    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
 ){
     log::info!("Terrain init system...");
     for mut terrain in query.iter_mut() {
         {
             terrain.geometry.lock().unwrap().generate_terrain();
         }
-        terrain.initialize(device.clone());
+        terrain.initialize(memory_allocator.clone());
     }
 }
 
