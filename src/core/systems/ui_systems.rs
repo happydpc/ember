@@ -33,7 +33,6 @@ use bevy_ecs::entity::Entity;
 use std::path::Path;
 use log;
 
-
 pub struct EguiState{
     pub ctx: Context,
     pub painter: Painter,

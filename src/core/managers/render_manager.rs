@@ -12,8 +12,6 @@ use crate::core::{
 };
 
 
-use puffin;
-
 // Vulkano imports
 use vulkano::{
     VulkanLibrary,
@@ -32,7 +30,6 @@ use vulkano::{
         Queue,
         DeviceCreateInfo,
         QueueCreateInfo,
-        QueueFlags
     },
     swapchain::{
         AcquireError,
@@ -127,7 +124,6 @@ pub struct RenderManager{
     device_extensions: Option<DeviceExtensions>,
     instance: Option<Arc<Instance>>,
     pub surface: Option<Arc<vulkano::swapchain::Surface>>,
-    pub window: Option<Arc<winit::window::Window>>,
     pub device: Option<Arc<Device>>,
     pub queue: Option<Arc<Queue>>,
     pub swapchain: Option<Arc<Swapchain>>,
@@ -180,7 +176,7 @@ impl RenderManager{
 
         // now create the logical device and queues
         let (device, mut queues) = RenderManager::get_logical_device_and_queues(
-            physical_device,
+            physical_device.clone(),
             device_extensions.clone(),
             queue_family_index
         );
@@ -196,7 +192,7 @@ impl RenderManager{
 
         // create swapchain, images
         let (swapchain, images) = RenderManager::create_swapchain_and_images(
-            physical_device,
+            physical_device.clone(),
             surface.clone(),
             device.clone(),
             queue.clone()
@@ -209,24 +205,20 @@ impl RenderManager{
             .collect::<Vec<_>>();
 
         // TODO : Somehow make this aware of when scenes are Active and do this there instead.
-        let mut scene_state = SceneState::new();
-        scene_state.initialize(swapchain.clone(), device.clone(), memory_allocator.clone());
-        scene_state.scale_scene_state_to_images(images[0].clone(), device.clone());
+        let scene_state = SceneState::new(swapchain.clone(), device.clone(), memory_allocator.clone());
+        scene_state.scale_scene_state_to_images(images[0].clone());
 
         let _recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
 
         // clone the surface so we can return this clone
-        let return_surface = surface.clone();        
-
-        let window = surface.clone().object().unwrap().downcast_ref::<Window>().unwrap();
-
+        let return_surface = surface.clone();
+        
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
         self.device_extensions = Some(device_extensions);
         self.instance = Some(instance);
         self.surface = Some(surface);
-        self.window = Some(Arc::new(*window));
         self.device = Some(device);
         self.queue = Some(queue);
         self.swapchain = Some(swapchain);
@@ -289,7 +281,6 @@ impl RenderManager{
             device_extensions: None,
             instance: None,
             surface: None,
-            window: None,
             device: None,
             queue: None,
             swapchain: None,
@@ -311,32 +302,33 @@ impl RenderManager{
 
     pub fn draw(
         &mut self,
-        scene: &mut Scene<Active>
+        scene: &mut Scene<Active>,
+        egui_winit_state: &mut egui_winit::State,
     ){
         log::debug!("Entering draw");
-
-        // create primary command buffer builder
-        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
         // get swapchain image num and future
         let (image_num, acquire_future) = self.prep_swapchain();
 
         // scales framebuffer and attachments to swapchain image view of swapchain image
-        self.scene_state().scale_scene_state_to_images(self.images()[image_num as usize].clone(), self.device());
+        self.scene_state().scale_scene_state_to_images(self.images()[image_num as usize].clone());
 
         // insert stuff into scene that systems will need
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
 
         // start egui frame
-        self.start_egui_frame(scene);
+        self.start_egui_frame(scene, egui_winit_state);
 
         // run all systems. This will build secondary command buffers
         log::debug!("----Render schedule-----");
         scene.run_render_schedule();
 
+        // create primary command buffer builder
+        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
+
         // get egui shapes from world
         log::debug!("Getting egui shapes");
-        let egui_output: FullOutput = self.get_egui_output(scene, &mut command_buffer_builder);
+        let egui_output: FullOutput = self.get_egui_output(scene, &mut command_buffer_builder, egui_winit_state);
 
         // set clear values and begin the render pass
         self.begin_render_pass(image_num, &mut command_buffer_builder);
@@ -347,7 +339,7 @@ impl RenderManager{
         // add egui draws to command buffer
         self.draw_egui(scene, &mut command_buffer_builder, egui_output);
 
-        // end egui pass
+        // end pass
         log::debug!("ending render pass");
         command_buffer_builder.end_render_pass().unwrap();
 
@@ -359,6 +351,8 @@ impl RenderManager{
         log::debug!("Submitting");
         self.submit_command_buffer_and_render(acquire_future, command_buffer, image_num);
     }
+
+    
 
     fn submit_command_buffer_and_render(&mut self, acquire_future: SwapchainAcquireFuture, command_buffer: PrimaryAutoCommandBuffer, image_num: u32) {
         let future = self.previous_frame_end
@@ -391,8 +385,10 @@ impl RenderManager{
     }
 
     fn draw_egui(&mut self, scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>, egui_output: FullOutput) {
-        let size = self.window().inner_size();
-        let sf: f32 = self.window().scale_factor() as f32;
+        let binding = self.surface();
+        let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
+        let size = window.inner_size();
+        let sf: f32 = window.scale_factor() as f32;
         let mut world = scene.get_world().unwrap();
         let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
         command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
@@ -409,42 +405,44 @@ impl RenderManager{
             .unwrap();
     }
 
-    fn start_egui_frame(&mut self, scene: &mut Scene<Active>) {
+    fn start_egui_frame(
+        &mut self,
+        scene: &mut Scene<Active>,
+        egui_winit_state: &mut egui_winit::State,
+    ) {
         let mut world = scene.get_world().unwrap();
         let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
-        let mut egui_winit = world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui winit state.");
-        ctx.begin_frame(egui_winit.take_egui_input(&self.window()));
+        let binding = self.surface();
+        let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
+        ctx.begin_frame(egui_winit_state.take_egui_input(&window));
     }
 
-    fn get_egui_output(&mut self, scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>) -> egui::FullOutput {
-        let egui_output = {
-            // let world = scene.get_world().unwrap();
-            let ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
-            let egui_output = ctx.end_frame();
+    fn get_egui_output(
+        &mut self,
+        scene: &mut Scene<Active>,
+        command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>,
+        egui_winit_state: &mut egui_winit::State
+    ) -> egui::FullOutput {
+        let ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
 
-            let platform_output = egui_output.platform_output.clone();
-            scene
-                .get_world()
-                .unwrap()
-                .get_resource_mut::<egui_winit::State>()
-                .expect("Couldn't get egui winit state")
-                .handle_platform_output(
-                    &self.window(),
-                    &ctx,
-                    platform_output
-                );
-    
-            let textures_delta = egui_output.textures_delta.clone();
-            scene
-                .get_world()
-                .unwrap()
-                .get_resource_mut::<EguiState>()
-                .expect(".")
-                .painter
-                .update_textures(textures_delta, command_buffer_builder)
-                .expect("egui texture error");
-            egui_output
-        };
+        let egui_output = ctx.end_frame();
+
+        let platform_output = egui_output.platform_output.clone();
+        let binding = self.surface();
+        let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
+        
+        egui_winit_state.handle_platform_output(
+            &window,
+            &ctx,
+            platform_output
+        );
+
+        let textures_delta = egui_output.textures_delta.clone();
+        if let Some(mut egui_state) = scene.get_world().unwrap().get_resource_mut::<EguiState>() {
+            egui_state.painter.update_textures(textures_delta, command_buffer_builder);
+        } else {
+            log::info!("lol so remember how I said I should add error handling? well  yeah.");
+        }
         egui_output
     }
 
@@ -520,7 +518,7 @@ impl RenderManager{
         // choose the logical device extensions we're going to use
         let device_extensions = DeviceExtensions {
             khr_swapchain: true,
-            ..DeviceExtensions::none()
+            ..DeviceExtensions::empty()
         };
 
         (required_extensions, device_extensions)
@@ -619,7 +617,8 @@ impl RenderManager{
                 .unwrap()[0]
                 .0,
         );
-        let window = surface.clone().object().unwrap().downcast_ref::<Window>().unwrap();
+        let binding = surface.clone();
+        let window = binding.object().unwrap().downcast_ref::<Window>().unwrap();
         
         let _dimensions: [u32; 2] = window.inner_size().into();
 
@@ -647,11 +646,13 @@ impl RenderManager{
     // if the swapchain needs to be recreated
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
-        let _dimensions: [u32; 2] = self.window().inner_size().into();
+        let binding = self.surface();
+        let window = binding.object().unwrap().downcast_ref::<Window>().unwrap();
+        let _dimensions: [u32; 2] = window.inner_size().into();
         let (new_swapchain, new_images) =
         match self.swapchain()
             .recreate(SwapchainCreateInfo {
-                image_extent: self.window().inner_size().into(),
+                image_extent: window.inner_size().into(),
                 ..self.swapchain().create_info()
             }) {
                 Ok(r) => r,
@@ -668,7 +669,7 @@ impl RenderManager{
             .map(|image| ImageView::new_default(image.clone()).unwrap())
             .collect::<Vec<_>>();
 
-        self.scene_state().scale_scene_state_to_images(new_images[0].clone(), self.device());
+        self.scene_state().scale_scene_state_to_images(new_images[0].clone());
 
         self.swapchain = Some(new_swapchain);
         self.images = Some(new_images);
@@ -703,7 +704,6 @@ impl RenderManager{
 
     pub fn create_egui_winit_state<E>(&self, event_loop: &EventLoopWindowTarget<E>) -> egui_winit::State {
         egui_winit::State::new(event_loop)
-        // egui_winit::State::from_pixels_per_point(4096, 1.0)
     }
 
     // getters
@@ -729,10 +729,6 @@ impl RenderManager{
 
     pub fn surface(&self) -> Arc<vulkano::swapchain::Surface> {
         self.surface.clone().unwrap().clone()
-    }
-
-    pub fn window(&self) -> Arc<winit::window::Window> {
-        self.window.clone().unwrap().clone()
     }
 
     pub fn swapchain(&self) -> Arc<Swapchain> {

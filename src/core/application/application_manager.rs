@@ -27,10 +27,6 @@ use crate::core::{
     managers::scene_manager::{
         SceneManagerUpdateResults,
     },
-    scene::{
-        Scene,
-        Active,
-    },
     systems::ui_systems::EguiState,
 };
 use crate::core::application::{
@@ -69,23 +65,24 @@ use log::LevelFilter;
 
 pub struct Application{
     // state: ApplicationState,
-    render_manager: Option<RefCell<RenderManager>>,
-    scene_manager: Option<RefCell<SceneManager>>,
-    input_manager: Option<RefCell<InputManager>>,
-    plugin_manager: Option<RefCell<PluginManager>>,
+    render_manager: RenderManager,
+    scene_manager: SceneManager,
+    input_manager: InputManager,
+    plugin_manager: PluginManager,
     event_loop: Option<EventLoop<()>>,
-    surface: Option<Arc<vulkano::swapchain::Surface>>,
+    surface: Arc<vulkano::swapchain::Surface>,
     state: Box<dyn ApplicationState>,
-    egui_winit_state: Option<egui_winit::State>,
+    egui_winit_state: egui_winit::State,
 
     log_level: LevelFilter,
     start_instant: Instant,
 }
 
-impl Manager for Application{
+impl Application{
+
     // startup process
-    fn startup(&mut self){
-        SimpleLogger::new().with_level(self.log_level).init().unwrap();
+    pub fn create_application(log_level: LevelFilter) -> Self {
+        SimpleLogger::new().with_level(log_level).init().unwrap();
         puffin::set_scopes_on(true);
 
         log::info!("Starting application ...");
@@ -109,61 +106,36 @@ impl Manager for Application{
         log::info!("Setting application idle state ...");
         scene_manager.create_and_set_staged_scene();
 
-        // store managers and other created things
-        self.render_manager = Some(RefCell::new(render_manager));
-        self.scene_manager = Some(RefCell::new(scene_manager));
-        self.input_manager = Some(RefCell::new(input_manager));
-        self.plugin_manager = Some(RefCell::new(plugin_manager));
-        self.event_loop = Some(event_loop);
-        self.surface = Some(surface);
-        self.egui_winit_state = Some(egui_winit_state);
+        let mut app = Self{
+            render_manager,
+            scene_manager,
+            input_manager,
+            plugin_manager,
+            event_loop: Some(event_loop),
+            surface,
+            state: Box::new(ApplicationIdleState::create()),
+            egui_winit_state,
+            log_level: log_level,
+            start_instant: Instant::now(),
+        };
 
         // prep staged scene
         log::info!("Prepping and activating idle scene ...");
-        self.prep_staged_scene();
-        self.activate_staged_scene();
+        app.prep_staged_scene();
+        app.activate_staged_scene();
 
         log::info!("Startup complete...");
+
+        app
+
     }
 
     // Shutdown process
     fn shutdown(&mut self){
         log::info!("Shutting down application...");
-        match &self.scene_manager {
-            Some(manager) => manager.borrow_mut().shutdown(),
-            None => log::error!("No scene manager to shutdown."),
-        }
-        match &self.render_manager {
-            Some(manager) => manager.borrow_mut().shutdown(),
-            None => log::error!("No render manager to shutdown."),
-        }
-        match &self.input_manager {
-            Some(manager) => manager.borrow_mut().shutdown(),
-            None => log::error!("No input manager to shutdown.")
-        }
-    }
-
-    // update process
-    fn update(&mut self, _scene: &mut Scene<Active>){
-
-    }
-}
-
-impl Application{
-    // called by the client when they want to create an application
-    pub fn create_application(log_level: Option<LevelFilter>) -> Self{
-        Self {
-            render_manager: None,
-            scene_manager: None,
-            input_manager: None,
-            plugin_manager: None,
-            event_loop: None,
-            surface: None,
-            log_level: log_level.unwrap_or(LevelFilter::Info),
-            start_instant: Instant::now(),
-            state: Box::new(ApplicationIdleState::create()),
-            egui_winit_state: None,
-        }
+        self.scene_manager.shutdown();
+        self.render_manager.shutdown();
+        self.input_manager.shutdown();
     }
 
     // preps a staged scene. this mostly lends the scene to managers so they can do whatever prep they
@@ -171,23 +143,14 @@ impl Application{
     fn prep_staged_scene(&mut self){
         log::info!("Prepping idle scene...");
         {
-            let mut scene_manager = self.get_scene_manager().unwrap();
-            let mut _scene = scene_manager.get_staged_scene().unwrap();
+            let mut _scene = self.scene_manager.get_staged_scene().unwrap();
             let scene = _scene.deref_mut();
 
-            // scene.insert_resource(self.egui_winit_state.clone().unwrap());
- 
             let state: &(dyn ApplicationState) = self.state.borrow();
             state.overlay_interface_on_staged_scene(scene.borrow_mut());
 
-            match &self.input_manager {
-                Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
-                None => log::error!("No input manager to prep scene."),
-            }
-            match &self.render_manager {
-                Some(manager) => manager.borrow_mut().prep_staged_scene(scene.borrow_mut()),
-                None => log::error!("No render manager to prep scene."),
-            }
+            self.input_manager.prep_staged_scene(scene.borrow_mut());
+            self.render_manager.prep_staged_scene(scene.borrow_mut());
         }
     }
 
@@ -220,8 +183,7 @@ impl Application{
         use bevy_reflect::TypeRegistryArc;
         use ember_math::Vector3f;
 
-        let mut scene_manager = self.get_scene_manager().unwrap();
-        let mut _scene = scene_manager.get_staged_scene().unwrap();
+        let mut _scene = self.scene_manager.get_staged_scene().unwrap();
         let scene = _scene.deref_mut();
 
         scene.get_world()
@@ -284,16 +246,13 @@ impl Application{
             .spawn()
             .insert(AppInterfaceFlag{})
             .insert(MainMenuComponent{ui: None})
-            .insert(FileSubMenuComponent::new())    
-            .id();
-        
+            .insert(FileSubMenuComponent::new());        
         scene.get_world()
             .unwrap()
             .spawn()
             // .insert(TerrainComponent::create(20))
             .insert(TransformComponent::create_empty())
-            .insert(TerrainUiComponent{})
-            .id();
+            .insert(TerrainUiComponent{});
 
         scene.get_world()
             .unwrap()
@@ -301,9 +260,7 @@ impl Application{
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(TransformComponent::create_empty())
-            .insert(TransformUiComponent{})
-            .id();
-
+            .insert(TransformUiComponent{});
         
         scene.get_world()
             .unwrap()
@@ -315,8 +272,7 @@ impl Application{
                     .with_global_position(Vector3f::new(0.0, 2.0, 0.0))
                     .with_scale(0.3)
                     .build()
-            )
-            .id();
+            );
 
         scene.get_world()
             .unwrap()
@@ -328,8 +284,7 @@ impl Application{
                     .with_global_position(Vector3f::new(0.0, 0.0, 2.0))
                     .with_scale(0.3)
                     .build()
-            )
-            .id();
+            );
         
         scene.get_world()
             .unwrap()
@@ -342,8 +297,7 @@ impl Application{
                     .with_scale(0.1)
                     .build()
             )
-            .insert(TransformUiComponent{})
-            .id();
+            .insert(TransformUiComponent{});
 
         scene.get_world()
             .unwrap()
@@ -353,22 +307,20 @@ impl Application{
                     Vector3f::new(0.5, 0.2, 0.8),
                     Vector4f::one()
                 )
-            )
-            .id();
+            );
 
         scene.get_world()
             .unwrap()
             .spawn()
-            .insert(AmbientLightingComponent::new(Vector3f::one()))
-            .id();
+            .insert(AmbientLightingComponent::new(Vector3f::one()));
 
         scene.get_world()
             .unwrap()
             .spawn()
             .insert(CameraComponent::create_default())
             .insert(TransformComponent::create_empty())
-            .insert(InputComponent::create())
-            .id();
+            .insert(InputComponent::create());
+        
     }
 
     // main game loop
@@ -393,8 +345,7 @@ impl Application{
                 self.update_managers();
 
                 // run physics
-                let scene_manager = self.get_scene_manager().unwrap();
-                let mut active_scene = scene_manager.get_active_scene().unwrap();
+                let mut active_scene = self.scene_manager.get_active_scene().unwrap();
                 active_scene.run_update_schedule();
 
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
@@ -403,19 +354,17 @@ impl Application{
 
             // pass events to egui
             {
-                let scene_manager = self.get_scene_manager().unwrap();
-                let mut scene = scene_manager.get_active_scene().unwrap();
-                let mut world = scene.get_world().unwrap();
-                let egui_ctx = {
-                    world.get_resource_mut::<EguiState>().expect("Couldn't get Egui state from world").ctx.clone()
-                };
-                let mut egui_winit = {
-                    world.get_resource_mut::<egui_winit::State>().expect("Couldn't get egui_winit state from world")
-                };
-
                 match event {
                     Event::WindowEvent{ref event, ..} => {
-                        let event_response = egui_winit.on_event(&egui_ctx, &event);
+                        let event_response = {
+                            let mut scene = self.scene_manager.get_active_scene().unwrap();
+                            let mut world = scene.get_world().unwrap();
+                            let egui_ctx = {
+                                world.get_resource_mut::<EguiState>().expect("Couldn't get Egui state from world").ctx.clone()
+                            };
+                            let event_response = self.egui_winit_state.on_event(&egui_ctx, &event);
+                            event_response    
+                        };
                         if !event_response.consumed {
                             self.handle_window_event(&event, control_flow);
                         }
@@ -426,23 +375,13 @@ impl Application{
                     },
                     _ => ()
                 }
-            };
-
-            // // if it's a draw, draw
-            // match event{
-            //     Event::MainEventsCleared => {
-            //         puffin::GlobalProfiler::lock().new_frame();
-            //         self.render_scene();
-            //     },
-            //     _ => (),
-            // }
+            }; // end egui event passing
         }); // end of event_loop run
     } // end of run function
 
     fn update_managers(&mut self){
         let scene_manager_update_result = {
-            let mut scene_manager = self.get_scene_manager().unwrap();
-            match scene_manager.update(){
+            match self.scene_manager.update(){
                 Ok(r) => r,
                 Err(e) => panic!("{:?}", e)
             }
@@ -456,12 +395,11 @@ impl Application{
         }
         
         // get scene
-        let scene_manager = self.get_scene_manager().unwrap();
-        let mut active_scene = scene_manager.get_active_scene().unwrap();
+        let mut active_scene = self.scene_manager.get_active_scene().unwrap();
         
         // run input
-        self.get_input_manager().unwrap().update(active_scene.borrow_mut());
-        self.get_render_manager().unwrap().update(active_scene.borrow_mut());
+        self.input_manager.update(active_scene.borrow_mut());
+        self.render_manager.update(active_scene.borrow_mut());
     }
 
     fn handle_window_event(
@@ -479,13 +417,8 @@ impl Application{
             // window resized
             WindowEvent::Resized(_) => {
                 log::debug!("Window resized...");
-                match &self.render_manager {
-                    Some(manager) => {
-                        manager.borrow_mut().recreate_swapchain();
-                        log::info!("Swapchain Recreated...");
-                    },
-                    None => log::error!("Render manager not found when trying to recreate swapchain."),
-                }
+                self.render_manager.recreate_swapchain();
+                log::info!("Swapchain Recreated...");
             }
 
             // keyboard input
@@ -498,67 +431,29 @@ impl Application{
                     },
                 ..
                 } => {
-                    match &self.input_manager {
-                        Some(manager) => manager.borrow_mut().handle_key_input(Some(virtual_code.clone())),
-                        None => log::error!("Key detected, but no input manager is loaded..."),
-                    };
+                    self.input_manager.handle_key_input(Some(virtual_code.clone()));
             }
             
             // key modifiers, alt, shift, etc
             WindowEvent::ModifiersChanged(state) => {
-                match &self.input_manager{
-                    Some(manager) => manager.borrow_mut().handle_modifier_change(state.clone()),
-                    None => log::error!("Key modifier change detected, but no input manager is loaded..."),
-                };
+                self.input_manager.handle_modifier_change(state.clone());
             }
 
             _ => () // catch all for window event
         } 
     }
 
-    pub fn activate_staged_scene(&self){
-        let mut scene_manager = self.get_scene_manager().unwrap();
-        scene_manager.activate_staged_scene();
+    pub fn activate_staged_scene(&mut self){
+        self.scene_manager.activate_staged_scene();
     }
 
-    pub fn get_scene_manager(&self) -> Option<RefMut<SceneManager>> {
-        match &self.scene_manager{
-            Some(manager) => Some(manager.borrow_mut()),
-            None => None,
-        }
-    }
-
-    pub fn get_input_manager(&self) -> Option<RefMut<InputManager>> {
-        match &self.input_manager {
-            Some(manager) => Some(manager.borrow_mut()),
-            None => None,
-        }
-    }
-
-    pub fn get_render_manager(&self) -> Option<RefMut<RenderManager>> {
-        match &self.render_manager{
-            Some(manager) => Some(manager.borrow_mut()),
-            None => None,
-        }
-    }
-
-    fn render_scene(&self){
-        match &self.scene_manager {
-            Some(scene_manager) => {
-                let scene_manager = scene_manager.borrow_mut();
-                let mut current_scene = scene_manager.get_active_scene().unwrap();
-                // check if render manager exists, and if so, draw
-                match &self.render_manager {
-                    Some(manager) => {
-                        manager.borrow_mut().draw(current_scene.borrow_mut());
-                    },
-                    None => log::error!("Render manager does not exist on application manager."),
-                }
-            },
-            None => {
-                log::error!("Scene manager does not exist on application manager.");
-            },
-        }
+    fn render_scene(&mut self){
+        let mut current_scene = self.scene_manager.get_active_scene().unwrap();
+        let mut egui_winit_state = &mut self.egui_winit_state;
+        self.render_manager.draw(
+            &mut current_scene,
+            &mut egui_winit_state
+        );
     }
 
 } // end of class

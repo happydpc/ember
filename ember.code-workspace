@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../egui_vulkano"
+		},
+		{
+			"path": "../ember_math"
 		}
 	],
 	"settings": {}

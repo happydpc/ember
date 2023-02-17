@@ -1,7 +1,7 @@
 use bevy_ecs::component::Component;
 
 use crate::core::rendering::geometries::TerrainGeometry;
-use vulkano::device::Device;
+use vulkano::{memory::allocator::StandardMemoryAllocator};
 use std::sync::{Arc, Mutex};
 use serde::{
     Serialize,
@@ -32,10 +32,10 @@ impl TerrainComponent{
         }
     }
 
-    pub fn initialize(&mut self, device: Arc<Device>){
+    pub fn initialize(&mut self, memory_allocator: Arc<StandardMemoryAllocator>){
         log::debug!("Initializing renderable component...");
         let geometry = self.geometry.clone();//.as_ref();//unwrap();
-        geometry.lock().unwrap().initialize(device);
+        geometry.lock().unwrap().initialize(memory_allocator);
     }
 
     pub fn initialized(&self) -> bool {

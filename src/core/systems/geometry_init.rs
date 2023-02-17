@@ -4,7 +4,7 @@ use bevy_ecs::{
         Res,
     }
 };
-use vulkano::device::Device;
+use vulkano::{memory::{allocator::StandardMemoryAllocator}};
 
 use std::sync::Arc;
 use crate::core::rendering::geometries::geometry_primitives::{
@@ -15,13 +15,13 @@ use crate::core::plugins::components::geometry_component::{GeometryComponent, Ge
 pub struct GeometryInitHelper;
 
 impl GeometryInitHelper{
-    fn create_geometry(mut geom: &mut GeometryComponent, device: Arc<Device>){
+    fn create_geometry(mut geom: &mut GeometryComponent, memory_allocator: Arc<StandardMemoryAllocator>){
         match geom.geometry_type{
             GeometryType::Box => GeometryInitHelper::init_cube(&mut geom),
             GeometryType::Triangle => GeometryInitHelper::init_triangle(&mut geom),
             GeometryType::Plane => GeometryInitHelper::init_plane(&mut geom),
         };
-        geom.initialize(device.clone());
+        geom.initialize(memory_allocator.clone());
     }
 
     fn init_cube(mut geom: &mut GeometryComponent){
@@ -89,12 +89,12 @@ impl GeometryInitHelper{
 
 pub fn GeometryInitializerSystem(
     mut query: Query<&mut GeometryComponent>,
-    device: Res<Arc<Device>>,
+    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
 )
 {
     log::debug!("Running geometry init system...");
     for mut geometry in query.iter_mut() {
-        GeometryInitHelper::create_geometry(&mut geometry, device.clone());
-        geometry.initialize(device.clone());
+        GeometryInitHelper::create_geometry(&mut geometry, memory_allocator.clone());
+        geometry.initialize(memory_allocator.clone());
     }
 }

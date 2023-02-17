@@ -6,10 +6,10 @@ use log::LevelFilter;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut log_level = Some(LevelFilter::Info);
+    let mut log_level = LevelFilter::Info;
     if args.len() > 1 {
         if args[1] == "debug" {
-            log_level = Some(LevelFilter::Debug);
+            log_level = LevelFilter::Debug;
         } else if args[1] == "brooke" {
             println!("hi brooke");
         } else {
@@ -17,6 +17,5 @@ fn main() {
         }
     }
     let mut app: ember::Application = ember::Application::create_application(log_level);
-    app.startup();
     app.run();
 }

@@ -9,7 +9,6 @@ use crate::core::plugins::components::GeometryComponent;
 
 use vulkano::buffer::CpuAccessibleBuffer;
 use vulkano::buffer::BufferUsage;
-use vulkano::device::Device;
 use vulkano::memory::allocator::StandardMemoryAllocator;
 
 use noise::{NoiseFn, OpenSimplex};

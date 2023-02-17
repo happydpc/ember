@@ -1,15 +1,14 @@
-use crate::core::scene::Scene;
 use crate::core::systems::render_systems::DirectionalLightingSystemPipeline;
 use crate::core::systems::render_systems::AmbientLightingSystemPipeline;
 use crate::core::systems::render_systems::RenderableDrawSystemPipeline;
 use crate::core::systems::terrain_systems::TerrainDrawSystemPipeline;
 use crate::core::systems::RequiresGraphicsPipeline;
 
-use vulkano::memory;
 use vulkano::memory::allocator::StandardMemoryAllocator;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::render_pass::RenderPass;
 use vulkano::format::Format;
+use vulkano::render_pass::Subpass;
 use vulkano::swapchain::Swapchain;
 use vulkano::device::Device;
 use vulkano::image::view::ImageView;
@@ -36,17 +35,18 @@ pub struct SceneState{
     pub depth_buffer: Arc<Mutex<Arc<ImageView<AttachmentImage>>>>,
     pub viewport: Arc<Mutex<Viewport>>,
     pub framebuffers: Arc<Mutex<Option<Arc<Framebuffer>>>>,
+    pub diffuse_pass: Subpass,
+    pub lighting_pass: Subpass,
+    pub ui_pass: Subpass,
     memory_allocator: Arc<StandardMemoryAllocator>,
 }
 
 impl SceneState{
-    pub fn new(swapchain: Arc<Swapchain>, device: Arc<Device>, memory_allocator: Arc<StandardMemoryAllocator>){  
-
-        // create pipelines
-        let directional_lighting_pipeline = DirectionalLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
-        let ambient_lighting_pipeline = AmbientLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
-        let renderable_pipeline = RenderableDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
-        let terrain_draw_pipeline = TerrainDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+    pub fn new(
+        swapchain: Arc<Swapchain>,
+        device: Arc<Device>,
+        memory_allocator: Arc<StandardMemoryAllocator>
+    ) -> Self {  
         
         // create viewport
         let viewport = Viewport {
@@ -59,6 +59,18 @@ impl SceneState{
         // add passes
         let mut render_passes = Vec::new();
         let pass = SceneState::build_render_pass(swapchain.image_format(), device.clone());
+
+        let diffuse_pass = Subpass::from(pass.clone(), 0).unwrap();
+        let lighting_pass = Subpass::from(pass.clone(), 1).unwrap();
+        let ui_pass = Subpass::from(pass.clone(), 2).unwrap();
+
+        // create pipelines
+        let directional_lighting_pipeline = DirectionalLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let ambient_lighting_pipeline = AmbientLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let renderable_pipeline = RenderableDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let terrain_draw_pipeline = TerrainDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+
+        // now that we've used the render pass to build pipelines, push it
         render_passes.push(pass);
         
         // add pipelines
@@ -74,18 +86,23 @@ impl SceneState{
             diffuse_buffer,
             normals_buffer,
             depth_buffer
-        ) = SceneState::build_buffers(device.clone(), memory_allocator);
+        ) = SceneState::build_buffers(memory_allocator.clone());
 
-        let mut scene_state_instance: SceneState = SceneState{
+        let scene_state_instance: SceneState = SceneState{
             pipelines: pipeline_mutex,
             render_passes: render_passes,
-            diffuse_buffer: Arc::new(Mutex::new((diffuse_buffer))),
-            normals_buffer: Arc::new(Mutex::new((normals_buffer))),
-            depth_buffer: Arc::new(Mutex::new((depth_buffer))),
+            diffuse_buffer: Arc::new(Mutex::new(diffuse_buffer)),
+            normals_buffer: Arc::new(Mutex::new(normals_buffer)),
+            depth_buffer: Arc::new(Mutex::new(depth_buffer)),
             viewport: Arc::new(Mutex::new(viewport)),
             framebuffers: Arc::new(Mutex::new(None)),
+            diffuse_pass: diffuse_pass,
+            lighting_pass: lighting_pass,
+            ui_pass: ui_pass,
             memory_allocator: memory_allocator.clone()
         };
+
+        scene_state_instance
 
     }
 
@@ -147,7 +164,7 @@ impl SceneState{
         render_pass
     }
 
-    fn build_buffers(device: Arc<Device>, memory_allocator: Arc<StandardMemoryAllocator>)
+    fn build_buffers(memory_allocator: Arc<StandardMemoryAllocator>)
     -> (Arc<ImageView<AttachmentImage>>, Arc<ImageView<AttachmentImage>>, Arc<ImageView<AttachmentImage>>){
         // TODO: use shortcut provided in vulkano 0.6
         let diffuse_buffer = ImageView::new_default(
@@ -195,8 +212,8 @@ impl SceneState{
         (diffuse_buffer, normals_buffer, depth_buffer)
     }
 
-    pub fn scale_scene_state_to_images(&self, image: Arc<ImageView<SwapchainImage>>, device: Arc<Device>){
-        self.scale_framebuffers_to_images(image.clone(), device.clone());
+    pub fn scale_scene_state_to_images(&self, image: Arc<ImageView<SwapchainImage>>){
+        self.scale_framebuffers_to_images(image.clone());
         self.rescale_viewport(image.clone());
     }
 
@@ -205,7 +222,7 @@ impl SceneState{
         self.viewport.try_lock().unwrap().dimensions = [dimensions[0] as f32, dimensions[1] as f32]
     }
 
-    fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage>>, device: Arc<Device>){
+    fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage>>){
         // should probably comment some of this i guess
         let dimensions = image.clone().image().dimensions().width_height();
         if self.diffuse_buffer().image().dimensions().width_height() != dimensions {

@@ -7,6 +7,8 @@ use bevy_ecs::prelude::{
 use bevy_ecs::event::Events;
 
 use ember_math::Matrix4f;
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
+use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 
 use crate::core::plugins::components::TerrainComponent;
 use crate::core::plugins::components::TransformComponent;
@@ -25,11 +27,11 @@ use crate::core::events::terrain_events::TerrainRecalculateEvent;
 use vulkano::buffer::CpuBufferPool;
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::TypedBufferAccess;
-use vulkano::command_buffer::CommandBufferUsage;
+use vulkano::command_buffer::{CommandBufferUsage, CommandBufferInheritanceInfo};
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::device::Device;
 use vulkano::device::Queue;
-use vulkano::descriptor_set::PersistentDescriptorSet;
+use vulkano::descriptor_set::{PersistentDescriptorSet};
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::render_pass::RenderPass;
 use vulkano::render_pass::Subpass;
@@ -43,7 +45,7 @@ use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
 use vulkano::pipeline::graphics::viewport::ViewportState;
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::PipelineBindPoint;
-use vulkano::memory::allocator::StandardMemoryAllocator;
+use vulkano::memory::allocator::{StandardMemoryAllocator, MemoryUsage};
 
 use winit::event::VirtualKeyCode;
 use winit::event::ModifiersState;
@@ -66,7 +68,7 @@ pub fn TerrainInitSystem(
 pub fn TerrainUpdateSystem(
     mut query: Query<&mut TerrainComponent>,
     mut recalculate_events: ResMut<Events<TerrainRecalculateEvent>>,
-    device: Res<Arc<Device>>,
+    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
 ){
     let mut reader = recalculate_events.get_reader();
     for _event in reader.iter(&recalculate_events){
@@ -74,7 +76,7 @@ pub fn TerrainUpdateSystem(
             {
                 terrain.geometry.lock().unwrap().generate_terrain();
             }
-            terrain.initialize(device.clone());
+            terrain.initialize(memory_allocator.clone());
         }
     }
     recalculate_events.clear();
@@ -127,25 +129,33 @@ pub fn TerrainDrawSystem(
     camera_state: Res<CameraState>,
     queue: Res<Arc<Queue>>,
     scene_state: Res<Arc<SceneState>>,
+    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
+    descriptor_set_allocator: Res<Arc<StandardDescriptorSetAllocator>>,
+    cmd_buff_alloc: Res<Arc<StandardCommandBufferAllocator>>,
     mut buffer_vec: ResMut<TriangleSecondaryBuffers>,
 ){
     log::debug!("Running Terrain Draw System...");
 
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<TerrainDrawSystemPipeline>().expect("Could not get pipeline from scene_state.");
+    let renderpass = scene_state.render_passes[0].clone();
+
+    let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
 
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
     for (transform, terrain) in query.iter() {
         log::debug!("Creating secondary command buffer builder...");
         // create buffer buildres
         // create a command buffer builder
-        let mut builder = AutoCommandBufferBuilder::secondary_graphics(
-            queue.device().clone(),
-            queue.family(),
+        let mut builder = AutoCommandBufferBuilder::secondary(
+            &cmd_buff_alloc.clone(),
+            queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
-            pipeline.subpass().clone(),
-        )
-        .unwrap();
+            CommandBufferInheritanceInfo {
+                render_pass: Some(subpass.clone().into()),
+                ..Default::default()
+            },
+        ).unwrap();
         
         log::debug!("Binding pipeline graphics for secondary command buffer....");
         // this is the default color of the framebuffer
@@ -153,9 +163,14 @@ pub fn TerrainDrawSystem(
             .set_viewport(0, [viewport.clone()])
             .bind_pipeline_graphics(pipeline.clone());
 
-        let uniform_buffer: CpuBufferPool::<shaders::triangle::vs::ty::Data> = CpuBufferPool::new(
-            queue.device().clone(),
-            BufferUsage::all()
+
+        let uniform_buffer = CpuBufferPool::<shaders::triangle::vs::ty::Data>::new(
+            memory_allocator.clone(),
+            BufferUsage {
+                uniform_buffer: true,
+                ..BufferUsage::empty()
+            },
+            MemoryUsage::Upload,
         );
 
         let g_arc = &terrain.geometry.clone();
@@ -175,13 +190,15 @@ pub fn TerrainDrawSystem(
                 view: camera_state[0].clone().into(),
                 proj: camera_state[1].clone().into()
             };
-            uniform_buffer.next(uniform_buffer_data).unwrap()
+            uniform_buffer.try_next(uniform_buffer_data).unwrap()
         };
 
         let set = PersistentDescriptorSet::new(
+            &descriptor_set_allocator.clone(),
             layout.clone(),
-            [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)]
-        ).unwrap();
+            [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
+        )
+        .unwrap();
 
         log::debug!("Building secondary commands...");
         let _ = &builder

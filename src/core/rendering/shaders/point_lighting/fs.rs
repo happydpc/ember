@@ -1,5 +1,10 @@
 vulkano_shaders::shader! {
     ty: "fragment",
+    types_meta: {
+        use bytemuck::{Pod, Zeroable};
+
+        #[derive(Clone, Copy, Zeroable, Pod)]
+    },
     src: "
     #version 450
     // The `color_input` parameter of the `draw` method.

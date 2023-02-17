@@ -1,9 +1,9 @@
 
 use std::sync::Arc;
 
+use vulkano::memory::allocator::StandardMemoryAllocator;
 use vulkano::{
     buffer::CpuAccessibleBuffer,
-    device::Device,
     buffer::BufferUsage,
 };
 use bevy_ecs::component::Component;
@@ -81,31 +81,31 @@ impl GeometryComponent{
     }
 
     // ---- 
-    pub fn initialize(&mut self, device: Arc<Device>){
+    pub fn initialize(&mut self, memory_allocator: Arc<StandardMemoryAllocator>){
         // Vertex buffer init
         let vertex_buffer = {
             CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage::all(),
+                &memory_allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
                 false,
                 self.vertices.clone()
-                .iter()
-                .cloned(),
             )
             .unwrap()
         };
 
         // index buffer init
         let index_buffer = CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            BufferUsage::all(),
+            &memory_allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..BufferUsage::empty()
+            },
             false,
             self.indices.clone()
-            .iter()
-            .cloned(),
         ).unwrap();
-
-        log::debug!("Setting vbuffer right here.");
 
         self.vertex_buffer = Some(vertex_buffer);
         self.index_buffer = Some(index_buffer);
