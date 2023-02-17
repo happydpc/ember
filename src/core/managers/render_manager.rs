@@ -307,6 +307,9 @@ impl RenderManager{
     ){
         log::debug!("Entering draw");
 
+        // create primary command buffer builder
+        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
+
         // get swapchain image num and future
         let (image_num, acquire_future) = self.prep_swapchain();
 
@@ -322,9 +325,6 @@ impl RenderManager{
         // run all systems. This will build secondary command buffers
         log::debug!("----Render schedule-----");
         scene.run_render_schedule();
-
-        // create primary command buffer builder
-        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
         // get egui shapes from world
         log::debug!("Getting egui shapes");
