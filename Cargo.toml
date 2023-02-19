@@ -28,7 +28,7 @@ egui-winit = "0.20.1"
 egui_vulkano = {path="../egui_vulkano"}
 puffin = "0.13.1"
 puffin_egui = "0.14"
-winit = "0.27.5"
+winit = "0.27.0"
 noise = "0.7"
 simple_logger = "*"
 log = {version = "*"}#, features = ["max_level_error", "release_max_level_error"]}
