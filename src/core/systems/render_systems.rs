@@ -328,9 +328,7 @@ pub fn DirectionalLightingSystem(
     let normals_input = scene_state.normals_buffer();
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<DirectionalLightingSystemPipeline>().expect("Could not get pipeline from scene_state.");
-    let renderpass = scene_state.render_passes[0].clone();
-
-    let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
+    let subpass = scene_state.lighting_pass.clone();
     let layout = pipeline.layout().set_layouts().get(0).expect("Couldn't get pipeline layout.");
 
     for light_comp in query.iter(){
@@ -469,9 +467,7 @@ pub fn AmbientLightingSystem(
     let color_input = scene_state.diffuse_buffer();
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<AmbientLightingSystemPipeline>().expect("Could not get pipeline from scene_state.");
-    let renderpass = scene_state.render_passes[0].clone();
-
-    let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
+    let subpass = scene_state.lighting_pass.clone();
     let layout = pipeline.layout().set_layouts().get(0).expect("Couldn't get pipeline layout.");
 
     for light_comp in query.iter(){
@@ -550,7 +546,7 @@ pub fn RenderableAssemblyStateModifierSystem(
             PartialStateMode::Fixed(PrimitiveTopology::LineStrip) => PrimitiveTopology::TriangleList,
             _ => unreachable!(),
         };
-        let subpass = Subpass::from(scene_state.render_passes[0].clone(), 0).unwrap();
+        let subpass = scene_state.diffuse_pass.clone();
         let pipeline = RenderableAssemblyStateModifierSystemPipeline::create_renderable_pipeline(device.clone(), subpass, topology);
         scene_state.set_pipeline_for_system::<RenderableDrawSystemPipeline>(pipeline);
     }

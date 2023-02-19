@@ -50,7 +50,7 @@ use vulkano::{
         },
         ImageUsage,
         SwapchainImage,
-        AttachmentImage
+        AttachmentImage, ImageAccess
     },
     render_pass::{
         Subpass,
@@ -202,7 +202,7 @@ impl RenderManager{
         // store swapchain images?
         let images = images
             .into_iter()
-            .map(|image| ImageView::new_default(image.clone()).unwrap())
+            .map(|image| ImageView::new_default(image).unwrap())
             .collect::<Vec<_>>();
 
         // TODO : Somehow make this aware of when scenes are Active and do this there instead.
@@ -259,7 +259,6 @@ impl RenderManager{
         // scene.insert_resource(egui_winit);
         scene.insert_resource(self.device());
         scene.insert_resource(self.surface());
-        scene.insert_resource(self.queue());
         scene.insert_resource(camera_state);
         scene.insert_resource(self.scene_state());
         scene.insert_resource(self.device());
@@ -309,13 +308,24 @@ impl RenderManager{
         log::debug!("Entering draw");
 
         // get swapchain image num and future
-        let (image_num, acquire_future) = self.prep_swapchain();
-
-        // create primary command buffer builder
-        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
+        // let (image_num, acquire_future) = self.prep_swapchain();
+        let result = self.prep_swapchain();
+        let (image_num,  acquire_future) = match result {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("Error Acquiring Swapchain Image. Returning instead.");
+                return
+            }
+        };
 
         // scales framebuffer and attachments to swapchain image view of swapchain image
         self.scene_state().scale_scene_state_to_images(self.images()[image_num as usize].clone());
+
+        // I believe this join basically forces the program to wait until the swapchain image we requested is ready
+        let future = self.previous_frame_end.take().unwrap().join(acquire_future);
+
+        // create primary command buffer builder
+        let mut command_buffer_builder = self.get_auto_command_buffer_builder();
 
         // insert stuff into scene that systems will need
         self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
@@ -350,6 +360,7 @@ impl RenderManager{
         log::debug!("Building command buffer");
         // let command_buffer = command_buffer_builder.build().unwrap();
         let result = command_buffer_builder.build();
+        log::debug!("built");
         let command_buffer = match result {
             Ok(res) => res,
             Err(err) => {
@@ -359,19 +370,15 @@ impl RenderManager{
         };
 
         // join futures
-        let future_mut = self.join_futures(acquire_future, egui_texture_future);
+        log::debug!("Joining futures");
+        let mut future_mut = future.join(egui_texture_future).boxed();
+        // if let Some(future) = self.previous_frame_end.take()  {
+            // future_mut = future_mut.join(future).boxed();
+        // }
 
         // submit and render
         log::debug!("Submitting");
         self.submit_command_buffer_and_render(future_mut, command_buffer, image_num);
-    }
-
-    fn join_futures(&mut self, acquire_future: SwapchainAcquireFuture, egui_texture_future: impl GpuFuture + 'static) -> Box<dyn GpuFuture> {
-        let mut future_mut = acquire_future.join(egui_texture_future).boxed();
-        if let Some(future) = self.previous_frame_end.take()  {
-            future_mut = future_mut.join(future).boxed();
-        }
-        future_mut
     }
 
     fn submit_command_buffer_and_render(
@@ -380,6 +387,7 @@ impl RenderManager{
         command_buffer: PrimaryAutoCommandBuffer,
         image_num: u32
     ) {
+        log::debug!("Submitting gpu commands on image {:?}", image_num);
         let future = acquire_future
             .then_execute(
                 self.queue(),
@@ -394,11 +402,14 @@ impl RenderManager{
                 ),
             )
             .then_signal_fence_and_flush();
+        log::debug!("Done submitting");
         match future {
             Ok(future) => {
+                log::debug!("Future flushed successfuly");
                 self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
             }
             Err(FlushError::OutOfDate) => {
+                log::error!("Flush Error: Out of date");
                 self.recreate_swapchain = true;
                 self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
             }
@@ -418,6 +429,7 @@ impl RenderManager{
         let mut world = scene.get_world().unwrap();
         let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
         command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
+        log::debug!("entering ui pass and submitting commands");
         world
             .get_resource_mut::<EguiState>()
             .expect("Couldn't get egui state.")
@@ -481,7 +493,6 @@ impl RenderManager{
 
     fn begin_render_pass(&mut self, image_num: u32, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>) {
         // begin main render pass
-        log::debug!("Entering main render pass");
         let clear_values = vec![
             Some([0.1, 0.2, 0.2, 1.0].into()),
             Some([0.0, 0.0, 0.0, 0.0].into()),
@@ -492,10 +503,10 @@ impl RenderManager{
         let render_pass_begin_info = RenderPassBeginInfo{
             clear_values: clear_values,
             ..RenderPassBeginInfo::framebuffer(
-                self.scene_state().get_framebuffer_image(image_num)
+                self.scene_state().get_framerbuffer()
             )
         };
-        log::debug!("Telling cmd buffer builder to enter main render pass");
+        log::debug!("Telling cmd buffer builder to enter diffuse render pass");
 
         // tell builder to begin render pass
         command_buffer_builder
@@ -510,18 +521,20 @@ impl RenderManager{
     // render steps
     fn prep_swapchain(
         &mut self,
-    )->(u32, SwapchainAcquireFuture)
+    )-> Result<(u32, SwapchainAcquireFuture), AcquireError>
     {
+        log::debug!("Prepping swapchain");
         self.previous_frame_end.as_mut().unwrap().as_mut().cleanup_finished();
 
         // acquire an image from the swapchain
-        let (image_num, suboptimal, acquire_future) = self.acquire_swapchain_image();
-
+        let (image_num, suboptimal, acquire_future) = self.acquire_swapchain_image()?;
+        
+        log::debug!("Got image from swapchain {:?}", image_num);
         if suboptimal {
             log::debug!("Swapchain was suboptimal.");
             self.recreate_swapchain()
         }
-        (image_num, acquire_future)
+        Ok((image_num, acquire_future))
     }
 
     pub fn get_auto_command_buffer_builder(&self) -> AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>{
@@ -713,14 +726,14 @@ impl RenderManager{
     } // end of if on swapchain recreation
 
     // acquires the next swapchain image
-    pub fn acquire_swapchain_image(&mut self) -> (u32, bool, SwapchainAcquireFuture) {
+    pub fn acquire_swapchain_image(&mut self) -> Result<(u32, bool, SwapchainAcquireFuture), AcquireError> {
         match swapchain::acquire_next_image(self.swapchain(), None) {
-            Ok(r) => r,
+            Ok(r) => Ok(r),
             Err(AcquireError::OutOfDate) => {
                 self.recreate_swapchain();
                 self.acquire_swapchain_image()
             }
-            Err(e) => panic!("Failed to acquire next image: {:?}", e),
+            Err(e) => Err(e)//panic!("Failed to acquire next image: {:?}", e),
         }
     }
 
@@ -732,7 +745,7 @@ impl RenderManager{
             self.memory_allocator(),
             self.descriptor_set_allocator(),
             self.queue(),
-            Subpass::from(self.scene_state().render_passes[0].clone(), 2).unwrap(),
+            self.scene_state().ui_pass.clone()
         )
         .unwrap();
 
@@ -788,6 +801,7 @@ fn submit_render_system_command_buffers_to_render_pass(scene: &mut Scene<Active>
     for buff in secondary_buffers.buffers.drain(..){
         command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
     }
+    log::debug!("Moving to lighting pass");
     command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
     let mut lighting_secondary_buffers = world.get_resource_mut::<LightingSecondaryBuffers>().expect("Couldn't get lighting buffer vec");
     for buff in lighting_secondary_buffers.buffers.drain(..){

@@ -227,6 +227,7 @@ impl SceneState{
         // should probably comment some of this i guess
         let dimensions = image.clone().image().dimensions().width_height();
         if self.diffuse_buffer().image().dimensions().width_height() != dimensions {
+            log::debug!("Resizing FrameBuffer");
             let diffuse_buffer = ImageView::new_default(
                 AttachmentImage::with_usage(
                     &self.memory_allocator,
@@ -269,25 +270,31 @@ impl SceneState{
                 .unwrap(),
             )
             .unwrap();
-
-            let framebuffer = Framebuffer::new(
-                self.render_passes[0].clone(),
-                FramebufferCreateInfo {
-                    attachments: vec![
-                        image.clone(),
-                        diffuse_buffer.clone(),
-                        normals_buffer.clone(),
-                        depth_buffer.clone(),
-                    ],
-                    ..Default::default()
-                },
-            ).expect("Couldn't create framebuffer");
             
-            *self.framebuffers.lock().unwrap() = Some(framebuffer);
             *self.diffuse_buffer.lock().unwrap() = diffuse_buffer;
             *self.normals_buffer.lock().unwrap() = normals_buffer;
             *self.depth_buffer.lock().unwrap() = depth_buffer;
+            log::info!(
+                "new dimensions {:?} desired dimensions {:?}",
+                self.diffuse_buffer().image().dimensions().width_height(),
+                dimensions.clone()
+            );
         }
+
+        let framebuffer = Framebuffer::new(
+            self.render_passes[0].clone(),
+            FramebufferCreateInfo {
+                attachments: vec![
+                    image.clone(),
+                    self.diffuse_buffer(),
+                    self.normals_buffer(),
+                    self.depth_buffer(),
+                ],
+                ..Default::default()
+            },
+        ).expect("Couldn't create framebuffer");
+        *self.framebuffers.lock().unwrap() = Some(framebuffer);
+
     }
 
     pub fn get_pipeline_for_system<S: 'static>(&self) -> Option<Arc<GraphicsPipeline>>{
@@ -301,7 +308,7 @@ impl SceneState{
         self.pipelines.lock().unwrap().insert(TypeId::of::<S>(), pipeline);
     }
 
-    pub fn get_framebuffer_image(&self, _image_num: u32) -> Arc<Framebuffer> {
+    pub fn get_framerbuffer(&self) -> Arc<Framebuffer> {
         // todo : is there only one image???
         self.framebuffers.clone().lock().unwrap().clone().unwrap()
     }

@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "../ember_math"
+		},
+		{
+			"path": "../projects"
 		}
 	],
 	"settings": {}
