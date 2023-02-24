@@ -276,7 +276,7 @@ impl Scene<Active> {
             .with_system(RenderableAssemblyStateModifierSystem)
         ).add_stage("assembly_state_modifier_system", SystemStage::parallel()
             .with_system(TerrainAssemblyStateModifierSystem)
-        ).add_stage_after("camera_update", "main", SystemStage::parallel()
+        ).add_stage_after("camera_update", "main", SystemStage::single_threaded()
             .with_system(RenderableDrawSystem)
             .with_system(DirectionalLightingSystem)
             .with_system(AmbientLightingSystem)

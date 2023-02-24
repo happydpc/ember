@@ -51,7 +51,7 @@ use vulkano::pipeline::StateMode;
 use vulkano::pipeline::PartialStateMode;
 use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
 use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
-use vulkano::pipeline::graphics::viewport::ViewportState;
+use vulkano::pipeline::graphics::viewport::{ViewportState, Viewport};
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::graphics::rasterization::{RasterizationState, CullMode, FrontFace};
 use vulkano::pipeline::graphics::color_blend::{
@@ -80,7 +80,7 @@ use winit::event::VirtualKeyCode;
 use log;
 
 pub trait RequiresGraphicsPipeline{
-    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>;
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Arc<GraphicsPipeline>;
 }
 
 
@@ -118,7 +118,7 @@ pub fn CameraUpdateSystem(
 
 pub struct RenderableDrawSystemPipeline;
 impl RequiresGraphicsPipeline for RenderableDrawSystemPipeline{
-    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Arc<GraphicsPipeline>{
 
             // compile our shaders
             let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
@@ -142,7 +142,7 @@ impl RequiresGraphicsPipeline for RenderableDrawSystemPipeline{
                 // The content of the vertex buffer describes a list of triangles.
                 .input_assembly_state(input_assembly_state)
                 // Use a resizable viewport set to draw over the entire window
-                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
                 // See `vertex_shader`.
                 .fragment_shader(fs.entry_point("main").unwrap(), ())
                 .depth_stencil_state(DepthStencilState::simple_depth_test())
@@ -192,7 +192,6 @@ pub fn RenderableDrawSystem(
         log::debug!("Binding pipeline graphics for secondary command buffer....");
         // this is the default color of the framebuffer
         builder
-            .set_viewport(0, [viewport.clone()])
             .bind_pipeline_graphics(pipeline.clone());
 
         let uniform_buffer = CpuBufferPool::<shaders::triangle::vs::ty::Data>::new(
@@ -218,7 +217,7 @@ pub fn RenderableDrawSystem(
                 view: camera_state[0].clone().into(),
                 proj: camera_state[1].clone().into()
             };
-            uniform_buffer.try_next(uniform_buffer_data).unwrap()
+            uniform_buffer.from_data(uniform_buffer_data).unwrap()
         };
 
         let set = PersistentDescriptorSet::new(
@@ -228,7 +227,7 @@ pub fn RenderableDrawSystem(
         )
         .unwrap();
 
-        log::debug!("Building secondary commands...");
+        log::debug!("Building secondary commands for renderable draw...");
         let _ = &builder
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
@@ -253,7 +252,7 @@ pub fn RenderableDrawSystem(
 
 pub struct DirectionalLightingSystemPipeline;
 impl RequiresGraphicsPipeline for DirectionalLightingSystemPipeline{
-    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Arc<GraphicsPipeline>{
 
         let vs = shaders::directional_lighting::vs::load(device.clone()).expect("failed to create vertex shader for direcitonal lighting system.");
         let fs = shaders::directional_lighting::fs::load(device.clone()).expect("failed to create fragment shader for directional lighting system.");
@@ -262,7 +261,7 @@ impl RequiresGraphicsPipeline for DirectionalLightingSystemPipeline{
             .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(InputAssemblyState::new())
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
             .fragment_shader(fs.entry_point("main").unwrap(), ())
             .color_blend_state(ColorBlendState::new(Subpass::from(render_pass.clone(), 1).unwrap().num_color_attachments()).blend(
                 AttachmentBlend {
@@ -358,7 +357,6 @@ pub fn DirectionalLightingSystem(
         ).unwrap();
 
         builder
-            .set_viewport(0, [viewport.clone()])
             .bind_pipeline_graphics(pipeline.clone())
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
@@ -391,7 +389,7 @@ pub fn DirectionalLightingSystem(
 
 pub struct AmbientLightingSystemPipeline;
 impl RequiresGraphicsPipeline for AmbientLightingSystemPipeline{
-    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Arc<GraphicsPipeline>{
 
         let vs = shaders::ambient_lighting::vs::load(device.clone()).expect("failed to create vertex shader for ambient lighting system.");
         let fs = shaders::ambient_lighting::fs::load(device.clone()).expect("failed to create fragment shader for ambient lighting system.");
@@ -400,7 +398,7 @@ impl RequiresGraphicsPipeline for AmbientLightingSystemPipeline{
         .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
         .vertex_shader(vs.entry_point("main").unwrap(), ())
         .input_assembly_state(InputAssemblyState::new())
-        .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+        .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
         .fragment_shader(fs.entry_point("main").unwrap(), ())
         .color_blend_state(ColorBlendState::new(Subpass::from(render_pass.clone(), 1).unwrap().num_color_attachments()).blend(
             AttachmentBlend {
@@ -494,7 +492,6 @@ pub fn AmbientLightingSystem(
         ).unwrap();
 
         builder
-            .set_viewport(0, [viewport.clone()])
             .bind_pipeline_graphics(pipeline.clone())
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
@@ -547,14 +544,19 @@ pub fn RenderableAssemblyStateModifierSystem(
             _ => unreachable!(),
         };
         let subpass = scene_state.diffuse_pass.clone();
-        let pipeline = RenderableAssemblyStateModifierSystemPipeline::create_renderable_pipeline(device.clone(), subpass, topology);
+        let pipeline = RenderableAssemblyStateModifierSystemPipeline::create_renderable_pipeline(
+            device.clone(),
+            subpass,
+            topology, 
+            scene_state.viewport()
+        );
         scene_state.set_pipeline_for_system::<RenderableDrawSystemPipeline>(pipeline);
     }
 }
 
 pub struct RenderableAssemblyStateModifierSystemPipeline;
 impl RenderableAssemblyStateModifierSystemPipeline {
-    pub fn create_renderable_pipeline(device: Arc<Device>, subpass: Subpass, topology: PrimitiveTopology) -> Arc<GraphicsPipeline> {
+    pub fn create_renderable_pipeline(device: Arc<Device>, subpass: Subpass, topology: PrimitiveTopology, viewport: Viewport) -> Arc<GraphicsPipeline> {
         // compile our shaders
         let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
         let fs = shaders::triangle::fs::load(device.clone()).expect("Failed to create fragment shader for triangle draw system.");
@@ -577,7 +579,7 @@ impl RenderableAssemblyStateModifierSystemPipeline {
             // The content of the vertex buffer describes a list of triangles.
             .input_assembly_state(input_assembly_state)
             // Use a resizable viewport set to draw over the entire window
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
             // See `vertex_shader`.
             .fragment_shader(fs.entry_point("main").unwrap(), ())
             .depth_stencil_state(DepthStencilState::simple_depth_test())

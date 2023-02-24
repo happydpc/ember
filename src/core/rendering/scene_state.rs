@@ -26,6 +26,7 @@ use std::sync::{Arc, Mutex};
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::thread::current;
 
 pub struct SceneState{
     pub pipelines: Mutex<HashMap<TypeId, Arc<GraphicsPipeline>>>,
@@ -34,10 +35,11 @@ pub struct SceneState{
     pub normals_buffer: Arc<Mutex<Arc<ImageView<AttachmentImage>>>>,
     pub depth_buffer: Arc<Mutex<Arc<ImageView<AttachmentImage>>>>,
     pub viewport: Arc<Mutex<Viewport>>,
-    pub framebuffers: Arc<Mutex<Option<Arc<Framebuffer>>>>,
+    pub framebuffers: Arc<Mutex<Vec<Arc<Framebuffer>>>>,
     pub diffuse_pass: Subpass,
     pub lighting_pass: Subpass,
     pub ui_pass: Subpass,
+    device: Arc<Device>,
     memory_allocator: Arc<StandardMemoryAllocator>,
 }
 
@@ -51,7 +53,7 @@ impl SceneState{
         // create viewport
         let viewport = Viewport {
             origin: [0.0, 0.0],
-            dimensions: [0.0, 0.0],
+            dimensions: [1.0, 1.0],
             depth_range: 0.0..1.0,
         };
 
@@ -65,10 +67,10 @@ impl SceneState{
         let ui_pass = Subpass::from(pass.clone(), 2).unwrap();
 
         // create pipelines
-        let directional_lighting_pipeline = DirectionalLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
-        let ambient_lighting_pipeline = AmbientLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
-        let renderable_pipeline = RenderableDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
-        let terrain_draw_pipeline = TerrainDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone());
+        let directional_lighting_pipeline = DirectionalLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+        let ambient_lighting_pipeline = AmbientLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+        let renderable_pipeline = RenderableDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+        let terrain_draw_pipeline = TerrainDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
 
         // now that we've used the render pass to build pipelines, push it
         render_passes.push(pass);
@@ -95,10 +97,11 @@ impl SceneState{
             normals_buffer: Arc::new(Mutex::new(normals_buffer)),
             depth_buffer: Arc::new(Mutex::new(depth_buffer)),
             viewport: Arc::new(Mutex::new(viewport)),
-            framebuffers: Arc::new(Mutex::new(None)),
+            framebuffers: Arc::new(Mutex::new(Vec::new())),
             diffuse_pass: diffuse_pass,
             lighting_pass: lighting_pass,
             ui_pass: ui_pass,
+            device: device.clone(),
             memory_allocator: memory_allocator.clone()
         };
 
@@ -156,7 +159,7 @@ impl SceneState{
                 // ui
                 { 
                     color: [final_color],
-                    depth_stencil: {depth},
+                    depth_stencil: {},
                     input: []
                 }
             ]
@@ -172,7 +175,8 @@ impl SceneState{
             AttachmentImage::with_usage(
                 &memory_allocator,
                 [1, 1],
-                Format::A2B10G10R10_UNORM_PACK32,
+                // Format::A2B10G10R10_UNORM_PACK32,
+                Format::B8G8R8A8_SRGB,
                 ImageUsage {
                     transient_attachment: true,
                     input_attachment: true,
@@ -213,21 +217,86 @@ impl SceneState{
         (diffuse_buffer, normals_buffer, depth_buffer)
     }
 
-    pub fn scale_scene_state_to_images(&self, image: Arc<ImageView<SwapchainImage>>){
-        self.scale_framebuffers_to_images(image.clone());
-        self.rescale_viewport(image.clone());
+    pub fn scale_scene_state_to_images(&self, images: &[Arc<SwapchainImage>]){
+        self.scale_image_views_to_images(images);
+        self.recreate_framebuffers(images);
+        self.rescale_viewport(images);
     }
 
-    fn rescale_viewport(&self, image: Arc<ImageView<SwapchainImage>>){
-        let dimensions = image.image().dimensions().width_height();
-        self.viewport.try_lock().unwrap().dimensions = [dimensions[0] as f32, dimensions[1] as f32]
+    fn recreate_framebuffers(&self, images: &[Arc<SwapchainImage>]){
+        let framebuffers = images
+            .iter()
+            .map(|image| {
+                let view = ImageView::new_default(image.clone()).unwrap();
+                let fb = Framebuffer::new(
+                    self.render_passes[0].clone(),
+                    FramebufferCreateInfo {
+                        attachments: vec![
+                            ImageView::new_default(image.clone()).unwrap(),
+                            self.diffuse_buffer(),
+                            self.normals_buffer(),
+                            self.depth_buffer(),
+                        ],
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+                fb
+            })
+            .collect::<Vec<_>>();
+
+        // let framebuffer = Framebuffer::new(
+        //     self.render_passes[0].clone(),
+        //     FramebufferCreateInfo {
+        //         attachments: vec![
+        //             ImageView::new_default(image.clone()).unwrap(),
+        //             self.diffuse_buffer(),
+        //             self.normals_buffer(),
+        //             self.depth_buffer(),
+        //         ],
+        //         ..Default::default()
+        //     },
+        // ).expect("Couldn't create framebuffer");
+        *self.framebuffers.lock().unwrap()  = framebuffers;
+
     }
 
-    fn scale_framebuffers_to_images(&self, image: Arc<ImageView<SwapchainImage>>){
+    fn rescale_viewport(&self, images: &[Arc<SwapchainImage>]){
+        let image = images[0].clone();
+        let dimensions = image.dimensions().width_height();
+        {
+            self.viewport.lock().unwrap().dimensions = [dimensions[0] as f32, dimensions[1] as f32];
+        }
+        self.match_pipelines_to_viewport_state(self.viewport());
+    }
+
+    fn match_pipelines_to_viewport_state(&self, viewport: Viewport){
+
+        let device = self.device.clone();
+        let pass = self.render_passes[0].clone();
+
+        // create pipelines
+        let directional_lighting_pipeline = DirectionalLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+        let ambient_lighting_pipeline = AmbientLightingSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+        let renderable_pipeline = RenderableDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+        let terrain_draw_pipeline = TerrainDrawSystemPipeline::create_graphics_pipeline(device.clone(), pass.clone(), viewport.clone());
+
+        // add pipelines
+        let mut pipelines = self.pipelines.lock().unwrap();
+        pipelines.clear();
+        pipelines.insert(TypeId::of::<DirectionalLightingSystemPipeline>(), directional_lighting_pipeline);
+        pipelines.insert(TypeId::of::<RenderableDrawSystemPipeline>(), renderable_pipeline);
+        pipelines.insert(TypeId::of::<AmbientLightingSystemPipeline>(), ambient_lighting_pipeline);
+        pipelines.insert(TypeId::of::<TerrainDrawSystemPipeline>(), terrain_draw_pipeline);
+
+    }
+
+    fn scale_image_views_to_images(&self, images: &[Arc<SwapchainImage>]){
         // should probably comment some of this i guess
-        let dimensions = image.clone().image().dimensions().width_height();
+        let image = images[0].clone();
+        let dimensions = image.clone().dimensions().width_height();
         if self.diffuse_buffer().image().dimensions().width_height() != dimensions {
-            log::debug!("Resizing FrameBuffer");
+            log::debug!("Resizing FrameBuffers");
             let diffuse_buffer = ImageView::new_default(
                 AttachmentImage::with_usage(
                     &self.memory_allocator,
@@ -274,27 +343,7 @@ impl SceneState{
             *self.diffuse_buffer.lock().unwrap() = diffuse_buffer;
             *self.normals_buffer.lock().unwrap() = normals_buffer;
             *self.depth_buffer.lock().unwrap() = depth_buffer;
-            log::info!(
-                "new dimensions {:?} desired dimensions {:?}",
-                self.diffuse_buffer().image().dimensions().width_height(),
-                dimensions.clone()
-            );
         }
-
-        let framebuffer = Framebuffer::new(
-            self.render_passes[0].clone(),
-            FramebufferCreateInfo {
-                attachments: vec![
-                    image.clone(),
-                    self.diffuse_buffer(),
-                    self.normals_buffer(),
-                    self.depth_buffer(),
-                ],
-                ..Default::default()
-            },
-        ).expect("Couldn't create framebuffer");
-        *self.framebuffers.lock().unwrap() = Some(framebuffer);
-
     }
 
     pub fn get_pipeline_for_system<S: 'static>(&self) -> Option<Arc<GraphicsPipeline>>{
@@ -308,9 +357,9 @@ impl SceneState{
         self.pipelines.lock().unwrap().insert(TypeId::of::<S>(), pipeline);
     }
 
-    pub fn get_framerbuffer(&self) -> Arc<Framebuffer> {
+    pub fn get_framebuffer(&self, image_index: u32) -> Arc<Framebuffer> {
         // todo : is there only one image???
-        self.framebuffers.clone().lock().unwrap().clone().unwrap()
+        (*self.framebuffers.clone().lock().unwrap())[image_index as usize].clone()
     }
 
     pub fn viewport(&self) -> Viewport {

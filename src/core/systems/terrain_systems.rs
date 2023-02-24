@@ -42,7 +42,7 @@ use vulkano::pipeline::StateMode;
 use vulkano::pipeline::Pipeline;
 use vulkano::pipeline::graphics::input_assembly::{InputAssemblyState, PrimitiveTopology};
 use vulkano::pipeline::graphics::vertex_input::BuffersDefinition;
-use vulkano::pipeline::graphics::viewport::ViewportState;
+use vulkano::pipeline::graphics::viewport::{ViewportState, Viewport};
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::PipelineBindPoint;
 use vulkano::memory::allocator::{StandardMemoryAllocator, MemoryUsage};
@@ -59,6 +59,7 @@ pub fn TerrainInitSystem(
     log::info!("Terrain init system...");
     for mut terrain in query.iter_mut() {
         {
+            log::info!("Generating Terrain Geometry");
             terrain.geometry.lock().unwrap().generate_terrain();
         }
         terrain.initialize(memory_allocator.clone());
@@ -84,7 +85,7 @@ pub fn TerrainUpdateSystem(
 
 pub struct TerrainDrawSystemPipeline;
 impl RequiresGraphicsPipeline for TerrainDrawSystemPipeline{
-    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>) -> Arc<GraphicsPipeline>{
+    fn create_graphics_pipeline(device: Arc<Device>, render_pass: Arc<RenderPass>, viewport: Viewport) -> Arc<GraphicsPipeline>{
 
             // compile our shaders
             let vs = shaders::triangle::vs::load(device.clone()).expect("Failed to create vertex shader for triangle draw system.");
@@ -108,7 +109,7 @@ impl RequiresGraphicsPipeline for TerrainDrawSystemPipeline{
                 // The content of the vertex buffer describes a list of triangles.
                 .input_assembly_state(input_assembly_state)
                 // Use a resizable viewport set to draw over the entire window
-                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
                 // See `vertex_shader`.
                 .fragment_shader(fs.entry_point("main").unwrap(), ())
                 .depth_stencil_state(DepthStencilState::simple_depth_test())
@@ -138,14 +139,12 @@ pub fn TerrainDrawSystem(
 
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<TerrainDrawSystemPipeline>().expect("Could not get pipeline from scene_state.");
-    let renderpass = scene_state.render_passes[0].clone();
-
-    let subpass = Subpass::from(renderpass.clone(), 1).expect("Couldn't get lighting subpass in directional lighting system.");
+    let subpass =  scene_state.diffuse_pass.clone();
 
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
     for (transform, terrain) in query.iter() {
         log::debug!("Creating secondary command buffer builder...");
-        // create buffer buildres
+        // create buffer builders
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::secondary(
             &cmd_buff_alloc.clone(),
@@ -160,7 +159,6 @@ pub fn TerrainDrawSystem(
         log::debug!("Binding pipeline graphics for secondary command buffer....");
         // this is the default color of the framebuffer
         builder
-            .set_viewport(0, [viewport.clone()])
             .bind_pipeline_graphics(pipeline.clone());
 
 
@@ -190,7 +188,7 @@ pub fn TerrainDrawSystem(
                 view: camera_state[0].clone().into(),
                 proj: camera_state[1].clone().into()
             };
-            uniform_buffer.try_next(uniform_buffer_data).unwrap()
+            uniform_buffer.from_data(uniform_buffer_data).unwrap()
         };
 
         let set = PersistentDescriptorSet::new(
@@ -319,7 +317,8 @@ pub fn TerrainUiSystem(
         if size < 1 {
             size = 1;
         }
-        if size != terrain.get_size(){
+        let size_changed = size != terrain.get_size();
+        if size_changed {
             terrain.set_size(size as usize);
             terrain_recalc_events.send(TerrainRecalculateEvent{});
         }

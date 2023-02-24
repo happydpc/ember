@@ -11,7 +11,7 @@ pub mod vs {
         types_meta: {
             use bytemuck::{Pod, Zeroable};
 
-            #[derive(Clone, Copy, Zeroable, Pod)]
+            #[derive(Clone, Copy, Zeroable, Pod, Debug)]
         },
     }
 }
@@ -21,10 +21,5 @@ pub mod fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         path: "src/core/rendering/shaders/triangle/frag.glsl",
-        types_meta: {
-            use bytemuck::{Pod, Zeroable};
-
-            #[derive(Clone, Copy, Zeroable, Pod)]
-        },
     }
 }

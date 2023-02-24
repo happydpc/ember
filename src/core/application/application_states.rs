@@ -1,3 +1,4 @@
+use crate::core::events::terrain_events::TerrainRecalculateEvent;
 use crate::core::scene::{
     Scene,
     Active,
@@ -8,6 +9,7 @@ use bevy_ecs::{
     schedule::Stage,
 };
 use bevy_ecs::prelude::Schedule;
+use ember_math::{Vector4f, Vector3f};
 
 
 
@@ -18,7 +20,7 @@ use crate::core::plugins::components::{
     InputComponent,
     MainMenuComponent,
     FileSubMenuComponent,
-    TransformComponent,
+    TransformComponent, TerrainComponent, RenderableComponent, GeometryComponent, GeometryType, TransformUiComponent, DirectionalLightComponent, AmbientLightingComponent, TransformBuilder,
 };
 use crate::core::events::project_events::SaveEvent;
 use crate::core::events::project_events::CreateProjectEvent;
@@ -103,7 +105,9 @@ impl ApplicationState for ApplicationIdleState {
         scene.get_world()
             .unwrap()
             .init_resource::<Events<MenuMessage<FileSubMenuComponent>>>();
-
+        scene.get_world()
+            .unwrap()
+            .init_resource::<Events<TerrainRecalculateEvent>>();
         {
             let mut world = scene.get_world().unwrap();
             let registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
@@ -114,6 +118,18 @@ impl ApplicationState for ApplicationIdleState {
             registry.register::<FileSubMenuComponent>();
             registry.register::<CameraComponent>();
             registry.register::<InputComponent>();
+            registry.register::<TransformComponent>();
+            registry.register::<TransformUiComponent>();
+
+            // should these be elsewhere?
+            registry.register::<RenderableComponent>();
+            registry.register::<GeometryComponent>();
+            registry.register::<DirectionalLightComponent>();
+
+            registry.register::<TerrainComponent>();
+            registry.register::<crate::core::plugins::components::TerrainUiComponent>();
+            registry.register::<crate::core::plugins::components::GeometryType>();
+            registry.register::<crate::core::plugins::components::AmbientLightingComponent>();
         }
 
         let _MainMenuEntity = scene.get_world()
@@ -122,16 +138,47 @@ impl ApplicationState for ApplicationIdleState {
             .insert(AppInterfaceFlag{})
             .insert(MainMenuComponent{ui: None})
             .insert(DebugUiComponent::create())
-            .insert(FileSubMenuComponent::new())    
-            .id();
+            .insert(FileSubMenuComponent::new());
 
         scene.get_world()
             .unwrap()
             .spawn()
             .insert(CameraComponent::create_default())
             .insert(TransformComponent::create_empty())
-            .insert(InputComponent::create())
-            .id();
+            .insert(InputComponent::create());
+
+    
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(
+                DirectionalLightComponent::new(
+                    Vector3f::new(0.5, 0.2, 0.8),
+                    Vector4f::one()
+                )
+            );        // done
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(AmbientLightingComponent::new(Vector3f::one()));
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(TerrainComponent::create(20))
+            .insert(TransformComponent::create_empty())
+            .insert(crate::core::plugins::components::TerrainUiComponent{});
+        
+        let box_transform = TransformBuilder::new().with_scale(5.0).build();
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(box_transform)
+            .insert(TransformUiComponent{});
     }
     
 }

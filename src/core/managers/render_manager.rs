@@ -19,7 +19,7 @@ use vulkano::{
     instance::{
         Instance,
         InstanceExtensions,
-        InstanceCreateInfo,
+        InstanceCreateInfo, debug::{DebugUtilsMessenger, DebugUtilsMessengerCreateInfo, DebugUtilsMessageSeverity, DebugUtilsMessageType},
     },
     device::{
         physical::{
@@ -50,10 +50,7 @@ use vulkano::{
         },
         ImageUsage,
         SwapchainImage,
-        AttachmentImage, ImageAccess
-    },
-    render_pass::{
-        Subpass,
+        AttachmentImage
     },
     pipeline::{
         GraphicsPipeline,
@@ -62,6 +59,7 @@ use vulkano::{
         FlushError,
         GpuFuture,
     },
+    format::Format,
     sync,
     command_buffer::{
         AutoCommandBufferBuilder,
@@ -71,6 +69,7 @@ use vulkano::{
         SecondaryAutoCommandBuffer,
         RenderPassBeginInfo,
         allocator::StandardCommandBufferAllocator,
+        SubpassContents::Inline
     },
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator,
@@ -138,25 +137,100 @@ pub struct RenderManager{
 }
 
 impl RenderManager{
-    pub fn startup(&mut self) -> (EventLoop<()>, Arc<vulkano::swapchain::Surface>){
+    pub fn startup(&mut self) -> EventLoop<()> {
         log::info!("Starting RenderManager...");
 
         // get library
         let library = VulkanLibrary::new().unwrap();
 
+        println!("List of Vulkan debugging layers available to use:");
+        let layers = library.layer_properties().unwrap();
+        for l in layers {
+            println!("\t{}", l.name());
+        }
+
+        // NOTE: To simplify the example code we won't verify these layer(s) are actually in the layers list:
+        let layers = vec!["VK_LAYER_KHRONOS_validation".to_owned()];
+
         // get extensions
         let (required_extensions, device_extensions) = RenderManager::get_required_extensions(&library);
 
-        // create an instance of vulkan with the required extensions
+        // // create an instance of vulkan with the required extensions
+        // let instance = Instance::new(
+        //     library,
+        //     // None, Version::V1_1, &required_extensions, None
+        //     InstanceCreateInfo{
+        //         enabled_extensions: required_extensions,
+        //         enumerate_portability: true,
+        //         ..Default::default()
+        //     }
+        // ).unwrap();
+
+        // Important: pass the extension(s) and layer(s) when creating the vulkano instance
         let instance = Instance::new(
             library,
-            // None, Version::V1_1, &required_extensions, None
-            InstanceCreateInfo{
+            InstanceCreateInfo {
                 enabled_extensions: required_extensions,
+                enabled_layers: layers,
+                // Enable enumerating devices that use non-conformant vulkan implementations. (ex. MoltenVK)
                 enumerate_portability: true,
                 ..Default::default()
-            }
-        ).unwrap();
+            },
+        )
+        .expect("failed to create Vulkan instance");
+
+        let _debug_callback = unsafe {
+            DebugUtilsMessenger::new(
+                instance.clone(),
+                DebugUtilsMessengerCreateInfo {
+                    message_severity: DebugUtilsMessageSeverity {
+                        error: true,
+                        warning: true,
+                        information: true,
+                        verbose: true,
+                        ..DebugUtilsMessageSeverity::empty()
+                    },
+                    message_type: DebugUtilsMessageType {
+                        general: true,
+                        validation: true,
+                        performance: true,
+                        ..DebugUtilsMessageType::empty()
+                    },
+                    ..DebugUtilsMessengerCreateInfo::user_callback(Arc::new(|msg| {
+                        let severity = if msg.severity.error {
+                            "error"
+                        } else if msg.severity.warning {
+                            "warning"
+                        } else if msg.severity.information {
+                            "information"
+                        } else if msg.severity.verbose {
+                            "verbose"
+                        } else {
+                            panic!("no-impl");
+                        };
+    
+                        let ty = if msg.ty.general {
+                            "general"
+                        } else if msg.ty.validation {
+                            "validation"
+                        } else if msg.ty.performance {
+                            "performance"
+                        } else {
+                            panic!("no-impl");
+                        };
+    
+                        println!(
+                            "{} {} {}: {}",
+                            msg.layer_prefix.unwrap_or("unknown"),
+                            ty,
+                            severity,
+                            msg.description
+                        );
+                    }))
+                },
+            )
+            .ok()
+        };
 
         // create event_loop and surface
         let (event_loop, surface) = RenderManager::create_event_loop_and_surface(instance.clone());
@@ -199,21 +273,17 @@ impl RenderManager{
             queue.clone()
         );
 
+        // TODO : Somehow make this aware of when scenes are Active and do this there instead.
+        let scene_state = SceneState::new(swapchain.clone(), device.clone(), memory_allocator.clone());
+        scene_state.scale_scene_state_to_images(&images);
+
         // store swapchain images?
         let images = images
             .into_iter()
             .map(|image| ImageView::new_default(image).unwrap())
             .collect::<Vec<_>>();
 
-        // TODO : Somehow make this aware of when scenes are Active and do this there instead.
-        let scene_state = SceneState::new(swapchain.clone(), device.clone(), memory_allocator.clone());
-        scene_state.scale_scene_state_to_images(images[0].clone());
-
-        let _recreate_swapchain = false;
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
-
-        // clone the surface so we can return this clone
-        let return_surface = surface.clone();
         
         // fill options with initialized values
         self.required_extensions = Some(required_extensions);
@@ -230,7 +300,7 @@ impl RenderManager{
         self.memory_allocator = Some(memory_allocator);
         self.command_buffer_allocator = Some(cmd_buffer_allocator);
         self.descriptor_set_allocator = Some(descriptor_set_allocator);
-        (event_loop, return_surface)
+        event_loop
     }
 
     // shut down render manager
@@ -306,6 +376,7 @@ impl RenderManager{
         egui_winit_state: &mut egui_winit::State,
     ){
         log::debug!("Entering draw");
+        self.previous_frame_end.as_mut().unwrap().as_mut().cleanup_finished();
 
         // get swapchain image num and future
         // let (image_num, acquire_future) = self.prep_swapchain();
@@ -313,16 +384,16 @@ impl RenderManager{
         let (image_num,  acquire_future) = match result {
             Ok(r) => r,
             Err(e) => {
-                log::error!("Error Acquiring Swapchain Image. Returning instead.");
+                log::error!("Error Acquiring Swapchain Image. Returning instead. {:?}", e);
                 return
             }
         };
 
-        // scales framebuffer and attachments to swapchain image view of swapchain image
-        self.scene_state().scale_scene_state_to_images(self.images()[image_num as usize].clone());
-
         // I believe this join basically forces the program to wait until the swapchain image we requested is ready
-        let future = self.previous_frame_end.take().unwrap().join(acquire_future);
+        // let future = self.previous_frame_end.take().unwrap().join(acquire_future);
+
+        // scales framebuffer and attachments to swapchain image view of swapchain image
+        // self.scene_state().scale_scene_state_to_images(self.images()[image_num as usize].clone());
 
         // create primary command buffer builder
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
@@ -339,12 +410,12 @@ impl RenderManager{
 
         // get egui shapes from world
         log::debug!("Getting egui shapes");
-        let egui_output: FullOutput = self.get_egui_output(scene, &mut command_buffer_builder, egui_winit_state);
+        let egui_output: FullOutput = self.get_egui_output(scene, egui_winit_state);
         let result = self.update_egui_textures(&egui_output, scene);
         let egui_texture_future = result.expect("Egui texture future not found from update_textures");
 
         // set clear values and begin the render pass
-        self.begin_render_pass(image_num, &mut command_buffer_builder);
+        self.begin_render_pass(&mut command_buffer_builder, image_num);
 
         // get and submit secondary command buffers to render pass
         submit_render_system_command_buffers_to_render_pass(scene, &mut command_buffer_builder);
@@ -360,9 +431,11 @@ impl RenderManager{
         log::debug!("Building command buffer");
         // let command_buffer = command_buffer_builder.build().unwrap();
         let result = command_buffer_builder.build();
-        log::debug!("built");
         let command_buffer = match result {
-            Ok(res) => res,
+            Ok(res) => {
+                log::debug!("Successfylly built command buffer");
+                res
+            },
             Err(err) => {
                 log::debug!("something went wrong");
                 panic!(err)
@@ -371,14 +444,21 @@ impl RenderManager{
 
         // join futures
         log::debug!("Joining futures");
-        let mut future_mut = future.join(egui_texture_future).boxed();
-        // if let Some(future) = self.previous_frame_end.take()  {
-            // future_mut = future_mut.join(future).boxed();
-        // }
+        // this puts us at the moment when the egui textures are done updating and our image is ready to be drawn
+        let mut future_mut = acquire_future.join(egui_texture_future).boxed();
+        if let Some(future) = self.previous_frame_end.take()  {
+            future_mut = future_mut.join(future).boxed();
+        }
 
         // submit and render
-        log::debug!("Submitting");
         self.submit_command_buffer_and_render(future_mut, command_buffer, image_num);
+
+        let mut world = scene.get_world().unwrap();
+        world
+            .get_resource_mut::<EguiState>()
+            .expect("Couldn't get egui state.")
+            .painter
+            .free_textures();
     }
 
     fn submit_command_buffer_and_render(
@@ -398,7 +478,7 @@ impl RenderManager{
                 self.queue(),
                 SwapchainPresentInfo::swapchain_image_index(
                     self.swapchain(),
-                    image_num as u32
+                    image_num
                 ),
             )
             .then_signal_fence_and_flush();
@@ -406,7 +486,8 @@ impl RenderManager{
         match future {
             Ok(future) => {
                 log::debug!("Future flushed successfuly");
-                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
+                // self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
+                self.previous_frame_end = Some(future.boxed());
             }
             Err(FlushError::OutOfDate) => {
                 log::error!("Flush Error: Out of date");
@@ -428,8 +509,6 @@ impl RenderManager{
         let sf: f32 = window.scale_factor() as f32;
         let mut world = scene.get_world().unwrap();
         let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
-        command_buffer_builder.set_viewport(0, [self.scene_state().viewport()]);
-        log::debug!("entering ui pass and submitting commands");
         world
             .get_resource_mut::<EguiState>()
             .expect("Couldn't get egui state.")
@@ -439,6 +518,7 @@ impl RenderManager{
                 [(size.width as f32) / sf, (size.height as f32) / sf],
                 &ctx,
                 egui_output.shapes,
+                self.scene_state().viewport()
             )
             .unwrap();
     }
@@ -458,7 +538,6 @@ impl RenderManager{
     fn get_egui_output(
         &mut self,
         scene: &mut Scene<Active>,
-        command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>,
         egui_winit_state: &mut egui_winit::State
     ) -> egui::FullOutput {
         let ctx = scene.get_world().unwrap().get_resource_mut::<EguiState>().expect("Couldn't get egui state").ctx.clone();
@@ -491,7 +570,11 @@ impl RenderManager{
         }
     }
 
-    fn begin_render_pass(&mut self, image_num: u32, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>) {
+    fn begin_render_pass(
+        &mut self,
+        command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>,
+        image_num: u32
+    ) {
         // begin main render pass
         let clear_values = vec![
             Some([0.1, 0.2, 0.2, 1.0].into()),
@@ -503,7 +586,7 @@ impl RenderManager{
         let render_pass_begin_info = RenderPassBeginInfo{
             clear_values: clear_values,
             ..RenderPassBeginInfo::framebuffer(
-                self.scene_state().get_framerbuffer()
+                self.scene_state().get_framebuffer(image_num)
             )
         };
         log::debug!("Telling cmd buffer builder to enter diffuse render pass");
@@ -524,16 +607,20 @@ impl RenderManager{
     )-> Result<(u32, SwapchainAcquireFuture), AcquireError>
     {
         log::debug!("Prepping swapchain");
-        self.previous_frame_end.as_mut().unwrap().as_mut().cleanup_finished();
+
+        if self.recreate_swapchain {
+            log::debug!("Swapchain was suboptimal.");
+            self.recreate_swapchain();
+        }
 
         // acquire an image from the swapchain
         let (image_num, suboptimal, acquire_future) = self.acquire_swapchain_image()?;
-        
         log::debug!("Got image from swapchain {:?}", image_num);
+
         if suboptimal {
-            log::debug!("Swapchain was suboptimal.");
-            self.recreate_swapchain()
+            self.recreate_swapchain = true;
         }
+
         Ok((image_num, acquire_future))
     }
 
@@ -661,17 +748,19 @@ impl RenderManager{
     ) -> (Arc<Swapchain>, Vec<Arc<SwapchainImage>>) {
         let surface_capabilities = physical_device.surface_capabilities(&surface, Default::default()).unwrap();
         
-        let image_format = Some(
-            physical_device
-                .surface_formats(&surface, Default::default())
-                .unwrap()[0]
-                .0,
-        );
+        let image_format = Some(Format::B8G8R8A8_SRGB);
+        // let image_format = Some(
+        //     device
+        //         .physical_device()
+        //         .surface_formats(&surface, Default::default())
+        //         .unwrap()[0]
+        //         .0,
+        // );
+        log::info!("Swapchaain format {:?}", image_format);
+
         let binding = surface.clone();
         let window = binding.object().unwrap().downcast_ref::<Window>().unwrap();
         
-        let _dimensions: [u32; 2] = window.inner_size().into();
-
         Swapchain::new(
             device.clone(),
             surface.clone(),
@@ -712,14 +801,13 @@ impl RenderManager{
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
         };
         self.recreate_swapchain = false;
+        self.scene_state().scale_scene_state_to_images(&new_images);
 
         // convert images to image views
         let new_images = new_images
             .into_iter()
             .map(|image| ImageView::new_default(image.clone()).unwrap())
             .collect::<Vec<_>>();
-
-        self.scene_state().scale_scene_state_to_images(new_images[0].clone());
 
         self.swapchain = Some(new_swapchain);
         self.images = Some(new_images);
@@ -799,12 +887,14 @@ fn submit_render_system_command_buffers_to_render_pass(scene: &mut Scene<Active>
     let mut world = scene.get_world().unwrap();
     let mut secondary_buffers = world.get_resource_mut::<TriangleSecondaryBuffers>().expect("Couldn't get secondary buffer vec.");
     for buff in secondary_buffers.buffers.drain(..){
+        log::debug!("Submitting draw cmd buffer");
         command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
     }
     log::debug!("Moving to lighting pass");
     command_buffer_builder.next_subpass(SubpassContents::SecondaryCommandBuffers).expect("Couldn't step to deferred subpass.");
     let mut lighting_secondary_buffers = world.get_resource_mut::<LightingSecondaryBuffers>().expect("Couldn't get lighting buffer vec");
     for buff in lighting_secondary_buffers.buffers.drain(..){
+        log::debug!("Submitting lighting  buffer");
         command_buffer_builder.execute_commands(buff).expect("Failed to execute command");
     }
 }

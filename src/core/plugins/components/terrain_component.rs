@@ -33,7 +33,7 @@ impl TerrainComponent{
     }
 
     pub fn initialize(&mut self, memory_allocator: Arc<StandardMemoryAllocator>){
-        log::debug!("Initializing renderable component...");
+        log::info!("Initializing Terrain Geometry...");
         let geometry = self.geometry.clone();//.as_ref();//unwrap();
         geometry.lock().unwrap().initialize(memory_allocator);
     }

@@ -100,7 +100,7 @@ impl GeometryComponent{
         let index_buffer = CpuAccessibleBuffer::from_iter(
             &memory_allocator,
             BufferUsage {
-                vertex_buffer: true,
+                index_buffer: true,
                 ..BufferUsage::empty()
             },
             false,

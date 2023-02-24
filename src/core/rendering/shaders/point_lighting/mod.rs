@@ -3,11 +3,6 @@ pub mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         path: "src/core/rendering/shaders/point_lighting/vert.glsl",
-        types_meta: {
-            use bytemuck::{Pod, Zeroable};
-
-            #[derive(Clone, Copy, Zeroable, Pod)]
-        },
     }
 }
 

@@ -38,7 +38,7 @@ impl TerrainGeometry{
             indices: Vec::new(),
             height_map: Vec::new(),
             size: size,
-            amplitude: 1.0,
+            amplitude: 10.0,
             seed: 1,
             noise_fn: Box::new(OpenSimplex::new()),
             vertex_buffer: None,
@@ -111,7 +111,7 @@ impl TerrainGeometry{
         let index_buffer = CpuAccessibleBuffer::from_iter(
             &memory_allocator,
             BufferUsage {
-                vertex_buffer: true,
+                index_buffer: true,
                 ..BufferUsage::empty()
             },
             false,
