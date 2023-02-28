@@ -112,6 +112,7 @@ pub fn CameraUpdateSystem(
         log::debug!("updating camera");
         camera.aspect = aspect;
         camera.calculate_view();
+        camera.calculate_perspective();
         *state = [camera.get_view(), camera.get_perspective()];
     }
 }

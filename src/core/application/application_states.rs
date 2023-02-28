@@ -143,7 +143,7 @@ impl ApplicationState for ApplicationIdleState {
         scene.get_world()
             .unwrap()
             .spawn()
-            .insert(CameraComponent::create_default())
+            .insert(CameraComponent::default())
             .insert(TransformComponent::create_empty())
             .insert(InputComponent::create());
 

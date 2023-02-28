@@ -269,6 +269,9 @@ pub fn CameraUiSystem(
             .show(&ctx, |ui| {
                 ui.label("FOV");
                 ui.add(egui::Slider::new(&mut fov, 0.1..=5.0));
+                ui.label(format!("Radius {}", cam.radius));
+                ui.label(format!("Azimuth {}", cam.azimuth));
+                ui.label(format!("Declination {}", cam.declination));
                 ui.horizontal(|ui| {
                     ui.label("eye: : ");
                     ui.add(egui::DragValue::new(&mut cam.eye.x).speed(0.1));

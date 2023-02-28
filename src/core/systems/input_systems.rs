@@ -82,23 +82,42 @@ pub fn CameraMoveSystem(
         }
 
         if mouse_state.mouse_down[2] && mouse_state.mouse_delta.x != 0.0 {
-            let rm = Matrix4f::from_axis_angle(Vector3f::new(0.0, 1.0, 0.0), mouse_state.mouse_delta.x * 0.05);
-            cam.eye = rm.transform(cam.eye.extend(1.0)).truncate();
+            cam.azimuth += mouse_state.mouse_delta.x * cam.orbit_speed;
+            cam.update_cartesian();
+        }
+
+        if mouse_state.mouse_down[2] && mouse_state.mouse_delta.y != 0.0 {
+            let mut new_declination = cam.declination - mouse_state.mouse_delta.y * cam.orbit_speed / 2.0;
+            new_declination = 0.001_f32.max(new_declination).min(core::f32::consts::PI - 0.001);
+            cam.declination = new_declination;
+            cam.update_cartesian();
         }
 
         if mouse_state.scroll[1] != 0.0 {
-            let dx = mouse_state.scroll[1] * -0.05;
-            let scale = 1.0 + dx;
-            cam.eye = cam.eye.scale(scale);
+            let dx = mouse_state.scroll[1] * -0.05 * cam.radius;
+            cam.radius += dx;
+            cam.update_cartesian();
         }
 
-        if mouse_state.mouse_down[1] && mouse_state.mouse_delta.y != 0.0 {
-            let dx = -0.05 * mouse_state.mouse_delta.y;
-            let new_focus = cam.look_at + Vector3f::new(0.0, dx, 0.0);
-            cam.look_at = new_focus;
-            cam.calculate_perspective();
+        if mouse_state.mouse_down[1] {
+            let dx = mouse_state.mouse_delta.x;
+            let dy = mouse_state.mouse_delta.y;
+            let look_rel_eye = cam.look_at - cam.eye;
+            let old_azimuth = (look_rel_eye.x / look_rel_eye.z).atan();
+            let mut old_declination = (look_rel_eye.x * look_rel_eye.x + look_rel_eye.z * look_rel_eye.z).sqrt();
+            old_declination = old_declination / look_rel_eye.y;
+            old_declination = old_declination.atan();
+
+            let new_declination = old_declination - dy * cam.orbit_speed / 2.0;
+            let new_azimuth = old_azimuth + dx * cam.orbit_speed;
+            let r = look_rel_eye.magnitude();
+            let new_look_x = r * new_declination.sin() * new_azimuth.cos();
+            let new_look_y = r * new_declination.cos();
+            let new_look_z = r * new_declination.sin() * new_azimuth.sin();
+            let new_look = Vector3f::new(new_look_x, new_look_y, new_look_z) + cam.eye;
+            cam.look_at = new_look;
+            cam.update();
         }
-        cam.calculate_view();
 
     }
 
