@@ -10,7 +10,8 @@ use std::{
 use std::ops::DerefMut;
 use std::borrow::Borrow;
 
-use ember_math::{Vector4f};
+use egui::Window;
+use ember_math::{Vector4f, Vector2f};
 
 
 use crate::core::{
@@ -36,7 +37,7 @@ use winit::{
         Event,
         WindowEvent,
         KeyboardInput,
-        ElementState,
+        ElementState, DeviceEvent, MouseScrollDelta,
     },
     event_loop::{
         EventLoop,
@@ -161,42 +162,32 @@ impl Application{
 
         event_loop.run(move |event, _, control_flow| {
 
+            // handle winit event. if it's a redraw request, true is returned, otherwise the event
+            // is just processed
+            let should_render = self.handle_winit_event(&event, control_flow);
+            
+            // if should render, do that
+            if should_render {
+                puffin::GlobalProfiler::lock().new_frame();
+                self.render_scene();
+            }
+
+            // do physics / non-render updates
             let mut loops = 0;
             while (Instant::now().cmp(&next_tick) == Ordering::Greater) && loops < max_frame_skip {
+                // run update in all of the managers
                 self.update_managers();
 
                 // run physics
                 let mut active_scene = self.scene_manager.get_active_scene().unwrap();
                 active_scene.run_update_schedule();
 
+                //
                 next_tick.add_assign(Duration::from_millis(skip_ticks));
                 loops = loops + 1;
             }
 
-            // pass events to egui
-            {
-                match event {
-                    Event::WindowEvent{ref event, ..} => {
-                        let event_response = {
-                            let mut scene = self.scene_manager.get_active_scene().unwrap();
-                            let mut world = scene.get_world().unwrap();
-                            let egui_ctx = {
-                                world.get_resource_mut::<EguiState>().expect("Couldn't get Egui state from world").ctx.clone()
-                            };
-                            let event_response = self.egui_winit_state.on_event(&egui_ctx, &event);
-                            event_response    
-                        };
-                        if !event_response.consumed {
-                            self.handle_window_event(&event, control_flow);
-                        }
-                    },
-                    Event::MainEventsCleared => {
-                        puffin::GlobalProfiler::lock().new_frame();
-                        self.render_scene();
-                    },
-                    _ => ()
-                }
-            }; // end egui event passing
+
         }); // end of event_loop run
     } // end of run function
 
@@ -223,6 +214,37 @@ impl Application{
         self.render_manager.update(active_scene.borrow_mut());
     }
 
+    fn handle_winit_event(
+        &mut self,
+        event: &winit::event::Event<()>,
+        control_flow: &mut ControlFlow
+    ) -> bool {
+        match event {
+            Event::WindowEvent{ref event, ..} => {
+                let event_response = {
+                    let mut scene = self.scene_manager.get_active_scene().unwrap();
+                    let mut world = scene.get_world().unwrap();
+                    let egui_ctx = {
+                        world.get_resource_mut::<EguiState>().expect("Couldn't get Egui state from world").ctx.clone()
+                    };
+                    let event_response = self.egui_winit_state.on_event(&egui_ctx, &event);
+                    event_response    
+                };
+                if !event_response.consumed {
+                    self.handle_window_event(&event, control_flow);
+                }
+            },
+            Event::DeviceEvent{event, ..} => {
+                self.handle_device_event(&event);
+            },
+            Event::MainEventsCleared => {
+                return true;
+            },
+            _ => ()
+        }
+        return false;
+    }
+
     fn handle_window_event(
         &mut self,
         event: &winit::event::WindowEvent,
@@ -233,14 +255,14 @@ impl Application{
             // close requested
             WindowEvent::CloseRequested => {
                 *control_flow = ControlFlow::Exit;
-            }
+            },
 
             // window resized
             WindowEvent::Resized(_) => {
                 log::debug!("Window resized...");
                 self.render_manager.recreate_swapchain();
                 log::info!("Swapchain Recreated...");
-            }
+            },
 
             // keyboard input
             WindowEvent::KeyboardInput {
@@ -253,15 +275,53 @@ impl Application{
                 ..
                 } => {
                     self.input_manager.handle_key_input(Some(virtual_code.clone()));
+            },
+
+            WindowEvent::CursorEntered { device_id } => {
+                log::debug!("Cursor entered window: todo")
+            },
+
+            WindowEvent::CursorLeft { device_id } => {
+                log::debug!("Cursor left window: todo")
+            },
+
+            WindowEvent::Focused(focused) => {
+                if *focused {
+                    log::info!("Window Gained Focus");
+                } else {
+                    log::info!("Window Lost Focus");
+                }
             }
-            
+
             // key modifiers, alt, shift, etc
             WindowEvent::ModifiersChanged(state) => {
                 self.input_manager.handle_modifier_change(state.clone());
-            }
-
+            },
             _ => () // catch all for window event
         } 
+    }
+
+    fn handle_device_event(&mut self, event: &winit::event::DeviceEvent){
+        match event{
+            DeviceEvent::Button {button, state} => {
+                self.input_manager.handle_mouse_button(button, &state);
+            },
+            DeviceEvent::MouseMotion {delta} => {
+                let delta_vec = Vector2f::new(delta.0 as f32, delta.1 as f32);
+                self.input_manager.handle_mouse_move(delta_vec);
+            },
+            DeviceEvent::MouseWheel { delta } => match delta {
+                MouseScrollDelta::LineDelta(x, y) => {
+                    self.input_manager.handle_mouse_wheel(*x, *y);
+                }
+                MouseScrollDelta::PixelDelta(p) => {
+                    log::warn!("Mouse Scroll Pixel Delta {p:?} TODO");
+                }
+            },
+            DeviceEvent::Added => log::warn!("Device added: todo"),
+            DeviceEvent::Removed => log::warn!("Device removed: todo"),
+            _ => (),
+        }
     }
 
     pub fn activate_staged_scene(&mut self){
