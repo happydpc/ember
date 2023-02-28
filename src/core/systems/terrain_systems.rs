@@ -299,9 +299,10 @@ pub fn TerrainUiSystem(
     let ctx = egui_state.ctx.clone();
     for terrain in query.iter_mut(){
         let mut size = terrain.get_size();
-        let mut amplitude = {
-            terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude.clone()
-        };
+        // let mut amplitude = {
+            // terrain.geometry.lock().expect("Cannot get terrain in terrain ui system.").amplitude.clone()
+        // };
+        // let mut amplitude = terrain.geometry.get_mut().unwrap();
 
         egui::Window::new("Terrain Settings")
             .show(&ctx, |ui| {
@@ -320,6 +321,13 @@ pub fn TerrainUiSystem(
         let size_changed = size != terrain.get_size();
         if size_changed {
             terrain.set_size(size as usize);
+        }
+        let amplitude_changed = amplitude != terrain.get_amplitude();
+        if amplitude_changed {
+            terrain.set_amplitude(amplitude);
+        }
+
+        if amplitude_changed || size_changed {
             terrain_recalc_events.send(TerrainRecalculateEvent{});
         }
         // terrain.set_size(size as usize);

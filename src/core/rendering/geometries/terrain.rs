@@ -61,9 +61,9 @@ impl TerrainGeometry{
         let noise_fn: &(dyn NoiseFn<[f64; 2]> + Send + Sync) = self.noise_fn.borrow();
         let mut i = 0;
         for x in 0..size {
-            for y in 0..size {
-                let noise = noise_fn.get([x as f64, y as f64]);
-                let z = (noise * self.amplitude) as f32;
+            for z in 0..size {
+                let noise = noise_fn.get([x as f64, z as f64]);
+                let y = (noise * self.amplitude) as f32;
                 self.vertices.push(
                     Vertex{
                         position: [x as f32, y as f32, z as f32]

@@ -21,14 +21,16 @@ pub struct TerrainUiComponent;
 #[reflect(Component)]
 pub struct TerrainComponent{
     #[reflect(ignore)]
-    pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
+    // pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
+    pub geometry: Arc<Box<TerrainGeometry>>
 }
 
 impl TerrainComponent{
 
     pub fn create(size: usize) -> Self{
         TerrainComponent{
-            geometry: Arc::new(Mutex::new(Box::new(TerrainGeometry::new(size))))
+            // geometry: Arc::new(Mutex::new(Box::new(TerrainGeometry::new(size))))
+            geometry: Arc::new(Box::new(TerrainGeometry::new(size)))
         }
     }
 
@@ -48,6 +50,14 @@ impl TerrainComponent{
 
     pub fn get_size(&self) -> usize {
         self.geometry.clone().lock().unwrap().size
+    }
+
+    pub fn get_amplitude(&self) -> f64 {
+        self.geometry.clone().lock().unwrap().amplitude
+    }
+
+    pub fn set_amplitude(&self, amplitude: f64){
+        self.geometry.lock().unwrap().amplitude = amplitude;
     }
 }
 

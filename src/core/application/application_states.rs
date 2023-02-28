@@ -170,7 +170,11 @@ impl ApplicationState for ApplicationIdleState {
             .insert(TransformComponent::create_empty())
             .insert(crate::core::plugins::components::TerrainUiComponent{});
         
-        let box_transform = TransformBuilder::new().with_scale(5.0).build();
+        let box_transform = TransformBuilder::new().with_scale(0.1).build();
+        let box_transform_x = TransformBuilder::new().with_scale(0.5).with_global_position(Vector3f::new(2.0, 0.0, 0.0)).build();
+        let box_transform_y = TransformBuilder::new().with_scale(1.0).with_global_position(Vector3f::new(0.0, 2.0, 0.0)).build();
+        let box_transform_z = TransformBuilder::new().with_scale(2.0).with_global_position(Vector3f::new(0.0, 0.0, 2.0)).build();
+
 
         scene.get_world()
             .unwrap()
@@ -178,6 +182,30 @@ impl ApplicationState for ApplicationIdleState {
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(box_transform)
+            .insert(TransformUiComponent{});
+        
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(box_transform_x)
+            .insert(TransformUiComponent{});
+            
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(box_transform_y)
+            .insert(TransformUiComponent{});
+    
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(RenderableComponent::create())
+            .insert(GeometryComponent::create(GeometryType::Box))
+            .insert(box_transform_z)
             .insert(TransformUiComponent{});
     }
     
