@@ -21,16 +21,14 @@ pub struct TerrainUiComponent;
 #[reflect(Component)]
 pub struct TerrainComponent{
     #[reflect(ignore)]
-    // pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
-    pub geometry: Arc<Box<TerrainGeometry>>
+    pub geometry: Arc<Mutex<Box<TerrainGeometry>>>,
 }
 
 impl TerrainComponent{
 
     pub fn create(size: usize) -> Self{
         TerrainComponent{
-            // geometry: Arc::new(Mutex::new(Box::new(TerrainGeometry::new(size))))
-            geometry: Arc::new(Box::new(TerrainGeometry::new(size)))
+            geometry: Arc::new(Mutex::new(Box::new(TerrainGeometry::new(size))))
         }
     }
 
