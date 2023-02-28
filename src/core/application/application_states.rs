@@ -20,6 +20,7 @@ use crate::core::plugins::components::{
     InputComponent,
     MainMenuComponent,
     FileSubMenuComponent,
+    SceneGraphComponent,
     TransformComponent, TerrainComponent, RenderableComponent, GeometryComponent, GeometryType, TransformUiComponent, DirectionalLightComponent, AmbientLightingComponent, TransformBuilder,
 };
 use crate::core::events::project_events::SaveEvent;
@@ -139,6 +140,11 @@ impl ApplicationState for ApplicationIdleState {
             .insert(MainMenuComponent{ui: None})
             .insert(DebugUiComponent::create())
             .insert(FileSubMenuComponent::new());
+
+        scene.get_world()
+            .unwrap()
+            .spawn()
+            .insert(SceneGraphComponent::default());
 
         scene.get_world()
             .unwrap()

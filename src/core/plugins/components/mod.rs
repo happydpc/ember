@@ -30,3 +30,4 @@ pub use ui::AppInterfaceFlag;
 pub use ui::MainMenuComponent;
 pub use ui::FileSubMenuComponent;
 pub use ui::FileMenuSaveComponent;
+pub use ui::SceneGraphComponent;

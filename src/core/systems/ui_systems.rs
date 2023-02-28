@@ -4,6 +4,7 @@ use crate::core::plugins::components::{
     TransformUiComponent,
     MainMenuComponent,
     FileSubMenuComponent,
+    SceneGraphComponent,
 };
 use crate::core::events::project_events::{
     SaveEvent,
@@ -23,6 +24,7 @@ use egui::Ui;
 use bevy_ecs::prelude::{
     Res,
     Query,
+    World,
 };
 
 use bevy_ecs::prelude::EventWriter;
@@ -324,5 +326,22 @@ pub fn TransformUiSystem(
                     ui.add(egui::DragValue::new(&mut transform.scale).speed(0.01));
                 })
             });
+    }
+}
+
+pub fn SceneGraphUiSystem(
+    query: Query<&SceneGraphComponent>,
+    egui_state: Res<EguiState>,
+    world: &World,
+){
+    for comp in query.iter(){
+        let ctx = egui_state.ctx.clone();
+        egui::SidePanel::left("LeftPanel").show(&ctx, |ui|{
+            ui.colored_label(egui::Color32::WHITE, "Entities");
+            // for entity in world.iter_entities() {
+                // ui.colored_label(egui::Color32::WHITE, format!("Entity {}", entity));
+            // }
+            ui.allocate_space(ui.available_size());
+        });
     }
 }

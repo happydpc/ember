@@ -47,26 +47,6 @@ pub fn CameraMoveSystem(
                     cam.eye = cam.eye - (right.scale(delta));
                     cam.look_at = cam.look_at - (right.scale(delta));
                 },
-                VirtualKeyCode::E => {
-                    let _v = cam.eye - cam.look_at;
-                    // let rm = Matrix4f::from_axis_angle(cam.up.normalize(), -0.05);
-                    let rm = Matrix4f::from_axis_angle(Vector3f::new(0.0, 1.0, 0.0), -0.05);
-
-                    cam.eye = rm.transform(cam.eye.extend(1.0)).truncate();
-
-                    // let up = cam.up.normalize();
-                    // let right = cam.look_at.cross(cam.up).normalize();
-                    // let camVec = cam.look_at - cam.eye;
-                },
-                VirtualKeyCode::Q => {
-                    let _v = cam.eye - cam.look_at;
-                    let m = Matrix4f::from_translation(cam.look_at.scale(-1.0));
-                    let rm = Matrix4f::from_axis_angle(cam.up, 0.05);
-
-                    let translated_eye = m.transform(cam.eye.extend(1.0));
-                    let rotated_eye = rm.transform(translated_eye);
-                    cam.eye = Matrix4f::from_translation(cam.look_at).transform(rotated_eye).truncate();
-                },
                 VirtualKeyCode::F => {
                     let dx = cam.up.scale(delta);
                     cam.eye = cam.eye - dx;
@@ -99,25 +79,25 @@ pub fn CameraMoveSystem(
             cam.update_cartesian();
         }
 
-        if mouse_state.mouse_down[1] {
-            let dx = mouse_state.mouse_delta.x;
-            let dy = mouse_state.mouse_delta.y;
-            let look_rel_eye = cam.look_at - cam.eye;
-            let old_azimuth = (look_rel_eye.x / look_rel_eye.z).atan();
-            let mut old_declination = (look_rel_eye.x * look_rel_eye.x + look_rel_eye.z * look_rel_eye.z).sqrt();
-            old_declination = old_declination / look_rel_eye.y;
-            old_declination = old_declination.atan();
+        // if mouse_state.mouse_down[1] {
+        //     let dx = mouse_state.mouse_delta.x;
+        //     let dy = mouse_state.mouse_delta.y;
+        //     let look_rel_eye = cam.look_at - cam.eye;
+        //     let old_azimuth = (look_rel_eye.x / look_rel_eye.z).atan();
+        //     let mut old_declination = (look_rel_eye.x * look_rel_eye.x + look_rel_eye.z * look_rel_eye.z).sqrt();
+        //     old_declination = old_declination / look_rel_eye.y;
+        //     old_declination = old_declination.atan();
 
-            let new_declination = old_declination - dy * cam.orbit_speed / 2.0;
-            let new_azimuth = old_azimuth + dx * cam.orbit_speed;
-            let r = look_rel_eye.magnitude();
-            let new_look_x = r * new_declination.sin() * new_azimuth.cos();
-            let new_look_y = r * new_declination.cos();
-            let new_look_z = r * new_declination.sin() * new_azimuth.sin();
-            let new_look = Vector3f::new(new_look_x, new_look_y, new_look_z) + cam.eye;
-            cam.look_at = new_look;
-            cam.update();
-        }
+        //     let new_declination = old_declination - dy * cam.orbit_speed / 2.0;
+        //     let new_azimuth = old_azimuth + dx * cam.orbit_speed;
+        //     let r = look_rel_eye.magnitude();
+        //     let new_look_x = r * new_declination.sin() * new_azimuth.cos();
+        //     let new_look_y = r * new_declination.cos();
+        //     let new_look_z = r * new_declination.sin() * new_azimuth.sin();
+        //     let new_look = Vector3f::new(new_look_x, new_look_y, new_look_z) + cam.eye;
+        //     cam.look_at = new_look;
+        //     cam.update();
+        // }
 
     }
 

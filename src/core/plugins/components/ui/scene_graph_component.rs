@@ -4,5 +4,4 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Component, Reflect, Serialize, Deserialize, Default)]
 #[reflect(Component)]
-pub struct SceneGraphComponent{
-}
+pub struct SceneGraphComponent;
