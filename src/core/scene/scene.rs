@@ -60,6 +60,8 @@ use crate::core::systems::{
 };
 
 
+#[derive(Resource, Default)]
+pub struct TypeRegistryResource(pub TypeRegistryArc);
 
 
 pub struct Scene<S>{
@@ -111,7 +113,7 @@ impl Scene<Staged> {
 
         scene.get_world()
             .unwrap()
-            .init_resource::<TypeRegistryArc>();
+            .init_resource::<TypeRegistryResource>();
 
         scene.get_world()
             .unwrap()
@@ -139,12 +141,10 @@ impl Scene<Staged> {
         scene.get_world()
             .unwrap()
             .init_resource::<Events<TerrainRecalculateEvent>>();
-        scene.get_world()
-            .unwrap()
-            .init_resource::<TypeRegistryArc>();
+
         {
             let mut world = scene.get_world().unwrap();
-            let registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
+            let registry_arc = world.get_resource_mut::<TypeRegistryResource>().unwrap();
             let mut registry = registry_arc.write();
             registry.register::<AppInterfaceFlag>();
             registry.register::<MainMenuComponent>();
@@ -331,7 +331,7 @@ impl Scene<Active> {
     }
 
     pub fn insert_required_resources(&mut self){
-        self.insert_resource(KeyInputQueue::new());
+        self.insert_resource(KeyInputQueue::default());
     }
 }
 

@@ -8,19 +8,12 @@ use bevy_ecs::prelude::{Query, Res, ResMut};
 use ember_math::{Matrix4f, Vector3f};
 
 
-pub fn InputPrepSystem(
-    _input_queue: ResMut<KeyInputQueue>,
-    _modifier_state: ResMut<Option<VirtualKeyCode>>,
-){
-
-}
-
 pub fn CameraMoveSystem(
     mut query: Query<&mut CameraComponent>,
     input_queue: Res<KeyInputQueue>,
     mouse_state: Res<MouseState>
 ) {
-    let mut input = input_queue.clone();
+    let mut input = input_queue.queue.clone();
     let mut mouse_state = mouse_state.clone();
     for mut cam in query.iter_mut() {
         let mut forward = (cam.eye - cam.look_at).normalize();

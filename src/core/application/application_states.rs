@@ -33,9 +33,7 @@ use crate::core::managers::SceneManagerMessagePump;
 use crate::core::plugins::components::AppInterfaceFlag;
 
 use bevy_ecs::event::Events;
-use bevy_reflect::TypeRegistryArc;
-
-
+use crate::core::scene::TypeRegistryResource;
 
 pub trait ApplicationState{
     fn run_schedule(&mut self, scene: &mut Scene<Active>);
@@ -82,7 +80,7 @@ impl ApplicationState for ApplicationIdleState {
 
         scene.get_world()
             .unwrap()
-            .init_resource::<TypeRegistryArc>();
+            .init_resource::<TypeRegistryResource>();
 
         scene.get_world()
             .unwrap()
@@ -111,7 +109,7 @@ impl ApplicationState for ApplicationIdleState {
             .init_resource::<Events<TerrainRecalculateEvent>>();
         {
             let mut world = scene.get_world().unwrap();
-            let registry_arc = world.get_resource_mut::<TypeRegistryArc>().unwrap();
+            let registry_arc = world.get_resource_mut::<TypeRegistryResource>().unwrap().0;
             let mut registry = registry_arc.write();
             registry.register::<AppInterfaceFlag>();
             registry.register::<MainMenuComponent>();
@@ -135,7 +133,7 @@ impl ApplicationState for ApplicationIdleState {
 
         let _MainMenuEntity = scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(AppInterfaceFlag{})
             .insert(MainMenuComponent{ui: None})
             .insert(DebugUiComponent::create())
@@ -143,12 +141,12 @@ impl ApplicationState for ApplicationIdleState {
 
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(SceneGraphComponent::default());
 
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(CameraComponent::default())
             .insert(TransformComponent::create_empty())
             .insert(InputComponent::create());
@@ -156,7 +154,7 @@ impl ApplicationState for ApplicationIdleState {
     
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(
                 DirectionalLightComponent::new(
                     Vector3f::new(0.5, 0.2, 0.8),
@@ -166,12 +164,12 @@ impl ApplicationState for ApplicationIdleState {
 
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(AmbientLightingComponent::new(Vector3f::one()));
 
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(TerrainComponent::create(20))
             .insert(TransformComponent::create_empty())
             .insert(crate::core::plugins::components::TerrainUiComponent{});
@@ -184,7 +182,7 @@ impl ApplicationState for ApplicationIdleState {
 
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(box_transform)
@@ -192,7 +190,7 @@ impl ApplicationState for ApplicationIdleState {
         
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(box_transform_x)
@@ -200,7 +198,7 @@ impl ApplicationState for ApplicationIdleState {
             
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(box_transform_y)
@@ -208,7 +206,7 @@ impl ApplicationState for ApplicationIdleState {
     
         scene.get_world()
             .unwrap()
-            .spawn()
+            .spawn_empty()
             .insert(RenderableComponent::create())
             .insert(GeometryComponent::create(GeometryType::Box))
             .insert(box_transform_z)

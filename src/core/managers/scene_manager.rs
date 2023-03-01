@@ -21,12 +21,13 @@ use crate::core::events::scene_manager_messages::SceneManagerMessage;
 
 
 use bevy_ecs::entity::EntityMap;
-use bevy_reflect::TypeRegistryArc;
-
+use crate::core::scene::TypeRegistryResource;
 use crate::core::scene::SceneDeserializer;
+use crate::core::scene::DynamicScene;
+use bevy_ecs::prelude::Resource;
 
-use crate::core::scene::SerdeScene;
 
+#[derive(Resource)]
 pub struct SceneManagerMessagePump{
     messages: Mutex<Vec<SceneManagerMessage>>,
 }
@@ -111,7 +112,7 @@ impl SceneManager{
             };
             
             let pump = world.get_resource::<SceneManagerMessagePump>().expect("Event channel not found");
-            let type_registry = world.get_resource::<TypeRegistryArc>().expect("Type registry not found.");
+            let type_registry = world.get_resource::<TypeRegistryResource>().expect("Type registry not found.").0;
 
             let messages = (*pump.messages.lock().unwrap()).clone();
             pump.clear();
@@ -152,7 +153,7 @@ impl SceneManager{
                         Err(_e) => return Err(SceneManagerUpdateError::DeserializationError)
                     };
                     
-                    let loaded_scene = SerdeScene::default();
+                    let loaded_scene = DynamicScene::default();
 
                     if metadata.len() != 0 {
                         let _loaded_scene = match scene_deserializer.deserialize(&mut deserializer){

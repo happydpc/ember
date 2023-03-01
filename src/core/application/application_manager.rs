@@ -81,14 +81,13 @@ impl Application{
 
         log::info!("Starting application ...");
         // create other managers
-        let mut render_manager = RenderManager::new();
+        let (mut render_manager, event_loop) = RenderManager::new();
         let mut scene_manager = SceneManager::new();
         let mut input_manager = InputManager::new();
         let mut plugin_manager = PluginManager::new();
 
         // initialize other managers
         log::info!("Running manager startup functions ...");
-        let event_loop = render_manager.startup();
         scene_manager.startup();
         input_manager.startup();
         plugin_manager.startup();

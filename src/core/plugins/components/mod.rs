@@ -12,7 +12,7 @@ pub mod geometry_component;
 pub mod ui;
 
 pub use input_component::InputComponent;
-pub use camera_component::CameraComponent;
+pub use camera_component::{CameraComponent, CameraMatrices};
 pub use transform_component::TransformComponent;
 pub use transform_component::TransformUiComponent;
 pub use transform_component::TransformBuilder;

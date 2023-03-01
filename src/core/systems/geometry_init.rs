@@ -11,7 +11,7 @@ use crate::core::rendering::geometries::geometry_primitives::{
     Vertex,
 };
 use crate::core::plugins::components::geometry_component::{GeometryComponent, GeometryType};
-
+use crate::core::managers::render_manager::VulkanAllocators;
 pub struct GeometryInitHelper;
 
 impl GeometryInitHelper{
@@ -89,9 +89,10 @@ impl GeometryInitHelper{
 
 pub fn GeometryInitializerSystem(
     mut query: Query<&mut GeometryComponent>,
-    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
+    allocators: Res<VulkanAllocators>,
 )
 {
+    let memory_allocator = allocators.memory_allocator.clone();
     log::debug!("Running geometry init system...");
     for mut geometry in query.iter_mut() {
         GeometryInitHelper::create_geometry(&mut geometry, memory_allocator.clone());

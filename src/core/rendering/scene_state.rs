@@ -28,6 +28,9 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::thread::current;
 
+use bevy_ecs::prelude::Resource;
+
+#[derive(Resource)]
 pub struct SceneState{
     pub pipelines: Mutex<HashMap<TypeId, Arc<GraphicsPipeline>>>,
     pub render_passes: Vec<Arc<RenderPass>>,
@@ -48,7 +51,7 @@ impl SceneState{
         swapchain: Arc<Swapchain>,
         device: Arc<Device>,
         memory_allocator: Arc<StandardMemoryAllocator>
-    ) -> Self {  
+    ) -> Arc<Self> {  
         
         // create viewport
         let viewport = Viewport {
@@ -105,7 +108,7 @@ impl SceneState{
             memory_allocator: memory_allocator.clone()
         };
 
-        scene_state_instance
+        Arc::new(scene_state_instance)
 
     }
 

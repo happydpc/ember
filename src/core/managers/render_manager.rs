@@ -8,8 +8,13 @@ use crate::core::{
     },
     systems::{
         ui_systems::EguiState,
-    }
+    },
+    plugins::components::{
+        CameraMatrices,
+    },
 };
+
+use bevy_ecs::prelude::Resource;
 
 
 use egui_vulkano::UpdateTexturesError;
@@ -106,38 +111,68 @@ use ember_math::Matrix4f;
 // logging
 use log;
 
-pub type Aspect = [u32; 2];
-pub type SwapchainImageNum = usize;
-pub struct TriangleSecondaryBuffers{pub buffers: Vec<Box<SecondaryAutoCommandBuffer>>}
-pub struct LightingSecondaryBuffers{pub buffers: Vec<Box<SecondaryAutoCommandBuffer>>}
-pub struct DiffuseBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
-pub struct DepthBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
-pub struct NormalsBuffer{pub buffer: Arc<ImageView<AttachmentImage>>}
+#[derive(Resource)]
+pub struct TriangleSecondaryBuffers{
+    pub buffers: Vec<Box<SecondaryAutoCommandBuffer>>
+}
 
-pub type DirectionalLightingPipelne = GraphicsPipeline;
-pub type AmbientLightingPipeline = GraphicsPipeline;
-pub type PointLightingPipeline = GraphicsPipeline;
+#[derive(Resource)]
+pub struct LightingSecondaryBuffers{
+    pub buffers: Vec<Box<SecondaryAutoCommandBuffer>>
+}
+
+#[derive(Resource)]
+pub struct DeviceResource(pub Arc<Device>);
+
+#[derive(Resource)]
+pub struct QueueResource(pub Arc<Queue>);
+
+#[derive(Resource)]
+pub struct SceneStateResource(pub Arc<SceneState>);
+
+#[derive(Resource)]
+pub struct SurfaceResource(pub Arc<vulkano::swapchain::Surface>);
+
+#[derive(Resource)]
+pub struct VulkanAllocators {
+    pub memory_allocator: Arc<StandardMemoryAllocator>,
+    pub command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
+    pub descriptor_set_allocator: Arc<StandardDescriptorSetAllocator>,
+}
+
+impl VulkanAllocators{
+    pub fn new(
+        memory_allocator: Arc<StandardMemoryAllocator>,
+        command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
+        descriptor_set_allocator: Arc<StandardDescriptorSetAllocator>,
+    ) -> Self {
+        VulkanAllocators {
+            memory_allocator: memory_allocator,
+            command_buffer_allocator: command_buffer_allocator,
+            descriptor_set_allocator: descriptor_set_allocator,
+        }
+    }
+}
+
 
 pub struct RenderManager{
     // Vulkan
-    required_extensions: Option<InstanceExtensions>,
-    device_extensions: Option<DeviceExtensions>,
-    instance: Option<Arc<Instance>>,
-    pub surface: Option<Arc<vulkano::swapchain::Surface>>,
-    pub device: Option<Arc<Device>>,
-    pub queue: Option<Arc<Queue>>,
-    pub swapchain: Option<Arc<Swapchain>>,
+    required_extensions: InstanceExtensions,
+    device_extensions: DeviceExtensions,
+    instance: Arc<Instance>,
+    pub surface: Arc<vulkano::swapchain::Surface>,
+    pub device: Arc<Device>,
+    pub queue: Arc<Queue>,
+    pub swapchain: Arc<Swapchain>,
     pub recreate_swapchain: bool,
     pub previous_frame_end: Option<Box<dyn GpuFuture>>,
-    pub images: Option<Vec<Arc<ImageView<SwapchainImage>>>>,
-    pub scene_state: Option<Arc<SceneState>>,
-    pub memory_allocator: Option<Arc<StandardMemoryAllocator>>,
-    pub command_buffer_allocator: Option<Arc<StandardCommandBufferAllocator>>,
-    pub descriptor_set_allocator: Option<Arc<StandardDescriptorSetAllocator>>,
+    pub images: Vec<Arc<ImageView<SwapchainImage>>>,
+    pub scene_state: Arc<SceneState>,
+    pub allocators: VulkanAllocators,
 }
 
 impl RenderManager{
-    pub fn startup(&mut self) -> EventLoop<()> {
+    pub fn new() -> (Self, EventLoop<()>) {
         log::info!("Starting RenderManager...");
 
         // get library
@@ -261,6 +296,7 @@ impl RenderManager{
         let memory_allocator = Arc::new(StandardMemoryAllocator::new_default(device.clone()));
         let cmd_buffer_allocator = Arc::new(StandardCommandBufferAllocator::new(device.clone(), Default::default()));
         let descriptor_set_allocator = Arc::new(StandardDescriptorSetAllocator::new(device.clone()));
+        let allocator_set = VulkanAllocators::new(memory_allocator, cmd_buffer_allocator, descriptor_set_allocator);
 
         // get queue
         let queue = queues.next().unwrap();
@@ -286,21 +322,22 @@ impl RenderManager{
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
         
         // fill options with initialized values
-        self.required_extensions = Some(required_extensions);
-        self.device_extensions = Some(device_extensions);
-        self.instance = Some(instance);
-        self.surface = Some(surface);
-        self.device = Some(device);
-        self.queue = Some(queue);
-        self.swapchain = Some(swapchain);
-        self.previous_frame_end = previous_frame_end;
-        self.recreate_swapchain = false;
-        self.images = Some(images);
-        self.scene_state = Some(Arc::new(scene_state));
-        self.memory_allocator = Some(memory_allocator);
-        self.command_buffer_allocator = Some(cmd_buffer_allocator);
-        self.descriptor_set_allocator = Some(descriptor_set_allocator);
-        event_loop
+        let render_manager = RenderManager {
+            required_extensions: required_extensions,
+            device_extensions: device_extensions,
+            instance: instance,
+            surface: surface,
+            device: device,
+            queue: queue,
+            swapchain: swapchain,
+            previous_frame_end: previous_frame_end,
+            recreate_swapchain: false,
+            images: images,
+            scene_state: scene_state,
+            allocators: allocator_set,
+        };
+
+        (render_manager, event_loop)
     }
 
     // shut down render manager
@@ -314,60 +351,50 @@ impl RenderManager{
 
     pub fn prep_staged_scene(&mut self, scene: &mut Scene<Staged>){
         log::info!("Render Manager prepping scene...");
+
+        scene.get_world()
+            .unwrap()
+            .init_resource::<SurfaceResource>();
+        scene.get_world()
+            .unwrap()
+            .init_resource::<CameraMatrices>();
+        scene.get_world()
+            .unwrap()
+            .init_resource::<DeviceResource>();
+        scene.get_world()
+            .unwrap()
+            .init_resource::<QueueResource>();
+        scene.get_world()
+            .unwrap()
+            .init_resource::<SceneStateResource>();
+        scene.get_world()
+            .unwrap()
+            .init_resource::<VulkanAllocators>();
         // get required egui data
         let (egui_ctx, egui_painter) = self.initialize_egui();
-        // let egui_winit = self.create_egui_winit_state();
+
         let egui_state = EguiState{ctx: egui_ctx, painter: egui_painter};
         let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
         let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
-        let camera_state: [Matrix4f; 2] = [Matrix4f::from_scale(1.0), Matrix4f::from_scale(1.0)];
-        let save: bool = false;
+        let camera_state = CameraMatrices::default();
+        
         scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
         scene.insert_resource(lighting_buffer_vec);
-        scene.insert_resource(save);
         scene.insert_resource(egui_state);
-        // scene.insert_resource(egui_winit);
-        scene.insert_resource(self.device());
-        scene.insert_resource(self.surface());
+
         scene.insert_resource(camera_state);
-        scene.insert_resource(self.scene_state());
-        scene.insert_resource(self.device());
-        scene.insert_resource(self.surface());
-        scene.insert_resource(self.queue());
-        scene.insert_resource(self.memory_allocator());
-        scene.insert_resource(self.descriptor_set_allocator());
-        scene.insert_resource(self.command_buffer_allocator());
-        log::debug!("Does device exist: {:?}", scene.contains_resource::<Arc<Device>>());
-    }
 
-    // create a new render manager with Inactive values
-    pub fn new() -> Self {
-        log::info!("Creating RenderManager...");
+        let device_resource = DeviceResource(self.device.clone());
+        let queue_resource = QueueResource(self.queue.clone());
+        let surface_resource = SurfaceResource(self.surface.clone());
+        let scene_state_resource = SceneStateResource(self.scene_state.clone());
 
-        // initialize our render system with all of the required vulkan components
-        let render_sys = RenderManager{
-            // Vulkan
-            required_extensions: None,
-            device_extensions: None,
-            instance: None,
-            surface: None,
-            device: None,
-            queue: None,
-            swapchain: None,
-            recreate_swapchain: false,
-            previous_frame_end: None,
-            images: None,
-            scene_state: None,
-            memory_allocator: None,
-            command_buffer_allocator: None,
-            descriptor_set_allocator: None,
-        };
-        render_sys
-    }
+        scene.insert_resource(device_resource);
+        scene.insert_resource(queue_resource);
+        scene.insert_resource(surface_resource);
+        scene.insert_resource(scene_state_resource);
 
-    // run the render manager
-    pub fn run(&mut self) {
-        // self.window.run();
+        scene.insert_resource(self.allocators.clone());
     }
 
     pub fn draw(
@@ -397,9 +424,6 @@ impl RenderManager{
 
         // create primary command buffer builder
         let mut command_buffer_builder = self.get_auto_command_buffer_builder();
-
-        // insert stuff into scene that systems will need
-        self.insert_render_data_into_scene(scene); // inserts vulkan resources into scene
 
         // start egui frame
         self.start_egui_frame(scene, egui_winit_state);
@@ -470,14 +494,14 @@ impl RenderManager{
         log::debug!("Submitting gpu commands on image {:?}", image_num);
         let future = acquire_future
             .then_execute(
-                self.queue(),
+                self.queue.clone(),
                 command_buffer
             )
             .unwrap()
             .then_swapchain_present(
-                self.queue(),
+                self.queue.clone(),
                 SwapchainPresentInfo::swapchain_image_index(
-                    self.swapchain(),
+                    self.swapchain.clone(),
                     image_num
                 ),
             )
@@ -492,18 +516,18 @@ impl RenderManager{
             Err(FlushError::OutOfDate) => {
                 log::error!("Flush Error: Out of date");
                 self.recreate_swapchain = true;
-                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
+                self.previous_frame_end = Some(sync::now(self.device.clone()).boxed());
             }
             Err(e) => {
                 log::error!("Failed to flush future: {:?}", e);
-                self.previous_frame_end = Some(sync::now(self.device().clone()).boxed());
+                self.previous_frame_end = Some(sync::now(self.device.clone()).boxed());
             }
         }
     }
 
     fn draw_egui(&mut self, scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>, egui_output: FullOutput) {
         log::debug!("Drawing egui");
-        let binding = self.surface();
+        let binding = self.surface;
         let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
         let size = window.inner_size();
         let sf: f32 = window.scale_factor() as f32;
@@ -518,7 +542,7 @@ impl RenderManager{
                 [(size.width as f32) / sf, (size.height as f32) / sf],
                 &ctx,
                 egui_output.shapes,
-                self.scene_state().viewport()
+                self.scene_state.viewport()
             )
             .unwrap();
     }
@@ -530,7 +554,7 @@ impl RenderManager{
     ) {
         let mut world = scene.get_world().unwrap();
         let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
-        let binding = self.surface();
+        let binding = self.surface;
         let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
         ctx.begin_frame(egui_winit_state.take_egui_input(&window));
     }
@@ -545,7 +569,7 @@ impl RenderManager{
         let egui_output = ctx.end_frame();
 
         let platform_output = egui_output.platform_output.clone();
-        let binding = self.surface();
+        let binding = self.surface;
         let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
         
         egui_winit_state.handle_platform_output(
@@ -563,7 +587,7 @@ impl RenderManager{
     ) ->  Result<impl  GpuFuture, UpdateTexturesError>{
         let textures_delta = egui_output.textures_delta.clone();
         if let Some(mut egui_state) = scene.get_world().unwrap().get_resource_mut::<EguiState>() {
-            egui_state.painter.update_textures(textures_delta, self.command_buffer_allocator())
+            egui_state.painter.update_textures(textures_delta, self.allocators.command_buffer_allocator.clone())
         } else {
             log::info!("lol so remember how I said I should add error handling? well  yeah.");
             Err(UpdateTexturesError::NoEguiState)
@@ -586,7 +610,7 @@ impl RenderManager{
         let render_pass_begin_info = RenderPassBeginInfo{
             clear_values: clear_values,
             ..RenderPassBeginInfo::framebuffer(
-                self.scene_state().get_framebuffer(image_num)
+                self.scene_state.get_framebuffer(image_num)
             )
         };
         log::debug!("Telling cmd buffer builder to enter diffuse render pass");
@@ -627,24 +651,11 @@ impl RenderManager{
     pub fn get_auto_command_buffer_builder(&self) -> AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>{
         // create a command buffer builder
         let builder = AutoCommandBufferBuilder::primary(
-            &self.command_buffer_allocator(),
-            self.queue().queue_family_index(),
+            &self.allocators.command_buffer_allocator.clone(),
+            self.queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
         builder
-    }
-
-    // insert required render data into scene so systems can run
-    pub fn insert_render_data_into_scene(&mut self, scene: &mut Scene<Active>) {
-        let camera_state: [Matrix4f; 2] = [Matrix4f::from_scale(1.0), Matrix4f::from_scale(1.0)];
-        // insert resources. some of these should eventually be submitted more often than othrs
-        scene.insert_resource(camera_state);
-        scene.insert_resource(self.scene_state());
-
-        let secondary_buffer_vec: TriangleSecondaryBuffers = TriangleSecondaryBuffers{buffers: Vec::new()}; 
-        let lighting_buffer_vec: LightingSecondaryBuffers = LightingSecondaryBuffers{buffers: Vec::new()};
-        scene.insert_resource(secondary_buffer_vec); // renderable vec to fill
-        scene.insert_resource(lighting_buffer_vec);
     }
 
     // returns the required winit extensions and the required extensions of my choosing
@@ -785,14 +796,14 @@ impl RenderManager{
     // if the swapchain needs to be recreated
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
-        let binding = self.surface();
+        let binding = self.surface;
         let window = binding.object().unwrap().downcast_ref::<Window>().unwrap();
         let _dimensions: [u32; 2] = window.inner_size().into();
         let (new_swapchain, new_images) =
-        match self.swapchain()
+        match self.swapchain
             .recreate(SwapchainCreateInfo {
                 image_extent: window.inner_size().into(),
-                ..self.swapchain().create_info()
+                ..self.swapchain.clone().create_info()
             }) {
                 Ok(r) => r,
                 // This error tends to happen when the user is manually resizing the window.
@@ -801,7 +812,7 @@ impl RenderManager{
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
         };
         self.recreate_swapchain = false;
-        self.scene_state().scale_scene_state_to_images(&new_images);
+        self.scene_state.scale_scene_state_to_images(&new_images);
 
         // convert images to image views
         let new_images = new_images
@@ -809,13 +820,13 @@ impl RenderManager{
             .map(|image| ImageView::new_default(image.clone()).unwrap())
             .collect::<Vec<_>>();
 
-        self.swapchain = Some(new_swapchain);
-        self.images = Some(new_images);
+        self.swapchain = new_swapchain;
+        self.images = new_images;
     } // end of if on swapchain recreation
 
     // acquires the next swapchain image
     pub fn acquire_swapchain_image(&mut self) -> Result<(u32, bool, SwapchainAcquireFuture), AcquireError> {
-        match swapchain::acquire_next_image(self.swapchain(), None) {
+        match swapchain::acquire_next_image(self.swapchain, None) {
             Ok(r) => Ok(r),
             Err(AcquireError::OutOfDate) => {
                 self.recreate_swapchain();
@@ -829,11 +840,11 @@ impl RenderManager{
     pub fn initialize_egui(&self) -> (Context, egui_vulkano::Painter){
         let egui_ctx = egui::Context::default();
         let egui_painter = egui_vulkano::Painter::new(
-            self.device(),
-            self.memory_allocator(),
-            self.descriptor_set_allocator(),
-            self.queue(),
-            self.scene_state().ui_pass.clone()
+            self.device.clone(),
+            self.allocators.memory_allocator.clone(),
+            self.allocators.descriptor_set_allocator.clone(),
+            self.queue.clone(),
+            self.scene_state.ui_pass.clone()
         )
         .unwrap();
 
@@ -842,43 +853,6 @@ impl RenderManager{
 
     pub fn create_egui_winit_state<E>(&self, event_loop: &EventLoopWindowTarget<E>) -> egui_winit::State {
         egui_winit::State::new(event_loop)
-    }
-
-    // getters
-    pub fn device(&self) -> Arc<Device> {
-        self.device.clone().unwrap().clone()
-    }
-
-    pub fn queue(&self) -> Arc<Queue> {
-        self.queue.clone().unwrap().clone()
-    }
-
-    pub fn memory_allocator(&self) -> Arc<StandardMemoryAllocator> {
-        self.memory_allocator.clone().unwrap().clone()
-    }
-
-    pub fn command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
-        self.command_buffer_allocator.clone().unwrap().clone()
-    }
-
-    pub fn descriptor_set_allocator(&self) -> Arc<StandardDescriptorSetAllocator> {
-        self.descriptor_set_allocator.clone().unwrap().clone()
-    }
-
-    pub fn surface(&self) -> Arc<vulkano::swapchain::Surface> {
-        self.surface.clone().unwrap().clone()
-    }
-
-    pub fn swapchain(&self) -> Arc<Swapchain> {
-        self.swapchain.clone().unwrap().clone()
-    }
-
-    pub fn images(&self) -> Vec<Arc<ImageView<SwapchainImage>>> {
-        self.images.clone().unwrap().clone()
-    }
-
-    pub fn scene_state(&self) -> Arc<SceneState> {
-        self.scene_state.clone().unwrap().clone()
     }
 }
 

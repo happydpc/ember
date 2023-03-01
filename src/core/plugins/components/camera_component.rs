@@ -10,10 +10,17 @@ use serde::{
     Deserialize,
 };
 use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::prelude::Resource;
 use bevy_reflect::{Reflect, FromReflect};
 
 // bevy_reflect::impl_reflect_value!(CameraComponent);
 // bevy_reflect::impl_from_reflect_value!(CameraComponent);
+
+#[derive(Debug, Clone, Resource, Default)]
+pub struct CameraMatrices {
+    pub view: Matrix4f,
+    pub perspective: Matrix4f,
+}
 
 #[derive(Component, Debug, Clone, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(Component)]

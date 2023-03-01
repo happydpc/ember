@@ -17,7 +17,7 @@ use crate::core::rendering::shaders;
 use crate::core::rendering::geometries::Vertex;
 use crate::core::managers::render_manager::TriangleSecondaryBuffers;
 use crate::core::rendering::SceneState;
-use crate::core::systems::render_systems::CameraState;
+use crate::core::plugins::components::CameraMatrices;
 use crate::core::managers::input_manager::KeyInputQueue;
 use crate::core::systems::ui_systems::EguiState;
 use crate::core::plugins::components::TerrainUiComponent;
@@ -47,6 +47,14 @@ use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::PipelineBindPoint;
 use vulkano::memory::allocator::{StandardMemoryAllocator, MemoryUsage};
 
+use crate::core::managers::render_manager::VulkanAllocators;
+use crate::core::managers::render_manager::{
+    DeviceResource,
+    SurfaceResource,
+    QueueResource,
+    SceneStateResource,
+};
+
 use winit::event::VirtualKeyCode;
 use winit::event::ModifiersState;
 
@@ -54,7 +62,7 @@ use std::sync::{Arc};
 
 pub fn TerrainInitSystem(
     mut query: Query<&mut TerrainComponent>,
-    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
+    allocators: Res<VulkanAllocators>,
 ){
     log::info!("Terrain init system...");
     for mut terrain in query.iter_mut() {
@@ -62,14 +70,14 @@ pub fn TerrainInitSystem(
             log::info!("Generating Terrain Geometry");
             terrain.geometry.lock().unwrap().generate_terrain();
         }
-        terrain.initialize(memory_allocator.clone());
+        terrain.initialize(allocators.memory_allocator.clone());
     }
 }
 
 pub fn TerrainUpdateSystem(
     mut query: Query<&mut TerrainComponent>,
     mut recalculate_events: ResMut<Events<TerrainRecalculateEvent>>,
-    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
+    allocators: Res<VulkanAllocators>,
 ){
     let mut reader = recalculate_events.get_reader();
     for _event in reader.iter(&recalculate_events){
@@ -77,7 +85,7 @@ pub fn TerrainUpdateSystem(
             {
                 terrain.geometry.lock().unwrap().generate_terrain();
             }
-            terrain.initialize(memory_allocator.clone());
+            terrain.initialize(allocators.memory_allocator.clone());
         }
     }
     recalculate_events.clear();
@@ -127,16 +135,15 @@ impl RequiresGraphicsPipeline for TerrainDrawSystemPipeline{
 
 pub fn TerrainDrawSystem(
     query: Query<(&TransformComponent, &TerrainComponent)>,
-    camera_state: Res<CameraState>,
-    queue: Res<Arc<Queue>>,
-    scene_state: Res<Arc<SceneState>>,
-    memory_allocator: Res<Arc<StandardMemoryAllocator>>,
-    descriptor_set_allocator: Res<Arc<StandardDescriptorSetAllocator>>,
-    cmd_buff_alloc: Res<Arc<StandardCommandBufferAllocator>>,
+    camera_state: Res<CameraMatrices>,
+    queue_res: Res<QueueResource>,
+    scene_state_res: Res<SceneStateResource>,
+    allocators: Res<VulkanAllocators>,
     mut buffer_vec: ResMut<TriangleSecondaryBuffers>,
 ){
     log::debug!("Running Terrain Draw System...");
-
+    let queue = queue_res.0.clone();
+    let scene_state = scene_state_res.0.clone();
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<TerrainDrawSystemPipeline>().expect("Could not get pipeline from scene_state.");
     let subpass =  scene_state.diffuse_pass.clone();
@@ -147,7 +154,7 @@ pub fn TerrainDrawSystem(
         // create buffer builders
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::secondary(
-            &cmd_buff_alloc.clone(),
+            &allocators.command_buffer_allocator.clone(),
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
             CommandBufferInheritanceInfo {
@@ -163,7 +170,7 @@ pub fn TerrainDrawSystem(
 
 
         let uniform_buffer = CpuBufferPool::<shaders::triangle::vs::ty::Data>::new(
-            memory_allocator.clone(),
+            allocators.memory_allocator.clone(),
             BufferUsage {
                 uniform_buffer: true,
                 ..BufferUsage::empty()
@@ -185,14 +192,14 @@ pub fn TerrainDrawSystem(
                 // mwv: (camera_state[1] * camera_state[0] * model_to_world).into()
                 // mwv: (camera_state[1] * model_to_world).into()
                 world: model_to_world.into(),
-                view: camera_state[0].clone().into(),
-                proj: camera_state[1].clone().into()
+                view: camera_state.view.clone().into(),
+                proj: camera_state.perspective.clone().into()
             };
             uniform_buffer.from_data(uniform_buffer_data).unwrap()
         };
 
         let set = PersistentDescriptorSet::new(
-            &descriptor_set_allocator.clone(),
+            &allocators.descriptor_set_allocator.clone(),
             layout.clone(),
             [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
         )
@@ -223,14 +230,15 @@ pub fn TerrainDrawSystem(
 
 
 pub fn TerrainAssemblyStateModifierSystem(
-    scene_state: Res<Arc<SceneState>>,
+    scene_state_res: Res<SceneStateResource>,
     read_input: Res<KeyInputQueue>,
-    read_modifiers: Res<ModifiersState>,
-    device: Res<Arc<Device>>,
+    device_res: Res<DeviceResource>,
 ){
     log::debug!("Terrain wireframe system...");
-    let input = read_input.clone();
-    let modifiers = read_modifiers.clone();
+    let input = read_input.queue.clone();
+    let scene_state = scene_state_res.0.clone();
+    let device = device_res.0.clone();
+    let modifiers = input.modifiers_state.clone();
     if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
         let topology = match scene_state
             .get_pipeline_for_system::<TerrainDrawSystemPipeline>()

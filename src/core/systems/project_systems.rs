@@ -1,5 +1,5 @@
 
-use crate::core::scene::SerdeScene;
+use crate::core::scene::DynamicScene;
 use crate::core::managers::SceneManagerMessagePump;
 use crate::core::events::scene_manager_messages::SceneManagerMessage;
 
@@ -16,7 +16,7 @@ use bevy_ecs::entity::{
 
 use bevy_ecs::prelude::EventReader;
 
-use bevy_reflect::TypeRegistryArc;
+use crate::core::scene::TypeRegistryResource;
 
 use crate::core::events::project_events::{SaveEvent, CreateProjectEvent, OpenProjectEvent};
 
@@ -27,11 +27,11 @@ pub fn SceneSerializationSystem(
     world: &World,
     _query: Query<Entity>,
     mut save_events: EventReader<SaveEvent>,
-    type_registry: Res<TypeRegistryArc>,
+    type_registry: Res<TypeRegistryResource>,
 ){
     for _event in save_events.iter(){
-        let scene = SerdeScene::from_world(&world, &type_registry);
-        scene.write_to_file("./new_save.ron", &type_registry);
+        let scene = DynamicScene::from_world(&world, &type_registry.0);
+        scene.write_to_file("./new_save.ron", &type_registry.0);
     }
     save_events.clear();
 }

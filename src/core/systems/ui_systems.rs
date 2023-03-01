@@ -28,6 +28,7 @@ use bevy_ecs::prelude::{
 };
 
 use bevy_ecs::prelude::EventWriter;
+use bevy_ecs::prelude::Resource;
 use bevy_ecs::entity::Entity;
 // use puffin_egui;
 
@@ -35,6 +36,7 @@ use bevy_ecs::entity::Entity;
 use std::path::Path;
 use log;
 
+#[derive(Resource)]
 pub struct EguiState{
     pub ctx: Context,
     pub painter: Painter,
