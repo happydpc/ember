@@ -120,8 +120,8 @@ pub fn CameraUpdateSystem(
         camera.aspect = aspect;
         camera.calculate_view();
         camera.calculate_perspective();
-        *state.view = camera.get_view();
-        *state.perspective = camera.get_perspective();
+        state.view = camera.get_view();
+        state.perspective = camera.get_perspective();
     }
 }
 
@@ -540,7 +540,7 @@ pub fn RenderableAssemblyStateModifierSystem(
     let input = read_input.queue.clone();
     let scene_state = scene_state_res.0.clone();
     let device = device_res.0.clone();
-    let modifiers = input.modifiers_state.clone();
+    let modifiers = read_input.modifiers_state.clone();
     if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
         let topology = match scene_state
             .get_pipeline_for_system::<RenderableDrawSystemPipeline>()

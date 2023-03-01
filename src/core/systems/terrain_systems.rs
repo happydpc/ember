@@ -238,7 +238,7 @@ pub fn TerrainAssemblyStateModifierSystem(
     let input = read_input.queue.clone();
     let scene_state = scene_state_res.0.clone();
     let device = device_res.0.clone();
-    let modifiers = input.modifiers_state.clone();
+    let modifiers = read_input.modifiers_state.clone();
     if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
         let topology = match scene_state
             .get_pipeline_for_system::<TerrainDrawSystemPipeline>()
