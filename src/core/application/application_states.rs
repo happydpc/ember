@@ -1,5 +1,4 @@
 use crate::core::events::terrain_events::TerrainRecalculateEvent;
-use crate::core::plugins::components::ui::main_menu_component::{LeftPanelComponent, BottomPanelComponent, RightPanelComponent};
 use crate::core::scene::{
     Scene,
     Active,
@@ -20,7 +19,6 @@ use crate::core::plugins::components::{
     DebugUiComponent,
     CameraComponent,
     InputComponent,
-    MainMenuComponent,
     FileSubMenuComponent,
     SceneGraphComponent,
     TransformComponent, TerrainComponent, RenderableComponent, GeometryComponent, GeometryType, TransformUiComponent, DirectionalLightComponent, AmbientLightingComponent, TransformBuilder,
@@ -102,9 +100,6 @@ impl ApplicationState for ApplicationIdleState {
 
         scene.get_world()
             .unwrap()
-            .init_resource::<Events<MenuMessage<MainMenuComponent>>>();
-        scene.get_world()
-            .unwrap()
             .init_resource::<Events<MenuMessage<FileSubMenuComponent>>>();
         scene.get_world()
             .unwrap()
@@ -114,7 +109,6 @@ impl ApplicationState for ApplicationIdleState {
             let registry_arc = &world.get_resource_mut::<TypeRegistryResource>().unwrap().0;
             let mut registry = registry_arc.write();
             registry.register::<AppInterfaceFlag>();
-            registry.register::<MainMenuComponent>();
             registry.register::<DebugUiComponent>();
             registry.register::<FileSubMenuComponent>();
             registry.register::<CameraComponent>();

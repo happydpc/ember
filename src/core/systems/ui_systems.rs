@@ -1,9 +1,8 @@
-use crate::core::plugins::components::ui::main_menu_component::{LeftPanelComponent, RightPanelComponent, BottomPanelComponent, ComponentLibraryComponent, self};
+use crate::core::plugins::components::ui::main_menu_component::{ComponentLibraryComponent, EditorUiState, EntityInspectorComponent, UiPanelComponent, PanelType};
 use crate::core::plugins::components::{
     CameraComponent,
     TransformComponent,
     TransformUiComponent,
-    MainMenuComponent,
     FileSubMenuComponent,
     SceneGraphComponent,
 };
@@ -49,86 +48,45 @@ pub struct EguiState{
     pub painter: Painter,
 }
 
-
-pub fn MainMenuInitSystem(
-    mut query: Query<(&mut MainMenuComponent, Entity)>,
+pub fn PanelInitSystem(
+    mut query: Query<(&mut UiPanelComponent, Entity)>,
     egui_state: Res<EguiState>,
 ){
-    log::debug!("Init main menu...");
+    log::debug!("Init UiPanelComponent panel...");
     for (mut comp, entity) in query.iter_mut(){
         let ctx = egui_state.ctx.clone();
-        let panel = egui::TopBottomPanel::top("Debug")
-            .show(&ctx, |ui| {
-                Ui::new(
-                    ctx.clone(),
-                    ui.layer_id(),
-                    egui::Id::new(("MainMenuComponent{}", entity.index())),
-                    ui.max_rect(),
-                    ui.clip_rect()
-                )
-            });
-        let ui = panel.inner;
-        comp.ui = Some(Arc::new(Mutex::new(ui)));
-    }
-}
-
-pub fn LeftPanelInitSystem(
-    mut query: Query<(&mut LeftPanelComponent, Entity)>,
-    egui_state: Res<EguiState>,
-){
-    log::debug!("Init left panel...");
-    for (mut comp, entity) in query.iter_mut(){
-        let ctx = egui_state.ctx.clone();
-        let panel = egui::SidePanel::left("LeftPanel")
-            .show(&ctx, |ui| {
-                ui.allocate_space(ui.available_size());
-                ui.child_ui(ui.max_rect(), Layout::top_down(Align::LEFT))
-            });
-        let ui = panel.inner;
-        comp.ui = Some(Arc::new(Mutex::new(ui)));
-    }
-}
-
-pub fn RightPanelInitSystem(
-    mut query: Query<(&mut RightPanelComponent, Entity)>,
-    egui_state: Res<EguiState>,
-){
-    log::debug!("Init right panel...");
-    for (mut comp, entity) in query.iter_mut(){
-        let ctx = egui_state.ctx.clone();
-        let panel = egui::SidePanel::right("RightPanel")
-            .show(&ctx, |ui| {
-                Ui::new(
-                    ctx.clone(),
-                    ui.layer_id(),
-                    egui::Id::new(("RightPanel{}", entity.index())),
-                    ui.max_rect(),
-                    ui.clip_rect()
-                )
-            });
-        let ui = panel.inner;
-        comp.ui = Some(Arc::new(Mutex::new(ui)));
-    }
-}
-
-pub fn BottomPanelInitSystem(
-    mut query: Query<(&mut BottomPanelComponent, Entity)>,
-    egui_state: Res<EguiState>,
-){
-    log::debug!("Init bottom panel...");
-    for (mut comp, entity) in query.iter_mut(){
-        let ctx = egui_state.ctx.clone();
-        let panel = egui::TopBottomPanel::bottom("BottomPanel")
-            .resizable(true)
-            .show(&ctx, |ui| {
-                Ui::new(
-                    ctx.clone(),
-                    ui.layer_id(),
-                    egui::Id::new(("BottomPanel{}", entity.index())),
-                    ui.max_rect(),
-                    ui.clip_rect()
-                )
-            });
+        let panel = match comp.panel_type {
+            PanelType::left => {
+                egui::SidePanel::left("LeftPanel")
+                    .show(&ctx, |ui| {
+                        ui.allocate_space(ui.available_size());
+                        ui.child_ui(ui.max_rect(), Layout::top_down(Align::LEFT))
+                    })
+            },
+            PanelType::right => {
+                egui::SidePanel::right("RightPanel")
+                    .show(&ctx, |ui| {
+                        ui.allocate_space(ui.available_size());
+                        ui.child_ui(ui.max_rect(), Layout::top_down(Align::LEFT))
+                    })
+            },
+            PanelType::top => {
+                egui::TopBottomPanel::top("TopPanel")
+                    .resizable(true)
+                    .show(&ctx, |ui| {
+                        ui.allocate_space(ui.available_size());
+                        ui.child_ui(ui.max_rect(), Layout::top_down(Align::LEFT))
+                    })
+            },
+            PanelType::bottom => {
+                egui::TopBottomPanel::bottom("BottomPanel")
+                    .resizable(true)
+                    .show(&ctx, |ui| {
+                        ui.allocate_space(ui.available_size());
+                        ui.child_ui(ui.max_rect(), Layout::top_down(Align::LEFT))
+                    })
+            },
+        };
         let ui = panel.inner;
         comp.ui = Some(Arc::new(Mutex::new(ui)));
     }
@@ -136,41 +94,51 @@ pub fn BottomPanelInitSystem(
 
 pub fn FileSubMenuSystem(
     query: Query<(&FileSubMenuComponent, Entity)>,
-    mut main_menu_query: Query<&mut MainMenuComponent>,
-    mut save_events: EventWriter<SaveEvent>,
-    mut close_events: EventWriter<CloseProjectEvent>,
+    world: &World,
+    mut commands: Commands
 ){
     log::debug!("File Sub Menu System...");
-    for (mut comp, entity) in query.iter(){
-        // let parent_entity = world.get_entity(entity).unwrap().get::<Parent>().unwrap().get();
-        // let mut main_menu_component = world.get_entity(parent_entity).unwrap().get::<MainMenuComponent>().unwrap();
-        let main_menu_component = main_menu_query.get_single_mut().unwrap();
-        let menu_arc = main_menu_component.ui.clone().unwrap().clone();
-        let mut menu_ui = menu_arc.lock().unwrap();
-        let _file_ui = menu_ui.menu_button("File", |ui|{
-            if ui.button("New").clicked() {
-                log::info!("New project...");
-                {
-                    *comp.new_project_window.lock().unwrap() = true;
-                    *comp.open_project_window.lock().unwrap() = false;
-                }
-                ui.close_menu();
+    let (comp, entity) = query.get_single().unwrap();
+    let mut send_save = false;
+    let mut send_close = false;
+    let parent_entity = world.get_entity(entity).unwrap().get::<Parent>().unwrap().get();
+    let ui_arc = world.get_entity(parent_entity).unwrap().get::<UiPanelComponent>().unwrap().ui.clone().unwrap();
+    let mut ui = ui_arc.lock().unwrap();
+    let _file_ui = ui.menu_button("File", |ui|{
+        if ui.button("New").clicked() {
+            log::info!("New project...");
+            {
+                *comp.new_project_window.lock().unwrap() = true;
+                *comp.open_project_window.lock().unwrap() = false;
             }
-            if ui.button("Open").clicked() {
-                {
-                    *comp.new_project_window.lock().unwrap() = false;
-                    *comp.open_project_window.lock().unwrap() = true;
-                }
-                ui.close_menu();
+            ui.close_menu();
+        }
+        if ui.button("Open").clicked() {
+            {
+                *comp.new_project_window.lock().unwrap() = false;
+                *comp.open_project_window.lock().unwrap() = true;
             }
-            if ui.button("Save").clicked() {
-                save_events.send(SaveEvent);
-                ui.close_menu();
-            }
-            if ui.button("Close").clicked() {
-                close_events.send(CloseProjectEvent);
-                ui.close_menu();
-            }
+            ui.close_menu();
+        }
+        if ui.button("Save").clicked() {
+            send_save = true;
+            ui.close_menu();
+        }
+        if ui.button("Close").clicked() {
+            send_close = true;
+            ui.close_menu();
+        }
+    });
+
+    if send_save {
+        commands.add(|world: &mut World| {
+            world.send_event(SaveEvent);
+        })
+    }
+
+    if send_close {
+        commands.add(|world: &mut World|{
+            world.send_event(CloseProjectEvent);
         });
     }
 }
@@ -407,74 +375,29 @@ pub fn SceneGraphUiSystem(
     mut query: Query<(&SceneGraphComponent, Entity)>,
     egui_state: Res<EguiState>,
     world: &World,
+    mut commands: Commands
 ){
 
     for (comp, entity) in query.iter(){
         let parent_entity = world.get_entity(entity).unwrap().get::<Parent>().unwrap().get();
-        let mut left_panel = world.get_entity(parent_entity).unwrap().get::<LeftPanelComponent>().expect("target not found");
+        let mut left_panel = world.get_entity(parent_entity).unwrap().get::<UiPanelComponent>().expect("target not found");
         let ui_arc = left_panel.ui.clone().unwrap().clone();
         let mut left_panel_ui = ui_arc.lock().unwrap();
         
         let ctx = egui_state.ctx.clone();
         let archetypes = world.archetypes();
         let components = world.components();
-
-        let id = left_panel_ui.make_persistent_id("my_collapsing_header");
-        let mut state = egui::collapsing_header::CollapsingState::load_with_default_open(
-            left_panel_ui.ctx(),
-            left_panel_ui.make_persistent_id("my_collapsing_state"),
-            false,
-        );
-
-        fn circle_icon(ui: &mut egui::Ui, openness: f32, response: &egui::Response) {
-            let stroke = ui.style().interact(&response).fg_stroke;
-            let radius = egui::lerp(2.0..=3.0, openness);
-            ui.painter().circle_filled(response.rect.center(), radius, stroke.color);
-        }
-
-        let header_res = left_panel_ui.horizontal(|ui| {
-            ui.label("Header");
-            state.show_toggle_button(ui, circle_icon);
-        });
-        if header_res.response.clicked(){
-            log::info!("Header Collapsed");
-        }
-        state.show_body_indented(&header_res.response, &mut left_panel_ui, |ui| ui.label("Body"));
-        egui::collapsing_header::CollapsingState::load_with_default_open(left_panel_ui.ctx(), id, false)
-            .show_header(&mut left_panel_ui, |ui| {
-                ui.label("Header"); // you can put checkboxes or whatever here
-            })
-            .body(|ui|{
-                for entity in world.iter_entities() {
-                    egui::CollapsingHeader::new(format!("Entity {}", entity.to_bits())).show(ui, |ui| {
-                        for archetype in archetypes.iter() {
-                            if archetype.entities().iter().any(|e| e.entity() == entity) {
-                                let entity_components = archetype.components();
-                                for comp in entity_components{
-                                    if let Some(comp_info) = components.get_info(comp) {
-                                        ui.selectable_label(true, comp_info.name().split("::").last().unwrap());
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            });
-
+        
         egui::CollapsingHeader::new("Entities").show(&mut left_panel_ui, |ui|{
             for entity in world.iter_entities() {
-                egui::CollapsingHeader::new(format!("Entity {}", entity.to_bits())).show(ui, |ui| {
-                    for archetype in archetypes.iter() {
-                        if archetype.entities().iter().any(|e| e.entity() == entity) {
-                            let entity_components = archetype.components();
-                            for comp in entity_components{
-                                if let Some(comp_info) = components.get_info(comp) {
-                                    ui.selectable_label(true, comp_info.name().split("::").last().unwrap());
-                                }
-                            }
-                        }
-                    }
-                });
+                let response = ui.selectable_label(false, format!("Entity {}", entity.to_bits()));
+                if response.clicked(){
+                    let send_entity = entity.clone();
+                    commands.add(move |world: &mut World|{
+                        let mut ui_state = world.get_resource_or_insert_with(EditorUiState::default);
+                        ui_state.selected_entity = Some(send_entity);
+                    });
+                }
             }
         });
     }
@@ -486,4 +409,36 @@ pub fn ComponentLibraryUiSystem(
     world: &World,
 ){
 
+}
+
+pub fn EntityInspectionUiSystem(
+    query: Query<(&EntityInspectorComponent, Entity)>,
+    ui_state: Res<EditorUiState>,
+    world: &World,
+){
+    if let Some(selected_entity) = ui_state.selected_entity{
+
+        // for (comp, entity) in query.iter(){
+        let (_, entity) = query.get_single().unwrap();
+        let parent_entity = world.get_entity(entity).unwrap().get::<Parent>().unwrap().get();
+        let mut right_panel = world.get_entity(parent_entity).unwrap().get::<UiPanelComponent>().unwrap();
+        let ui_arc = right_panel.ui.clone().unwrap().clone();
+        let mut ui = ui_arc.lock().unwrap();
+
+        ui.heading(format!("Selected Entity {}", selected_entity.to_bits()));
+        ui.separator();
+
+        let archetypes = world.archetypes();
+        let components = world.components();
+        for archetype in archetypes.iter() {
+            if archetype.entities().iter().any(|e| e.entity() == selected_entity) {
+                let entity_components = archetype.components();
+                for comp in entity_components{
+                    if let Some(comp_info) = components.get_info(comp) {
+                        ui.selectable_label(false, comp_info.name().split("::").last().unwrap());
+                    }
+                }
+            }
+        }
+    }
 }

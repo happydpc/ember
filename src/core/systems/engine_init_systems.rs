@@ -3,11 +3,8 @@ use bevy_hierarchy::AddChild;
 
 use crate::core::plugins::components::{
     AppInterfaceFlag,
-    MainMenuComponent,
     ui::main_menu_component::{
-        LeftPanelComponent,
-        RightPanelComponent,
-        BottomPanelComponent
+        EditorUiState, EntityInspectorComponent, UiPanelComponent
     },
     FileSubMenuComponent,
     SceneGraphComponent
@@ -17,13 +14,16 @@ pub fn initalize_editor_interface(
     mut commands: Commands
 ){
     log::info!("Setting up editor interface");
+    commands.insert_resource(EditorUiState::default());
+
     let app_interface_entity = commands.spawn_empty().insert(AppInterfaceFlag::default()).id();
-    let main_menu_entity = commands.spawn_empty().insert(MainMenuComponent::default()).id();
-    let left_panel_component = commands.spawn_empty().insert(LeftPanelComponent::default()).id();
-    let right_panel_component = commands.spawn_empty().insert(RightPanelComponent::default()).id();
-    let bottom_panel_component = commands.spawn_empty().insert(BottomPanelComponent::default()).id();
+    let main_menu_entity = commands.spawn_empty().insert(UiPanelComponent::top()).id();
+    let left_panel_component = commands.spawn_empty().insert(UiPanelComponent::left()).id();
+    let right_panel_component = commands.spawn_empty().insert(UiPanelComponent::right()).id();
+    let bottom_panel_component = commands.spawn_empty().insert(UiPanelComponent::bottom()).id();
     let file_sub_menu_entity = commands.spawn_empty().insert(FileSubMenuComponent::default()).id();
     let scene_graph_entity = commands.spawn_empty().insert(SceneGraphComponent::default()).id();
+    let entity_inspector_entity = commands.spawn_empty().insert(EntityInspectorComponent::default()).id();
 
     // set parent relationships
 
@@ -57,5 +57,9 @@ pub fn initalize_editor_interface(
         child: scene_graph_entity
     });
 
+    commands.add(AddChild{
+        parent: right_panel_component,
+        child: entity_inspector_entity
+    });
 
 }
