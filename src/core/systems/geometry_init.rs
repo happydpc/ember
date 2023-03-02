@@ -92,7 +92,7 @@ pub fn GeometryInitializerSystem(
     allocators: Res<VulkanAllocators>,
 )
 {
-    let memory_allocator = allocators.memory_allocator.clone();
+    let memory_allocator = allocators.memory_allocator();
     log::debug!("Running geometry init system...");
     for mut geometry in query.iter_mut() {
         GeometryInitHelper::create_geometry(&mut geometry, memory_allocator.clone());

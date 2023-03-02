@@ -122,22 +122,56 @@ pub struct LightingSecondaryBuffers{
 }
 
 #[derive(Resource)]
-pub struct DeviceResource(pub Arc<Device>);
+pub struct DeviceResource(pub Option<Arc<Device>>);
+
+impl Default for DeviceResource {
+    fn default() -> Self {
+        DeviceResource(None)
+    }
+}
 
 #[derive(Resource)]
-pub struct QueueResource(pub Arc<Queue>);
+pub struct QueueResource(pub Option<Arc<Queue>>);
+
+impl Default for QueueResource {
+    fn default() -> Self {
+        QueueResource(None)
+    }
+}
 
 #[derive(Resource)]
-pub struct SceneStateResource(pub Arc<SceneState>);
+pub struct SceneStateResource(pub Option<Arc<SceneState>>);
+
+impl Default for SceneStateResource {
+    fn default() -> Self {
+        SceneStateResource(None)
+    }
+}
 
 #[derive(Resource)]
-pub struct SurfaceResource(pub Arc<vulkano::swapchain::Surface>);
+pub struct SurfaceResource(pub Option<Arc<vulkano::swapchain::Surface>>);
 
-#[derive(Resource)]
+impl Default for SurfaceResource {
+    fn default() -> Self {
+        SurfaceResource(None)
+    }
+}
+
+#[derive(Resource, Clone)]
 pub struct VulkanAllocators {
-    pub memory_allocator: Arc<StandardMemoryAllocator>,
-    pub command_buffer_allocator: Arc<StandardCommandBufferAllocator>,
-    pub descriptor_set_allocator: Arc<StandardDescriptorSetAllocator>,
+    pub memory_allocator: Option<Arc<StandardMemoryAllocator>>,
+    pub command_buffer_allocator: Option<Arc<StandardCommandBufferAllocator>>,
+    pub descriptor_set_allocator: Option<Arc<StandardDescriptorSetAllocator>>,
+}
+
+impl Default for VulkanAllocators {
+    fn default() -> Self {
+        VulkanAllocators {
+            memory_allocator: None,
+            command_buffer_allocator: None,
+            descriptor_set_allocator: None
+        }
+    }
 }
 
 impl VulkanAllocators{
@@ -147,10 +181,25 @@ impl VulkanAllocators{
         descriptor_set_allocator: Arc<StandardDescriptorSetAllocator>,
     ) -> Self {
         VulkanAllocators {
-            memory_allocator: memory_allocator,
-            command_buffer_allocator: command_buffer_allocator,
-            descriptor_set_allocator: descriptor_set_allocator,
+            memory_allocator: Some(memory_allocator),
+            command_buffer_allocator: Some(command_buffer_allocator),
+            descriptor_set_allocator: Some(descriptor_set_allocator),
         }
+    }
+
+    #[inline]
+    pub fn memory_allocator(&self) -> Arc<StandardMemoryAllocator> {
+        self.memory_allocator.clone().unwrap().clone()
+    }
+
+    #[inline]
+    pub fn command_buffer_allocator(&self) -> Arc<StandardCommandBufferAllocator> {
+        self.command_buffer_allocator.clone().unwrap().clone()
+    }
+    
+    #[inline]
+    pub fn descriptor_set_allocator(&self) -> Arc<StandardDescriptorSetAllocator> {
+        self.descriptor_set_allocator.clone().unwrap().clone()
     }
 }
 
@@ -310,7 +359,7 @@ impl RenderManager{
         );
 
         // TODO : Somehow make this aware of when scenes are Active and do this there instead.
-        let scene_state = SceneState::new(swapchain.clone(), device.clone(), memory_allocator.clone());
+        let scene_state = SceneState::new(swapchain.clone(), device.clone(), allocator_set.memory_allocator());
         scene_state.scale_scene_state_to_images(&images);
 
         // store swapchain images?
@@ -384,10 +433,10 @@ impl RenderManager{
 
         scene.insert_resource(camera_state);
 
-        let device_resource = DeviceResource(self.device.clone());
-        let queue_resource = QueueResource(self.queue.clone());
-        let surface_resource = SurfaceResource(self.surface.clone());
-        let scene_state_resource = SceneStateResource(self.scene_state.clone());
+        let device_resource = DeviceResource(Some(self.device.clone()));
+        let queue_resource = QueueResource(Some(self.queue.clone()));
+        let surface_resource = SurfaceResource(Some(self.surface.clone()));
+        let scene_state_resource = SceneStateResource(Some(self.scene_state.clone()));
 
         scene.insert_resource(device_resource);
         scene.insert_resource(queue_resource);
@@ -527,7 +576,7 @@ impl RenderManager{
 
     fn draw_egui(&mut self, scene: &mut Scene<Active>, command_buffer_builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>, egui_output: FullOutput) {
         log::debug!("Drawing egui");
-        let binding = self.surface;
+        let binding = self.surface.clone();
         let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
         let size = window.inner_size();
         let sf: f32 = window.scale_factor() as f32;
@@ -554,7 +603,7 @@ impl RenderManager{
     ) {
         let mut world = scene.get_world().unwrap();
         let ctx = world.get_resource_mut::<EguiState>().expect("Couldn't get egui state.").ctx.clone();
-        let binding = self.surface;
+        let binding = self.surface.clone();
         let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
         ctx.begin_frame(egui_winit_state.take_egui_input(&window));
     }
@@ -569,7 +618,7 @@ impl RenderManager{
         let egui_output = ctx.end_frame();
 
         let platform_output = egui_output.platform_output.clone();
-        let binding = self.surface;
+        let binding = self.surface.clone();
         let window = Arc::new(binding.object().unwrap().downcast_ref::<Window>().unwrap());
         
         egui_winit_state.handle_platform_output(
@@ -587,7 +636,7 @@ impl RenderManager{
     ) ->  Result<impl  GpuFuture, UpdateTexturesError>{
         let textures_delta = egui_output.textures_delta.clone();
         if let Some(mut egui_state) = scene.get_world().unwrap().get_resource_mut::<EguiState>() {
-            egui_state.painter.update_textures(textures_delta, self.allocators.command_buffer_allocator.clone())
+            egui_state.painter.update_textures(textures_delta, self.allocators.command_buffer_allocator())
         } else {
             log::info!("lol so remember how I said I should add error handling? well  yeah.");
             Err(UpdateTexturesError::NoEguiState)
@@ -651,7 +700,7 @@ impl RenderManager{
     pub fn get_auto_command_buffer_builder(&self) -> AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>>{
         // create a command buffer builder
         let builder = AutoCommandBufferBuilder::primary(
-            &self.allocators.command_buffer_allocator.clone(),
+            &self.allocators.command_buffer_allocator(),
             self.queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         ).unwrap();
@@ -796,7 +845,7 @@ impl RenderManager{
     // if the swapchain needs to be recreated
     pub fn recreate_swapchain(&mut self){
         log::debug!("Recreating swapchain...");
-        let binding = self.surface;
+        let binding = self.surface.clone();
         let window = binding.object().unwrap().downcast_ref::<Window>().unwrap();
         let _dimensions: [u32; 2] = window.inner_size().into();
         let (new_swapchain, new_images) =
@@ -826,7 +875,7 @@ impl RenderManager{
 
     // acquires the next swapchain image
     pub fn acquire_swapchain_image(&mut self) -> Result<(u32, bool, SwapchainAcquireFuture), AcquireError> {
-        match swapchain::acquire_next_image(self.swapchain, None) {
+        match swapchain::acquire_next_image(self.swapchain.clone(), None) {
             Ok(r) => Ok(r),
             Err(AcquireError::OutOfDate) => {
                 self.recreate_swapchain();
@@ -841,8 +890,8 @@ impl RenderManager{
         let egui_ctx = egui::Context::default();
         let egui_painter = egui_vulkano::Painter::new(
             self.device.clone(),
-            self.allocators.memory_allocator.clone(),
-            self.allocators.descriptor_set_allocator.clone(),
+            self.allocators.memory_allocator(),
+            self.allocators.descriptor_set_allocator(),
             self.queue.clone(),
             self.scene_state.ui_pass.clone()
         )

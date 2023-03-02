@@ -1,4 +1,5 @@
 use crate::core::events::terrain_events::TerrainRecalculateEvent;
+use crate::core::plugins::components::ui::main_menu_component::{LeftPanelComponent, BottomPanelComponent, RightPanelComponent};
 use crate::core::scene::{
     Scene,
     Active,
@@ -9,7 +10,8 @@ use bevy_ecs::{
     schedule::Stage,
 };
 use bevy_ecs::prelude::Schedule;
-use ember_math::{Vector4f, Vector3f};
+use bevy_hierarchy::AddChild;
+use ember_math::{Vector4f, Vector3f, Matrix4f};
 
 
 
@@ -109,7 +111,7 @@ impl ApplicationState for ApplicationIdleState {
             .init_resource::<Events<TerrainRecalculateEvent>>();
         {
             let mut world = scene.get_world().unwrap();
-            let registry_arc = world.get_resource_mut::<TypeRegistryResource>().unwrap().0;
+            let registry_arc = &world.get_resource_mut::<TypeRegistryResource>().unwrap().0;
             let mut registry = registry_arc.write();
             registry.register::<AppInterfaceFlag>();
             registry.register::<MainMenuComponent>();
@@ -119,6 +121,10 @@ impl ApplicationState for ApplicationIdleState {
             registry.register::<InputComponent>();
             registry.register::<TransformComponent>();
             registry.register::<TransformUiComponent>();
+            registry.register::<Vector3f>();
+            registry.register::<Vector4f>();
+            registry.register::<Matrix4f>();
+
 
             // should these be elsewhere?
             registry.register::<RenderableComponent>();
@@ -130,19 +136,6 @@ impl ApplicationState for ApplicationIdleState {
             registry.register::<crate::core::plugins::components::GeometryType>();
             registry.register::<crate::core::plugins::components::AmbientLightingComponent>();
         }
-
-        let _MainMenuEntity = scene.get_world()
-            .unwrap()
-            .spawn_empty()
-            .insert(AppInterfaceFlag{})
-            .insert(MainMenuComponent{ui: None})
-            .insert(DebugUiComponent::create())
-            .insert(FileSubMenuComponent::new());
-
-        scene.get_world()
-            .unwrap()
-            .spawn_empty()
-            .insert(SceneGraphComponent::default());
 
         scene.get_world()
             .unwrap()

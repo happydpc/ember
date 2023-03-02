@@ -112,7 +112,7 @@ impl SceneManager{
             };
             
             let pump = world.get_resource::<SceneManagerMessagePump>().expect("Event channel not found");
-            let type_registry = world.get_resource::<TypeRegistryResource>().expect("Type registry not found.").0;
+            let type_registry = &world.get_resource::<TypeRegistryResource>().expect("Type registry not found.").0.clone();
 
             let messages = (*pump.messages.lock().unwrap()).clone();
             pump.clear();

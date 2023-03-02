@@ -4,6 +4,8 @@ use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
+use super::TypeRegistryResource;
+
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities.
 ///
 /// # Entity Order
@@ -42,7 +44,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     pub fn from_world(world: &'w World) -> Self {
         Self {
             entities: default(),
-            type_registry: world.resource::<TypeRegistryArc>().clone(),
+            type_registry: world.resource::<TypeRegistryResource>().0.clone(),
             world,
         }
     }

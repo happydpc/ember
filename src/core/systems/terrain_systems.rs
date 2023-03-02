@@ -70,7 +70,7 @@ pub fn TerrainInitSystem(
             log::info!("Generating Terrain Geometry");
             terrain.geometry.lock().unwrap().generate_terrain();
         }
-        terrain.initialize(allocators.memory_allocator.clone());
+        terrain.initialize(allocators.memory_allocator());
     }
 }
 
@@ -85,7 +85,7 @@ pub fn TerrainUpdateSystem(
             {
                 terrain.geometry.lock().unwrap().generate_terrain();
             }
-            terrain.initialize(allocators.memory_allocator.clone());
+            terrain.initialize(allocators.memory_allocator());
         }
     }
     recalculate_events.clear();
@@ -142,8 +142,8 @@ pub fn TerrainDrawSystem(
     mut buffer_vec: ResMut<TriangleSecondaryBuffers>,
 ){
     log::debug!("Running Terrain Draw System...");
-    let queue = queue_res.0.clone();
-    let scene_state = scene_state_res.0.clone();
+    let queue = queue_res.0.clone().unwrap().clone();
+    let scene_state = scene_state_res.0.clone().unwrap().clone();
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<TerrainDrawSystemPipeline>().expect("Could not get pipeline from scene_state.");
     let subpass =  scene_state.diffuse_pass.clone();
@@ -154,7 +154,7 @@ pub fn TerrainDrawSystem(
         // create buffer builders
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::secondary(
-            &allocators.command_buffer_allocator.clone(),
+            &allocators.command_buffer_allocator(),
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
             CommandBufferInheritanceInfo {
@@ -170,7 +170,7 @@ pub fn TerrainDrawSystem(
 
 
         let uniform_buffer = CpuBufferPool::<shaders::triangle::vs::ty::Data>::new(
-            allocators.memory_allocator.clone(),
+            allocators.memory_allocator(),
             BufferUsage {
                 uniform_buffer: true,
                 ..BufferUsage::empty()
@@ -199,7 +199,7 @@ pub fn TerrainDrawSystem(
         };
 
         let set = PersistentDescriptorSet::new(
-            &allocators.descriptor_set_allocator.clone(),
+            &allocators.descriptor_set_allocator(),
             layout.clone(),
             [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
         )
@@ -236,8 +236,8 @@ pub fn TerrainAssemblyStateModifierSystem(
 ){
     log::debug!("Terrain wireframe system...");
     let input = read_input.queue.clone();
-    let scene_state = scene_state_res.0.clone();
-    let device = device_res.0.clone();
+    let scene_state = scene_state_res.0.clone().unwrap().clone();
+    let device = device_res.0.clone().unwrap().clone();
     let modifiers = read_input.modifiers_state.clone();
     if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
         let topology = match scene_state

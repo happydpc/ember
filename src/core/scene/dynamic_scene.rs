@@ -1,3 +1,5 @@
+use std::{fs::File, io::Write};
+
 use crate::core::scene::{
     SceneSerializer,
     DynamicSceneBuilder,
@@ -10,6 +12,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
+
+use super::TypeRegistryResource;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
@@ -107,7 +111,7 @@ impl DynamicScene {
         world: &mut World,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.resource::<TypeRegistryArc>().clone();
+        let registry = world.resource::<TypeRegistryResource>().0.clone();
         self.write_to_world_with(world, entity_map, &registry)
     }
 
@@ -115,6 +119,13 @@ impl DynamicScene {
     /// Serialize this dynamic scene into rust object notation (ron).
     pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
+    }
+
+    pub fn write_to_file(&self, file_name: &str, type_registry: &TypeRegistryArc){
+        let ronald = self.serialize_ron(type_registry).expect("error in serialization");
+        let mut buffer = File::create(file_name).expect("Couldn't create file");
+        buffer.write(ronald.as_bytes()).expect("Couldn't write to file.");
+        
     }
 }
 

@@ -100,7 +100,7 @@ pub fn RenderableInitializerSystem(
     for mut renderable in query.iter_mut() {
         // if renderable.initialized == false{
             log::debug!("Init renderable.");
-            renderable.initialize(device.0.clone());
+            renderable.initialize(device.0.clone().unwrap().clone());
         // }
     }
 }
@@ -111,7 +111,7 @@ pub fn CameraUpdateSystem(
     mut state: ResMut<CameraMatrices>,
 ){
     log::debug!("Running camera update system...");
-    let binding = surface.0.clone();
+    let binding = surface.0.clone().unwrap().clone();
     let window = binding.object().unwrap().downcast_ref::<Window>().unwrap();
     let dimensions: [u32; 2] = window.inner_size().into();
     let aspect = dimensions[0] as f32/ dimensions[1] as f32;
@@ -176,8 +176,8 @@ pub fn RenderableDrawSystem(
     mut buffer_vec: ResMut<TriangleSecondaryBuffers>,
 ){
     log::debug!("Running RenderableDrawSystem...");
-    let queue = queue_res.0.clone();
-    let scene_state = scene_state_res.0.clone();
+    let queue = queue_res.0.clone().unwrap().clone();
+    let scene_state = scene_state_res.0.clone().unwrap().clone();
     let viewport = scene_state.viewport();
     let pipeline: Arc<GraphicsPipeline> = scene_state.get_pipeline_for_system::<RenderableDrawSystemPipeline>().expect("Could not get pipeline from scene_state.");
     let pass = scene_state.diffuse_pass.clone();
@@ -188,7 +188,7 @@ pub fn RenderableDrawSystem(
         // create buffer buildres
         // create a command buffer builder
         let mut builder = AutoCommandBufferBuilder::secondary(
-            &allocators.command_buffer_allocator.clone(),
+            &allocators.command_buffer_allocator(),
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
             CommandBufferInheritanceInfo {
@@ -203,7 +203,7 @@ pub fn RenderableDrawSystem(
             .bind_pipeline_graphics(pipeline.clone());
 
         let uniform_buffer = CpuBufferPool::<shaders::triangle::vs::ty::Data>::new(
-            allocators.memory_allocator.clone(),
+            allocators.memory_allocator(),
             BufferUsage {
                 uniform_buffer: true,
                 ..BufferUsage::empty()
@@ -229,7 +229,7 @@ pub fn RenderableDrawSystem(
         };
 
         let set = PersistentDescriptorSet::new(
-            &allocators.descriptor_set_allocator.clone(),
+            &allocators.descriptor_set_allocator(),
             layout.clone(),
             [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
         )
@@ -296,13 +296,13 @@ pub fn DirectionalLightingSystem(
     mut buffer_vec: ResMut<LightingSecondaryBuffers>,
 ){
     log::debug!("Running Directional Lighting System...");
-    let queue = queue_res.0.clone();
-    let scene_state = scene_state_res.0.clone();
+    let queue = queue_res.0.clone().unwrap().clone();
+    let scene_state = scene_state_res.0.clone().unwrap().clone();
 
     // v buffer
     let vertex_buffer = {
         CpuAccessibleBuffer::from_iter(
-            &allocators.memory_allocator.clone(),
+            &allocators.memory_allocator(),
             BufferUsage {
                 vertex_buffer: true,
                 ..BufferUsage::empty()
@@ -345,7 +345,7 @@ pub fn DirectionalLightingSystem(
         };
 
         let descriptor_set = PersistentDescriptorSet::new(
-            &allocators.descriptor_set_allocator.clone(),
+            &allocators.descriptor_set_allocator(),
             layout.clone(),
             [
                 WriteDescriptorSet::image_view(0, color_input.clone()),
@@ -355,7 +355,7 @@ pub fn DirectionalLightingSystem(
         .unwrap();
 
         let mut builder = AutoCommandBufferBuilder::secondary(
-            &allocators.command_buffer_allocator.clone(),
+            &allocators.command_buffer_allocator(),
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
             CommandBufferInheritanceInfo {
@@ -433,13 +433,13 @@ pub fn AmbientLightingSystem(
     mut buffer_vec: ResMut<LightingSecondaryBuffers>,
 ){
     log::debug!("Running ambient Lighting System...");
-    let queue = queue_res.0.clone();
-    let scene_state = scene_state_res.0.clone();
+    let queue = queue_res.0.clone().unwrap().clone();
+    let scene_state = scene_state_res.0.clone().unwrap().clone();
 
     // v buffer
     let vertex_buffer = {
         CpuAccessibleBuffer::from_iter(
-            &allocators.memory_allocator.clone(),
+            &allocators.memory_allocator(),
             BufferUsage {
                 vertex_buffer: true,
                 ..BufferUsage::empty()
@@ -482,7 +482,7 @@ pub fn AmbientLightingSystem(
         };
 
         let descriptor_set = PersistentDescriptorSet::new(
-            &allocators.descriptor_set_allocator.clone(),
+            &allocators.descriptor_set_allocator(),
             layout.clone(),
             [
                 WriteDescriptorSet::image_view(0, color_input.clone()),
@@ -490,7 +490,7 @@ pub fn AmbientLightingSystem(
         ).unwrap();
 
         let mut builder = AutoCommandBufferBuilder::secondary(
-            &allocators.command_buffer_allocator.clone(),
+            &allocators.command_buffer_allocator(),
             queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
             CommandBufferInheritanceInfo {
@@ -538,8 +538,8 @@ pub fn RenderableAssemblyStateModifierSystem(
 ){
     log::debug!("Renderable wireframe sysetm...");
     let input = read_input.queue.clone();
-    let scene_state = scene_state_res.0.clone();
-    let device = device_res.0.clone();
+    let scene_state = scene_state_res.0.clone().unwrap().clone();
+    let device = device_res.0.clone().unwrap().clone();
     let modifiers = read_input.modifiers_state.clone();
     if modifiers.shift() && modifiers.alt() && input.contains(&VirtualKeyCode::Z){
         let topology = match scene_state

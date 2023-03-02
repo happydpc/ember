@@ -16,6 +16,10 @@ use crate::core::events::project_events::CloseProjectEvent;
 use crate::core::events::project_events::OpenProjectEvent;
 use crate::core::events::menu_messages::MenuMessage;
 use crate::core::events::terrain_events::TerrainRecalculateEvent;
+use crate::core::systems::initalize_editor_interface;
+use crate::core::systems::ui_systems::BottomPanelInitSystem;
+use crate::core::systems::ui_systems::LeftPanelInitSystem;
+use crate::core::systems::ui_systems::RightPanelInitSystem;
 
 use std::{
     cell::{
@@ -145,7 +149,7 @@ impl Scene<Staged> {
         {
             let mut world = scene.get_world().unwrap();
             let registry_arc = world.get_resource_mut::<TypeRegistryResource>().unwrap();
-            let mut registry = registry_arc.write();
+            let mut registry = registry_arc.0.write();
             registry.register::<AppInterfaceFlag>();
             registry.register::<MainMenuComponent>();
             registry.register::<DebugUiComponent>();
@@ -167,6 +171,9 @@ impl Scene<Staged> {
         let mut schedule = Schedule::default();
         log::info!("Creating setup schedule.");
         schedule
+        .add_stage("ui_init", SystemStage::parallel()
+            .with_system(initalize_editor_interface)
+        )
         .add_stage("geometry_init", SystemStage::parallel()
             .with_system(GeometryInitializerSystem)
             .with_system(TerrainInitSystem)
@@ -284,6 +291,9 @@ impl Scene<Active> {
             .with_system(TerrainDrawSystem)
         ).add_stage("pre_ui", SystemStage::single_threaded()
             .with_system(MainMenuInitSystem)
+            .with_system(LeftPanelInitSystem)
+            .with_system(RightPanelInitSystem)
+            .with_system(BottomPanelInitSystem)
         )
         .add_stage_after("pre_ui", "ui", SystemStage::single_threaded()
             .with_system(TerrainUiSystem)

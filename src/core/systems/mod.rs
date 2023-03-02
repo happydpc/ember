@@ -5,6 +5,7 @@ pub mod camera_init_system;
 pub mod terrain_systems;
 pub mod geometry_init;
 pub mod project_systems;
+pub mod engine_init_systems;
 
 pub use render_systems::DirectionalLightingSystem;
 pub use render_systems::RequiresGraphicsPipeline;
@@ -30,3 +31,5 @@ pub use terrain_systems::TerrainUpdateSystem;
 pub use project_systems::SceneSerializationSystem;
 pub use project_systems::ProjectCreationSystem;
 pub use project_systems::OpenProjectSystem;
+
+pub use engine_init_systems::initalize_editor_interface;
