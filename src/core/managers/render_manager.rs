@@ -355,7 +355,6 @@ impl RenderManager{
             physical_device.clone(),
             surface.clone(),
             device.clone(),
-            queue.clone()
         );
 
         // TODO : Somehow make this aware of when scenes are Active and do this there instead.
@@ -804,7 +803,6 @@ impl RenderManager{
         physical_device: Arc<PhysicalDevice>,
         surface: Arc<vulkano::swapchain::Surface>,
         device: Arc<Device>,
-        _queue: Arc<Queue>
     ) -> (Arc<Swapchain>, Vec<Arc<SwapchainImage>>) {
         let surface_capabilities = physical_device.surface_capabilities(&surface, Default::default()).unwrap();
         
@@ -858,7 +856,10 @@ impl RenderManager{
                 // This error tends to happen when the user is manually resizing the window.
                 // Simply restarting the loop is the easiest way to fix this issue.
                 Err(SwapchainCreationError::ImageExtentNotSupported { .. }) => return,
-                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+                Err(e) => {
+                    log::error!("Failed to recreate swapchain: {:?}", e);
+                    panic!("ahh i am panicking oh no");
+                },
         };
         self.recreate_swapchain = false;
         self.scene_state.scale_scene_state_to_images(&new_images);

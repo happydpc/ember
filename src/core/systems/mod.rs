@@ -16,7 +16,6 @@ pub use geometry_init::GeometryInitializerSystem;
 pub use ui_systems::CameraUiSystem;
 pub use ui_systems::TransformUiSystem;
 pub use ui_systems::FileSubMenuSystem;
-pub use ui_systems::MainMenuInitSystem;
 pub use ui_systems::ShowNewProjectWindow;
 pub use ui_systems::ShowOpenProjectWindow;
 

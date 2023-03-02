@@ -4,7 +4,6 @@ pub mod scene_graph_component;
 
 pub use app_interface_flag::AppInterfaceFlag;
 pub use main_menu_component::{
-    MainMenuComponent,
     FileMenuSaveComponent,
     FileSubMenuComponent,
 };
